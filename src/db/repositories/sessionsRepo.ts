@@ -318,8 +318,12 @@ export async function selectSlotChoice(
 export async function listHistory() {
   const res = await executeSqlAsync(
     `
-    SELECT s.id, s.performed_at, t.name as template_name,
+    SELECT s.id, s.performed_at, s.created_at, t.name as template_name,
            (SELECT COUNT(*) FROM session_slots ss WHERE ss.session_id = s.id) as slots_count,
+           (SELECT COUNT(*) FROM sets se
+            JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+            JOIN session_slots ss ON ss.id = ssc.session_slot_id
+            WHERE ss.session_id = s.id AND se.completed = 1) as completed_sets_count,
            (SELECT COUNT(*) FROM sets se
             JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
             JOIN session_slots ss ON ss.id = ssc.session_slot_id
@@ -327,7 +331,13 @@ export async function listHistory() {
            (SELECT COALESCE(SUM(se.weight * se.reps),0) FROM sets se
             JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
             JOIN session_slots ss ON ss.id = ssc.session_slot_id
-            WHERE ss.session_id = s.id) as total_volume
+            WHERE ss.session_id = s.id AND se.completed = 1) as total_volume,
+           (SELECT GROUP_CONCAT(DISTINCT e.name, ', ')
+            FROM session_slots ss
+            JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id AND ss.selected_session_slot_choice_id = ssc.id
+            JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+            JOIN exercises e ON e.id = tso.exercise_id
+            WHERE ss.session_id = s.id) as exercises
     FROM sessions s
     LEFT JOIN templates t ON t.id = s.template_id
     WHERE s.status='final'
