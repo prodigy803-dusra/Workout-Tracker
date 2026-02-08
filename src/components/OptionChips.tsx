@@ -5,6 +5,7 @@
  */
 import React from 'react';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
+import { useColors } from '../contexts/ThemeContext';
 
 type Option = {
   session_slot_choice_id: number | null;
@@ -22,6 +23,7 @@ export default function OptionChips({
   selectedTemplateOptionId: number;
   onSelect: (templateSlotOptionId: number) => void;
 }) {
+  const c = useColors();
   if (options.length <= 1) return null;
 
   return (
@@ -35,9 +37,9 @@ export default function OptionChips({
           <Pressable
             key={opt.template_slot_option_id}
             onPress={() => onSelect(opt.template_slot_option_id)}
-            style={[styles.chip, selected && styles.chipSelected]}
+            style={[styles.chip, { backgroundColor: c.inputBg }, selected && { backgroundColor: c.primary }]}
           >
-            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+            <Text style={[styles.chipText, { color: c.textSecondary }, selected && { color: c.primaryText }]}>
               {label}
             </Text>
           </Pressable>

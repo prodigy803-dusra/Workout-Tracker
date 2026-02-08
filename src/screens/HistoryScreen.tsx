@@ -1,19 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
 import { listHistory } from '../db/repositories/sessionsRepo';
-import { overallStats } from '../db/repositories/statsRepo';
+import { overallStats, weeklyVolumeByMuscle, workoutDaysMap, currentStreak, prCountsBySession } from '../db/repositories/statsRepo';
 import { useUnit } from '../contexts/UnitContext';
-import type { HistoryItem, OverallStats } from '../types';
+import { useColors } from '../contexts/ThemeContext';
+import CalendarHeatmap from '../components/CalendarHeatmap';
+import VolumeChart from '../components/VolumeChart';
+import type { HistoryItem, OverallStats, MuscleVolumeRow } from '../types';
 
 export default function HistoryScreen({ navigation }: any) {
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [stats, setStats] = useState<OverallStats | null>(null);
+  const [volumeData, setVolumeData] = useState<MuscleVolumeRow[]>([]);
+  const [heatmapDays, setHeatmapDays] = useState<Record<string, number>>({});
+  const [streak, setStreak] = useState(0);
+  const [prCounts, setPrCounts] = useState<Record<number, number>>({});
   const { unit } = useUnit();
+  const c = useColors();
 
   useEffect(() => {
     const unsub = navigation.addListener('focus', () => {
       listHistory().then(setItems);
       overallStats().then(setStats);
+      weeklyVolumeByMuscle().then(setVolumeData);
+      workoutDaysMap().then(setHeatmapDays);
+      currentStreak().then(setStreak);
+      prCountsBySession().then(setPrCounts);
     });
     return unsub;
   }, [navigation]);
@@ -49,53 +61,66 @@ export default function HistoryScreen({ navigation }: any) {
 
   const header = (
     <View style={styles.headerContainer}>
-      <Text style={styles.pageTitle}>Workout History</Text>
+      <Text style={[styles.pageTitle, { color: c.text }]}>Workout History</Text>
       
       {/* Stats Grid */}
       <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <View style={styles.statIconContainer}>
+        <View style={[styles.statCard, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View style={[styles.statIconContainer, { backgroundColor: c.sectionHeaderBg }]}>
             <Text style={styles.statIcon}>💪</Text>
           </View>
-          <Text style={styles.statValue}>{stats?.totalSessions ?? 0}</Text>
-          <Text style={styles.statLabel}>Total Workouts</Text>
+          <Text style={[styles.statValue, { color: c.text }]}>{stats?.totalSessions ?? 0}</Text>
+          <Text style={[styles.statLabel, { color: c.textSecondary }]}>Total Workouts</Text>
         </View>
 
-        <View style={styles.statCard}>
-          <View style={styles.statIconContainer}>
+        <View style={[styles.statCard, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View style={[styles.statIconContainer, { backgroundColor: c.sectionHeaderBg }]}>
             <Text style={styles.statIcon}>🔥</Text>
           </View>
-          <Text style={styles.statValue}>{stats?.last7?.sessionsCount ?? 0}</Text>
-          <Text style={styles.statLabel}>This Week</Text>
+          <Text style={[styles.statValue, { color: c.text }]}>{stats?.last7?.sessionsCount ?? 0}</Text>
+          <Text style={[styles.statLabel, { color: c.textSecondary }]}>This Week</Text>
         </View>
 
-        <View style={styles.statCard}>
-          <View style={styles.statIconContainer}>
+        <View style={[styles.statCard, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View style={[styles.statIconContainer, { backgroundColor: c.sectionHeaderBg }]}>
             <Text style={styles.statIcon}>📊</Text>
           </View>
-          <Text style={styles.statValue}>{stats?.last7?.setsCount ?? 0}</Text>
-          <Text style={styles.statLabel}>Sets (7d)</Text>
+          <Text style={[styles.statValue, { color: c.text }]}>{stats?.last7?.setsCount ?? 0}</Text>
+          <Text style={[styles.statLabel, { color: c.textSecondary }]}>Sets (7d)</Text>
         </View>
 
-        <View style={styles.statCard}>
-          <View style={styles.statIconContainer}>
+        <View style={[styles.statCard, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View style={[styles.statIconContainer, { backgroundColor: c.sectionHeaderBg }]}>
             <Text style={styles.statIcon}>⚡</Text>
           </View>
-          <Text style={styles.statValue}>
+          <Text style={[styles.statValue, { color: c.text }]}>
             {(stats?.last7?.totalVolume ?? 0) >= 1000
               ? `${((stats?.last7?.totalVolume ?? 0) / 1000).toFixed(1)}k`
               : (stats?.last7?.totalVolume ?? 0).toFixed(0)}
           </Text>
-          <Text style={styles.statLabel}>Volume ({unit})</Text>
+          <Text style={[styles.statLabel, { color: c.textSecondary }]}>Volume ({unit})</Text>
         </View>
       </View>
 
-      {items.length > 0 && <Text style={styles.sectionTitle}>Recent Sessions</Text>}
+      {/* Calendar Heatmap */}
+      {Object.keys(heatmapDays).length > 0 && (
+        <CalendarHeatmap workoutDays={heatmapDays} streak={streak} />
+      )}
+
+      {/* Weekly Volume Chart */}
+      {volumeData.length > 0 && (
+        <View style={[styles.volumeSection, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Text style={[styles.sectionTitle, { color: c.text }]}>7-Day Volume by Muscle</Text>
+          <VolumeChart data={volumeData.map(v => ({ muscle: v.muscle, sets: v.sets, volume: v.volume }))} unit={unit} />
+        </View>
+      )}
+
+      {items.length > 0 && <Text style={[styles.sectionTitle, { color: c.text }]}>Recent Sessions</Text>}
     </View>
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: c.background }]}>
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.id)}
@@ -103,19 +128,26 @@ export default function HistoryScreen({ navigation }: any) {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🏋️</Text>
-            <Text style={styles.emptyTitle}>No workouts yet</Text>
-            <Text style={styles.emptyBody}>Start your first session to see it here!</Text>
+            <Text style={[styles.emptyTitle, { color: c.text }]}>No workouts yet</Text>
+            <Text style={[styles.emptyBody, { color: c.textSecondary }]}>Start your first session to see it here!</Text>
           </View>
         }
         renderItem={({ item }) => (
           <Pressable
             onPress={() => navigation.navigate('SessionDetail', { sessionId: item.id })}
-            style={styles.sessionCard}
+            style={[styles.sessionCard, { backgroundColor: c.card, borderColor: c.border }]}
           >
             <View style={styles.sessionHeader}>
               <View style={styles.sessionHeaderLeft}>
-                <Text style={styles.sessionTitle}>{item.template_name || 'Workout'}</Text>
-                <Text style={styles.sessionDate}>{formatDate(item.performed_at)}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[styles.sessionTitle, { color: c.text }]}>{item.template_name || 'Workout'}</Text>
+                  {prCounts[item.id] > 0 && (
+                    <View style={styles.prBadge}>
+                      <Text style={styles.prBadgeText}>🏆 {prCounts[item.id]}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.sessionDate, { color: c.textSecondary }]}>{formatDate(item.performed_at)}</Text>
               </View>
               <View style={styles.durationBadge}>
                 <Text style={styles.durationText}>
@@ -125,25 +157,25 @@ export default function HistoryScreen({ navigation }: any) {
             </View>
 
             {item.exercises && (
-              <View style={styles.exercisesRow}>
-                <Text style={styles.exercisesLabel}>Exercises:</Text>
-                <Text style={styles.exercisesText} numberOfLines={2}>
+              <View style={[styles.exercisesRow, { borderTopColor: c.border }]}>
+                <Text style={[styles.exercisesLabel, { color: c.textSecondary }]}>Exercises:</Text>
+                <Text style={[styles.exercisesText, { color: c.textSecondary }]} numberOfLines={2}>
                   {item.exercises}
                 </Text>
               </View>
             )}
 
-            <View style={styles.sessionStats}>
+            <View style={[styles.sessionStats, { borderTopColor: c.border }]}>
               <View style={styles.sessionStatItem}>
                 <Text style={styles.sessionStatIcon}>✓</Text>
-                <Text style={styles.sessionStatText}>
+                <Text style={[styles.sessionStatText, { color: c.textSecondary }]}>
                   {item.completed_sets_count}/{item.sets_count} sets
                 </Text>
               </View>
-              <View style={styles.sessionStatDivider} />
+              <View style={[styles.sessionStatDivider, { backgroundColor: c.border }]} />
               <View style={styles.sessionStatItem}>
                 <Text style={styles.sessionStatIcon}>📦</Text>
-                <Text style={styles.sessionStatText}>
+                <Text style={[styles.sessionStatText, { color: c.textSecondary }]}>
                   {Number(item.total_volume).toFixed(0)} {unit}
                 </Text>
               </View>
@@ -328,6 +360,31 @@ const styles = StyleSheet.create({
     width: 1,
     height: 20,
     backgroundColor: '#E0E0E0',
+  },
+
+  // Volume section
+  volumeSection: {
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E6E1DB',
+  },
+
+  // PR badge
+  prBadge: {
+    backgroundColor: '#FFF8E1',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F5D76E',
+  },
+  prBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B8860B',
   },
 
   // Empty State

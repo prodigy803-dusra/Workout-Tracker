@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Ellipse, Rect, Path, Circle } from 'react-native-svg';
+import { useColors } from '../contexts/ThemeContext';
 
 /* ── Palette ────────────────────────────────────────────────── */
 const CLR = {
@@ -211,6 +212,7 @@ type Props = {
 };
 
 export default function MuscleMap({ primaryMuscles, secondaryMuscles }: Props) {
+  const c = useColors();
   const fill = (id: string) => {
     if (primaryMuscles.includes(id)) return CLR.primary;
     if (secondaryMuscles.includes(id)) return CLR.secondary;
@@ -220,8 +222,8 @@ export default function MuscleMap({ primaryMuscles, secondaryMuscles }: Props) {
   return (
     <View style={st.wrap}>
       <View style={st.labelRow}>
-        <Text style={st.label}>FRONT</Text>
-        <Text style={st.label}>BACK</Text>
+        <Text style={[st.label, { color: c.textSecondary }]}>FRONT</Text>
+        <Text style={[st.label, { color: c.textSecondary }]}>BACK</Text>
       </View>
 
       <Svg viewBox="0 0 280 310" style={st.svg}>
@@ -243,13 +245,13 @@ export default function MuscleMap({ primaryMuscles, secondaryMuscles }: Props) {
           {primaryMuscles.length > 0 && (
             <View style={st.legendItem}>
               <View style={[st.dot, { backgroundColor: CLR.primary }]} />
-              <Text style={st.legendText}>Primary</Text>
+              <Text style={[st.legendText, { color: c.textSecondary }]}>Primary</Text>
             </View>
           )}
           {secondaryMuscles.length > 0 && (
             <View style={st.legendItem}>
               <View style={[st.dot, { backgroundColor: CLR.secondary }]} />
-              <Text style={st.legendText}>Secondary</Text>
+              <Text style={[st.legendText, { color: c.textSecondary }]}>Secondary</Text>
             </View>
           )}
         </View>

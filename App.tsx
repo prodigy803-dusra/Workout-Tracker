@@ -4,16 +4,18 @@
  */
 import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { initDb } from './src/db/db';
 import { UnitProvider } from './src/contexts/UnitContext';
+import { ThemeProvider, useColors } from './src/contexts/ThemeContext';
 import RootNavigator from './src/navigation';
 
-export default function App() {
+function AppInner() {
   const [ready, setReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+  const c = useColors();
 
   useEffect(() => {
     let mounted = true;
@@ -28,30 +30,65 @@ export default function App() {
     };
   }, []);
 
+  const navTheme = c.isDark
+    ? {
+        ...DarkTheme,
+        colors: {
+          ...DarkTheme.colors,
+          background: c.background,
+          card: c.tabBarBg,
+          text: c.text,
+          border: c.border,
+          primary: c.accent,
+        },
+      }
+    : {
+        ...DefaultTheme,
+        colors: {
+          ...DefaultTheme.colors,
+          background: c.background,
+          card: c.tabBarBg,
+          text: c.text,
+          border: c.border,
+          primary: c.accent,
+        },
+      };
+
   if (initError) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Database Error</Text>
-        <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>{initError}</Text>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: c.background }}>
+        <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 8, color: c.text }}>Database Error</Text>
+        <Text style={{ fontSize: 14, color: c.textSecondary, textAlign: 'center' }}>{initError}</Text>
       </View>
     );
   }
 
   if (!ready) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.background }}>
+        <ActivityIndicator color={c.accent} />
       </View>
     );
   }
 
   return (
+    <>
+      <StatusBar barStyle={c.isDark ? 'light-content' : 'dark-content'} backgroundColor={c.background} />
+      <NavigationContainer theme={navTheme}>
+        <RootNavigator />
+      </NavigationContainer>
+    </>
+  );
+}
+
+export default function App() {
+  return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <UnitProvider>
-        <NavigationContainer>
-          <RootNavigator />
-        </NavigationContainer>
-      </UnitProvider>
+      <ThemeProvider>
+        <UnitProvider>
+          <AppInner />
+        </UnitProvider>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }

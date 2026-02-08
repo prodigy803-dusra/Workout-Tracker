@@ -21,6 +21,7 @@ import {
   replacePrescribedSets,
 } from '../db/repositories/templatesRepo';
 import { listExercises, listExerciseOptions } from '../db/repositories/exercisesRepo';
+import { useColors } from '../contexts/ThemeContext';
 import type { Exercise, ExerciseOption } from '../types';
 
 export default function TemplateEditorScreen({ route, navigation }: any) {
@@ -29,6 +30,7 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
   const [slots, setSlots] = useState<Array<{ id: number; slot_index: number; name: string | null }>>([]);
   const [options, setOptions] = useState<Array<{ id: number; template_slot_id: number; order_index: number; exercise_name: string; option_name: string | null; exercise_id: number; exercise_option_id: number | null }>>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const c = useColors();
 
   // Picker state
   const [pickerSlotId, setPickerSlotId] = useState<number | null>(null);
@@ -157,11 +159,11 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
   if (!tpl) return null;
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.templateName}>{tpl.name}</Text>
+    <ScrollView style={[styles.container, { backgroundColor: c.background }]}>
+      <Text style={[styles.templateName, { color: c.text }]}>{tpl.name}</Text>
 
       {slots.length > 0 && (
-        <Pressable style={styles.finishBtn} onPress={() => navigation.goBack()}>
+        <Pressable style={[styles.finishBtn, { backgroundColor: c.success }]} onPress={() => navigation.goBack()}>
           <Text style={styles.finishBtnText}>✓ Finish Editing</Text>
         </Pressable>
       )}
@@ -169,17 +171,18 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
       {slots.map((s) => {
         const slotOpts = options.filter((o) => o.template_slot_id === s.id);
         return (
-          <View key={s.id} style={styles.slotCard}>
+          <View key={s.id} style={[styles.slotCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <TextInput
               defaultValue={s.name || ''}
               onEndEditing={(e) => { updateSlotName(s.id, e.nativeEvent.text).catch(() => {}); }}
               placeholder="Slot name"
-              style={styles.slotNameInput}
+              placeholderTextColor={c.textTertiary}
+              style={[styles.slotNameInput, { color: c.text, borderBottomColor: c.border }]}
             />
-            <Text style={styles.optionsLabel}>Options:</Text>
+            <Text style={[styles.optionsLabel, { color: c.textSecondary }]}>Options:</Text>
             {slotOpts.map((o) => (
-              <View key={o.id} style={styles.optionRow}>
-                <Text style={styles.optionText}>
+              <View key={o.id} style={[styles.optionRow, { borderBottomColor: c.border }]}>
+                <Text style={[styles.optionText, { color: c.text }]}>
                   {o.exercise_name}{o.option_name ? ` (${o.option_name})` : ''}
                 </Text>
                 <Pressable
@@ -189,48 +192,48 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
                   }}
                   style={styles.removeBtn}
                 >
-                  <Text style={styles.removeBtnText}>✕</Text>
+                  <Text style={[styles.removeBtnText, { color: c.danger }]}>✕</Text>
                 </Pressable>
               </View>
             ))}
             <View style={styles.slotActions}>
-              <Pressable style={styles.actionBtn} onPress={() => openPicker(s.id)}>
-                <Text style={styles.actionBtnText}>+ Add Exercise</Text>
+              <Pressable style={[styles.actionBtn, { backgroundColor: c.inputBg }]} onPress={() => openPicker(s.id)}>
+                <Text style={[styles.actionBtnText, { color: c.text }]}>+ Add Exercise</Text>
               </Pressable>
               <Pressable
-                style={styles.setsBtn}
+                style={[styles.setsBtn, { backgroundColor: c.accentBg }]}
                 onPress={() => openPrescribedSetsEditor(s.id)}
               >
-                <Text style={styles.setsBtnText}>📋 Prescribed Sets</Text>
+                <Text style={[styles.setsBtnText, { color: c.accent }]}>📋 Prescribed Sets</Text>
               </Pressable>
               <Pressable
-                style={[styles.actionBtn, styles.dangerBtn]}
+                style={[styles.actionBtn, { backgroundColor: c.dangerBg }]}
                 onPress={async () => {
                   await deleteSlot(s.id);
                   await load();
                 }}
               >
-                <Text style={[styles.actionBtnText, styles.dangerText]}>Delete Slot</Text>
+                <Text style={[styles.actionBtnText, { color: c.danger }]}>Delete Slot</Text>
               </Pressable>
             </View>
           </View>
         );
       })}
 
-      <Pressable onPress={addNewSlot} style={styles.addSlotBtn}>
-        <Text style={styles.addSlotBtnText}>+ Add Slot</Text>
+      <Pressable onPress={addNewSlot} style={[styles.addSlotBtn, { borderColor: c.border, backgroundColor: c.card }]}>
+        <Text style={[styles.addSlotBtnText, { color: c.textSecondary }]}>+ Add Slot</Text>
       </Pressable>
 
       {/* Exercise / Option Picker Modal */}
       <Modal visible={pickerSlotId !== null} animationType="slide" transparent>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
+          <View style={[styles.modalContent, { backgroundColor: c.card }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: c.border }]}>
+              <Text style={[styles.modalTitle, { color: c.text }]}>
                 {pickerStep === 'exercise' ? 'Choose Exercise' : 'Choose Variant'}
               </Text>
               <Pressable onPress={closePicker}>
-                <Text style={styles.modalClose}>✕</Text>
+                <Text style={[styles.modalClose, { color: c.textSecondary }]}>✕</Text>
               </Pressable>
             </View>
 
@@ -240,8 +243,9 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
                   value={pickerSearch}
                   onChangeText={setPickerSearch}
                   placeholder="Search exercises…"
+                  placeholderTextColor={c.textTertiary}
                   autoFocus
-                  style={styles.pickerSearch}
+                  style={[styles.pickerSearch, { backgroundColor: c.inputBg, borderColor: c.border, color: c.text }]}
                 />
                 <FlatList
                   data={exercises.filter((e: any) => {
@@ -259,11 +263,11 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
                   renderItem={({ item }) => (
                     <Pressable
                       onPress={() => handlePickExercise(item.id)}
-                      style={styles.pickerRow}
+                      style={[styles.pickerRow, { borderBottomColor: c.border }]}
                     >
-                      <Text style={styles.pickerRowText}>{item.name}</Text>
+                      <Text style={[styles.pickerRowText, { color: c.text }]}>{item.name}</Text>
                       {item.primary_muscle ? (
-                        <Text style={styles.pickerRowSub}>{item.primary_muscle}</Text>
+                        <Text style={[styles.pickerRowSub, { color: c.textSecondary }]}>{item.primary_muscle}</Text>
                       ) : null}
                     </Pressable>
                   )}
@@ -278,9 +282,9 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
                 renderItem={({ item }) => (
                   <Pressable
                     onPress={() => handlePickOption(item.id)}
-                    style={styles.pickerRow}
+                    style={[styles.pickerRow, { borderBottomColor: c.border }]}
                   >
-                    <Text style={styles.pickerRowText}>{item.name}</Text>
+                    <Text style={[styles.pickerRowText, { color: c.text }]}>{item.name}</Text>
                   </Pressable>
                 )}
               />
@@ -292,21 +296,21 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
       {/* Prescribed Sets Editor Modal */}
       <Modal visible={editingSetsForSlot !== null} animationType="slide" transparent>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Prescribed Sets</Text>
+          <View style={[styles.modalContent, { backgroundColor: c.card }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: c.border }]}>
+              <Text style={[styles.modalTitle, { color: c.text }]}>Prescribed Sets</Text>
               <Pressable onPress={closePrescribedSetsEditor}>
-                <Text style={styles.modalClose}>✕</Text>
+                <Text style={[styles.modalClose, { color: c.textSecondary }]}>✕</Text>
               </Pressable>
             </View>
 
             <ScrollView style={styles.setsEditorScroll}>
               {prescribedSets.map((s, idx) => (
-                <View key={idx} style={styles.setEditorCard}>
+                <View key={idx} style={[styles.setEditorCard, { backgroundColor: c.inputBg, borderColor: c.border }]}>
                   <View style={styles.setEditorHeader}>
-                    <Text style={styles.setIndexText}>Set {s.set_index}</Text>
+                    <Text style={[styles.setIndexText, { color: c.textSecondary }]}>Set {s.set_index}</Text>
                     <Pressable onPress={() => removePrescribedSet(idx)} style={styles.removeSetBtn}>
-                      <Text style={styles.removeSetBtnText}>✕</Text>
+                      <Text style={[styles.removeSetBtnText, { color: c.danger }]}>✕</Text>
                     </Pressable>
                   </View>
                   <View style={styles.setEditorRow}>
@@ -318,8 +322,9 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
                         );
                       }}
                       placeholder="Weight"
+                      placeholderTextColor={c.textTertiary}
                       keyboardType="numeric"
-                      style={styles.setInput}
+                      style={[styles.setInput, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
                     />
                     <TextInput
                       value={s.reps}
@@ -329,8 +334,9 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
                         );
                       }}
                       placeholder="Reps"
+                      placeholderTextColor={c.textTertiary}
                       keyboardType="numeric"
-                      style={styles.setInput}
+                      style={[styles.setInput, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
                     />
                     <TextInput
                       value={s.rpe}
@@ -340,12 +346,13 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
                         );
                       }}
                       placeholder="RPE"
+                      placeholderTextColor={c.textTertiary}
                       keyboardType="numeric"
-                      style={styles.setInput}
+                      style={[styles.setInput, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
                     />
                   </View>
                   <View style={styles.restRow}>
-                    <Text style={styles.restLabel}>Rest time:</Text>
+                    <Text style={[styles.restLabel, { color: c.textSecondary }]}>Rest time:</Text>
                     <TextInput
                       value={s.rest}
                       onChangeText={(text) => {
@@ -354,21 +361,22 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
                         );
                       }}
                       placeholder="90"
+                      placeholderTextColor={c.textTertiary}
                       keyboardType="numeric"
-                      style={styles.restInput}
+                      style={[styles.restInput, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
                     />
-                    <Text style={styles.restLabel}>seconds</Text>
+                    <Text style={[styles.restLabel, { color: c.textSecondary }]}>seconds</Text>
                   </View>
                 </View>
               ))}
 
-              <Pressable onPress={addPrescribedSet} style={styles.addSetBtn}>
-                <Text style={styles.addSetBtnText}>+ Add Set</Text>
+              <Pressable onPress={addPrescribedSet} style={[styles.addSetBtn, { borderColor: c.border, backgroundColor: c.inputBg }]}>
+                <Text style={[styles.addSetBtnText, { color: c.textSecondary }]}>+ Add Set</Text>
               </Pressable>
             </ScrollView>
 
-            <View style={styles.modalActions}>
-              <Pressable style={styles.saveSetsBtn} onPress={savePrescribedSets}>
+            <View style={[styles.modalActions, { borderTopColor: c.border }]}>
+              <Pressable style={[styles.saveSetsBtn, { backgroundColor: c.success }]} onPress={savePrescribedSets}>
                 <Text style={styles.saveSetsBtnText}>Save Sets</Text>
               </Pressable>
             </View>

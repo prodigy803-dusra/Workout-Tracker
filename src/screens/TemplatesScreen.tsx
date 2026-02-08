@@ -8,12 +8,14 @@ import {
   finalizeSession,
   getActiveDraft,
 } from '../db/repositories/sessionsRepo';
+import { useColors } from '../contexts/ThemeContext';
 import type { Template, Session } from '../types';
 
 export default function TemplatesScreen({ navigation }: any) {
   const [templates, setTemplates] = useState<Pick<Template, 'id' | 'name'>[]>([]);
   const [newName, setNewName] = useState('');
   const [activeDraft, setActiveDraft] = useState<Session | null>(null);
+  const c = useColors();
 
   const load = useCallback(async () => {
     const [tpls, draft] = await Promise.all([listTemplates(), getActiveDraft()]);
@@ -29,17 +31,18 @@ export default function TemplatesScreen({ navigation }: any) {
   const header = useMemo(() => {
     return (
       <View style={styles.header}>
-        <Text style={styles.title}>Templates</Text>
-        <Text style={styles.subtitle}>Fast starts. Minimal taps.</Text>
+        <Text style={[styles.title, { color: c.text }]}>Templates</Text>
+        <Text style={[styles.subtitle, { color: c.textSecondary }]}>Fast starts. Minimal taps.</Text>
         <View style={styles.newRow}>
           <TextInput
             value={newName}
             onChangeText={setNewName}
             placeholder="New template name"
-            style={styles.input}
+            placeholderTextColor={c.textTertiary}
+            style={[styles.input, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
           />
           <Pressable
-            style={styles.primaryButton}
+            style={[styles.primaryButton, { backgroundColor: c.primary }]}
             onPress={async () => {
               const name = newName.trim();
               if (!name) return;
@@ -48,12 +51,12 @@ export default function TemplatesScreen({ navigation }: any) {
               await load();
             }}
           >
-            <Text style={styles.primaryText}>Create</Text>
+            <Text style={[styles.primaryText, { color: c.primaryText }]}>Create</Text>
           </Pressable>
         </View>
       </View>
     );
-  }, [newName]);
+  }, [newName, c]);
 
   async function handleStart(templateId: number) {
     try {
@@ -136,24 +139,24 @@ export default function TemplatesScreen({ navigation }: any) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: c.background }]}>
       <FlatList
         data={templates}
         keyExtractor={(item) => String(item.id)}
         ListHeaderComponent={header}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No templates yet</Text>
-            <Text style={styles.emptyBody}>Create one above to get started.</Text>
+            <Text style={[styles.emptyTitle, { color: c.text }]}>No templates yet</Text>
+            <Text style={[styles.emptyBody, { color: c.textSecondary }]}>Create one above to get started.</Text>
           </View>
         }
         renderItem={({ item }) => {
           const isActive = activeDraft?.template_id === item.id;
           return (
-            <View style={[styles.card, isActive && styles.cardActive]}>
+            <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }, isActive && { borderColor: c.success, borderWidth: 2 }]}>
               <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                {isActive && <Text style={styles.activeLabel}>● Active Session</Text>}
+                <Text style={[styles.cardTitle, { color: c.text }]}>{item.name}</Text>
+                {isActive && <Text style={[styles.activeLabel, { color: c.success }]}>● Active Session</Text>}
               </View>
               
               {isActive ? (
@@ -161,19 +164,19 @@ export default function TemplatesScreen({ navigation }: any) {
                 <>
                   <View style={styles.cardActions}>
                     <Pressable
-                      style={[styles.resumeButton, { flex: 1 }]}
+                      style={[styles.resumeButton, { flex: 1, backgroundColor: c.success }]}
                       onPress={() => handleStart(item.id)}
                     >
                       <Text style={styles.primaryText}>Resume Session</Text>
                     </Pressable>
                     <Pressable
-                      style={[styles.secondaryButton, { borderColor: '#C00' }]}
+                      style={[styles.secondaryButton, { borderColor: c.danger, backgroundColor: c.card }]}
                       onPress={handleEnd}
                     >
-                      <Text style={[styles.secondaryText, { color: '#C00' }]}>End</Text>
+                      <Text style={[styles.secondaryText, { color: c.danger }]}>End</Text>
                     </Pressable>
                   </View>
-                  <Text style={styles.disabledNote}>
+                  <Text style={[styles.disabledNote, { color: c.textTertiary }]}>
                     Edit/delete disabled during active session
                   </Text>
                 </>
@@ -181,19 +184,19 @@ export default function TemplatesScreen({ navigation }: any) {
                 // No active session: Start, Edit, Delete buttons
                 <View style={styles.cardActions}>
                   <Pressable
-                    style={[styles.primaryButton, { flex: 1 }]}
+                    style={[styles.primaryButton, { flex: 1, backgroundColor: c.primary }]}
                     onPress={() => handleStart(item.id)}
                   >
-                    <Text style={styles.primaryText}>Start</Text>
+                    <Text style={[styles.primaryText, { color: c.primaryText }]}>Start</Text>
                   </Pressable>
                   <Pressable
-                    style={styles.secondaryButton}
+                    style={[styles.secondaryButton, { backgroundColor: c.card, borderColor: c.border }]}
                     onPress={() => navigation.navigate('TemplateEditor', { templateId: item.id })}
                   >
-                    <Text style={styles.secondaryText}>Edit</Text>
+                    <Text style={[styles.secondaryText, { color: c.text }]}>Edit</Text>
                   </Pressable>
                   <Pressable
-                    style={[styles.secondaryButton, { borderColor: '#C00' }]}
+                    style={[styles.secondaryButton, { backgroundColor: c.card, borderColor: c.danger }]}
                     onPress={() =>
                       Alert.alert('Delete Template', `Delete "${item.name}"?`, [
                         { text: 'Cancel', style: 'cancel' },
@@ -208,7 +211,7 @@ export default function TemplatesScreen({ navigation }: any) {
                       ])
                     }
                   >
-                    <Text style={[styles.secondaryText, { color: '#C00' }]}>Delete</Text>
+                    <Text style={[styles.secondaryText, { color: c.danger }]}>Delete</Text>
                   </Pressable>
                 </View>
               )}

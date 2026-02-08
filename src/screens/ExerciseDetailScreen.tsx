@@ -6,6 +6,7 @@ import { e1rmHistory } from '../db/repositories/statsRepo';
 import MuscleMap from '../components/MuscleMap';
 import TrendChart, { DataPoint } from '../components/TrendChart';
 import { getMuscleInfo, ALL_MUSCLE_IDS } from '../data/muscleExerciseMap';
+import { useColors } from '../contexts/ThemeContext';
 import type { ExerciseStats, ExerciseGuideData, ExerciseOption } from '../types';
 
 export default function ExerciseDetailScreen({ route }: any) {
@@ -15,6 +16,7 @@ export default function ExerciseDetailScreen({ route }: any) {
   const [newOption, setNewOption] = useState('');
   const [guide, setGuide] = useState<ExerciseGuideData>({ video_url: null, instructions: null, tips: null });
   const [trendData, setTrendData] = useState<DataPoint[]>([]);
+  const c = useColors();
 
   async function loadGuide() {
     const res = await executeSqlAsync(
@@ -76,23 +78,23 @@ export default function ExerciseDetailScreen({ route }: any) {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
-      <Text style={styles.title}>{name}</Text>
+    <ScrollView style={[styles.container, { backgroundColor: c.background }]} contentContainerStyle={{ paddingBottom: 32 }}>
+      <Text style={[styles.title, { color: c.text }]}>{name}</Text>
 
       {muscleInfo && (
-        <View style={styles.muscleCard}>
-          <Text style={styles.sectionTitle}>Muscles Worked</Text>
+        <View style={[styles.muscleCard, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Text style={[styles.sectionTitle, { color: c.text }]}>Muscles Worked</Text>
           <MuscleMap
             primaryMuscles={primaryMuscles}
             secondaryMuscles={secondaryMuscles}
           />
           <View style={styles.muscleLabels}>
-            <Text style={styles.muscleLabel}>
+            <Text style={[styles.muscleLabel, { color: c.textSecondary }]}>
               <Text style={{ color: '#E8443A', fontWeight: '700' }}>●</Text>{' '}
               {muscleInfo.primary.replace(/_/g, ' ')}
             </Text>
             {muscleInfo.secondary && (
-              <Text style={styles.muscleLabel}>
+              <Text style={[styles.muscleLabel, { color: c.textSecondary }]}>
                 <Text style={{ color: '#F5A623', fontWeight: '700' }}>●</Text>{' '}
                 {muscleInfo.secondary.replace(/_/g, ' ')}
               </Text>
@@ -103,20 +105,20 @@ export default function ExerciseDetailScreen({ route }: any) {
 
       {/* ── How To Perform ── */}
       {guide.instructions && (
-        <View style={styles.guideCard}>
-          <Text style={styles.sectionTitle}>How To Perform</Text>
+        <View style={[styles.guideCard, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Text style={[styles.sectionTitle, { color: c.text }]}>How To Perform</Text>
           {guide.instructions.split('\n').map((line, i) => (
-            <Text key={i} style={styles.stepText}>{line}</Text>
+            <Text key={i} style={[styles.stepText, { color: c.text }]}>{line}</Text>
           ))}
         </View>
       )}
 
       {/* ── Tips ── */}
       {guide.tips && (
-        <View style={styles.guideCard}>
-          <Text style={styles.sectionTitle}>Tips</Text>
+        <View style={[styles.guideCard, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Text style={[styles.sectionTitle, { color: c.text }]}>Tips</Text>
           {guide.tips.split('\n').map((line, i) => (
-            <Text key={i} style={styles.tipText}>{line}</Text>
+            <Text key={i} style={[styles.tipText, { color: c.textSecondary }]}>{line}</Text>
           ))}
         </View>
       )}
@@ -124,26 +126,26 @@ export default function ExerciseDetailScreen({ route }: any) {
       {/* ── Watch Video ── */}
       {guide.video_url && (
         <Pressable
-          style={styles.videoBtn}
+          style={[styles.videoBtn, { backgroundColor: c.accent }]}
           onPress={() => Linking.openURL(guide.video_url!)}
         >
           <Text style={styles.videoBtnText}>▶  Watch Video Tutorial</Text>
         </Pressable>
       )}
 
-      <View style={styles.statsCard}>
-        <Text style={styles.sectionTitle}>Stats</Text>
+      <View style={[styles.statsCard, { backgroundColor: c.card, borderColor: c.border }]}>
+        <Text style={[styles.sectionTitle, { color: c.text }]}>Stats</Text>
         <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Best e1RM</Text>
-          <Text style={styles.statValue}>{stats?.best_e1rm?.toFixed(1) || '—'}</Text>
+          <Text style={[styles.statLabel, { color: c.textSecondary }]}>Best e1RM</Text>
+          <Text style={[styles.statValue, { color: c.text }]}>{stats?.best_e1rm?.toFixed(1) || '—'}</Text>
         </View>
         <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Best volume set</Text>
-          <Text style={styles.statValue}>{stats?.best_volume?.toFixed(1) || '—'}</Text>
+          <Text style={[styles.statLabel, { color: c.textSecondary }]}>Best volume set</Text>
+          <Text style={[styles.statValue, { color: c.text }]}>{stats?.best_volume?.toFixed(1) || '—'}</Text>
         </View>
         <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Last performed</Text>
-          <Text style={styles.statValue}>
+          <Text style={[styles.statLabel, { color: c.textSecondary }]}>Last performed</Text>
+          <Text style={[styles.statValue, { color: c.text }]}>
             {stats?.last_performed ? new Date(stats.last_performed).toLocaleDateString() : '—'}
           </Text>
         </View>
@@ -151,19 +153,19 @@ export default function ExerciseDetailScreen({ route }: any) {
 
       {/* ── e1RM Trend Chart ── */}
       {trendData.length >= 2 && (
-        <View style={styles.statsCard}>
+        <View style={[styles.statsCard, { backgroundColor: c.card, borderColor: c.border }]}>
           <TrendChart data={trendData} label="Estimated 1RM Trend" unit="weight" color="#4A90D9" />
         </View>
       )}
 
-      <View style={styles.optionsCard}>
-        <Text style={styles.sectionTitle}>Variants</Text>
+      <View style={[styles.optionsCard, { backgroundColor: c.card, borderColor: c.border }]}>
+        <Text style={[styles.sectionTitle, { color: c.text }]}>Variants</Text>
         {options.length === 0 && (
-          <Text style={styles.emptyText}>No variants yet</Text>
+          <Text style={[styles.emptyText, { color: c.textSecondary }]}>No variants yet</Text>
         )}
         {options.map((o) => (
-          <View key={o.id} style={styles.optionRow}>
-            <Text style={styles.optionText}>{o.name}</Text>
+          <View key={o.id} style={[styles.optionRow, { borderBottomColor: c.border }]}>
+            <Text style={[styles.optionText, { color: c.text }]}>{o.name}</Text>
           </View>
         ))}
         <View style={styles.addRow}>
@@ -171,10 +173,11 @@ export default function ExerciseDetailScreen({ route }: any) {
             value={newOption}
             onChangeText={setNewOption}
             placeholder="e.g. Dumbbell, Close-grip..."
-            style={styles.input}
+            placeholderTextColor={c.textTertiary}
+            style={[styles.input, { backgroundColor: c.inputBg, borderColor: c.border, color: c.text }]}
           />
-          <Pressable style={styles.addBtn} onPress={handleAddOption}>
-            <Text style={styles.addBtnText}>Add</Text>
+          <Pressable style={[styles.addBtn, { backgroundColor: c.primary }]} onPress={handleAddOption}>
+            <Text style={[styles.addBtnText, { color: c.primaryText }]}>Add</Text>
           </Pressable>
         </View>
       </View>

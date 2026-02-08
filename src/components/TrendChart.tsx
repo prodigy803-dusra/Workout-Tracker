@@ -8,6 +8,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
+import { useColors } from '../contexts/ThemeContext';
 
 export type DataPoint = {
   date: string;   // ISO date string
@@ -29,6 +30,7 @@ export default function TrendChart({
   height = 180,
   color = '#4A90D9',
 }: Props) {
+  const c = useColors();
   const WIDTH = 320;
   const PAD_L = 44;
   const PAD_R = 12;
@@ -87,7 +89,7 @@ export default function TrendChart({
   if (data.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No data yet</Text>
+        <Text style={[styles.emptyText, { color: c.textSecondary }]}>No data yet</Text>
       </View>
     );
   }
@@ -105,7 +107,7 @@ export default function TrendChart({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: c.text }]}>{label}</Text>
       <Svg width={WIDTH} height={height} viewBox={`0 0 ${WIDTH} ${height}`}>
         {/* Y-axis gridlines + labels */}
         {yTicks.map((v) => {
@@ -117,14 +119,14 @@ export default function TrendChart({
                 x2={PAD_L + chartW}
                 y1={y}
                 y2={y}
-                stroke="#E8E8E8"
+                stroke={c.border}
                 strokeWidth={1}
               />
               <SvgText
                 x={PAD_L - 6}
                 y={y + 4}
                 fontSize={10}
-                fill="#999"
+                fill={c.textSecondary}
                 textAnchor="end"
               >
                 {v % 1 === 0 ? v : v.toFixed(1)}
@@ -140,7 +142,7 @@ export default function TrendChart({
             x={l.x}
             y={PAD_T + chartH + 18}
             fontSize={10}
-            fill="#999"
+            fill={c.textSecondary}
             textAnchor={i === 0 ? 'start' : 'end'}
           >
             {l.text}
@@ -158,7 +160,7 @@ export default function TrendChart({
           <Circle key={i} cx={p.x} cy={p.y} r={3.5} fill={color} />
         ))}
       </Svg>
-      {unit && <Text style={styles.unitLabel}>{unit}</Text>}
+      {unit && <Text style={[styles.unitLabel, { color: c.textSecondary }]}>{unit}</Text>}
     </View>
   );
 }

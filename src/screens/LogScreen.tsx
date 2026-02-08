@@ -19,8 +19,11 @@ import {
 } from '../db/repositories/setsRepo';
 import { listTemplates } from '../db/repositories/templatesRepo';
 import { overallStats } from '../db/repositories/statsRepo';
+import { detectAndRecordPRs } from '../db/repositories/statsRepo';
 import OptionChips from '../components/OptionChips';
+import PlateCalculator from '../components/PlateCalculator';
 import { useUnit } from '../contexts/UnitContext';
+import { useColors } from '../contexts/ThemeContext';
 import type { Session, DraftSlot, SlotOption, SetData, LastTimeData, OverallStats, Template } from '../types';
 
 /* ═══════════════════════════════════════════════════════════
@@ -29,6 +32,7 @@ import type { Session, DraftSlot, SlotOption, SetData, LastTimeData, OverallStat
 function IdleScreen({ onSessionStarted }: { onSessionStarted: () => void }) {
   const navigation = useNavigation<any>();
   const { unit } = useUnit();
+  const c = useColors();
   const [templates, setTemplates] = useState<Pick<Template, 'id' | 'name'>[]>([]);
   const [stats, setStats] = useState<OverallStats | null>(null);
   const [greeting, setGreeting] = useState('');
@@ -60,29 +64,29 @@ function IdleScreen({ onSessionStarted }: { onSessionStarted: () => void }) {
   }
 
   return (
-    <ScrollView style={idle.container} contentContainerStyle={idle.content}>
+    <ScrollView style={[idle.container, { backgroundColor: c.background }]} contentContainerStyle={idle.content}>
       {/* Greeting */}
       <View style={idle.hero}>
-        <Text style={idle.greeting}>{greeting} 👋</Text>
-        <Text style={idle.heroTitle}>Ready to train?</Text>
+        <Text style={[idle.greeting, { color: c.textSecondary }]}>{greeting} 👋</Text>
+        <Text style={[idle.heroTitle, { color: c.text }]}>Ready to train?</Text>
       </View>
 
       {/* Quick-start templates */}
       {templates.length > 0 && (
         <View style={idle.section}>
-          <Text style={idle.sectionTitle}>QUICK START</Text>
+          <Text style={[idle.sectionTitle, { color: c.textSecondary }]}>QUICK START</Text>
           <View style={idle.templateGrid}>
             {templates.slice(0, 6).map((t) => (
               <Pressable
                 key={t.id}
-                style={idle.templateCard}
+                style={[idle.templateCard, { backgroundColor: c.card, borderColor: c.border }]}
                 onPress={() => quickStart(t.id)}
               >
                 <Text style={idle.templateIcon}>🏋️</Text>
-                <Text style={idle.templateName} numberOfLines={2}>
+                <Text style={[idle.templateName, { color: c.text }]} numberOfLines={2}>
                   {t.name}
                 </Text>
-                <Text style={idle.templateAction}>Start →</Text>
+                <Text style={[idle.templateAction, { color: c.accent }]}>Start →</Text>
               </Pressable>
             ))}
           </View>
@@ -92,23 +96,23 @@ function IdleScreen({ onSessionStarted }: { onSessionStarted: () => void }) {
       {/* Weekly stats summary */}
       {hasHistory && last7 && (
         <View style={idle.section}>
-          <Text style={idle.sectionTitle}>THIS WEEK</Text>
+          <Text style={[idle.sectionTitle, { color: c.textSecondary }]}>THIS WEEK</Text>
           <View style={idle.statsRow}>
-            <View style={idle.statCard}>
-              <Text style={idle.statNumber}>{last7.sessionsCount}</Text>
-              <Text style={idle.statLabel}>Workouts</Text>
+            <View style={[idle.statCard, { backgroundColor: c.card, borderColor: c.border }]}>
+              <Text style={[idle.statNumber, { color: c.text }]}>{last7.sessionsCount}</Text>
+              <Text style={[idle.statLabel, { color: c.textSecondary }]}>Workouts</Text>
             </View>
-            <View style={idle.statCard}>
-              <Text style={idle.statNumber}>{last7.setsCount}</Text>
-              <Text style={idle.statLabel}>Sets</Text>
+            <View style={[idle.statCard, { backgroundColor: c.card, borderColor: c.border }]}>
+              <Text style={[idle.statNumber, { color: c.text }]}>{last7.setsCount}</Text>
+              <Text style={[idle.statLabel, { color: c.textSecondary }]}>Sets</Text>
             </View>
-            <View style={idle.statCard}>
-              <Text style={idle.statNumber}>
+            <View style={[idle.statCard, { backgroundColor: c.card, borderColor: c.border }]}>
+              <Text style={[idle.statNumber, { color: c.text }]}>
                 {last7.totalVolume >= 1000
                   ? `${(last7.totalVolume / 1000).toFixed(1)}k`
                   : last7.totalVolume}
               </Text>
-              <Text style={idle.statLabel}>Vol ({unit})</Text>
+              <Text style={[idle.statLabel, { color: c.textSecondary }]}>Vol ({unit})</Text>
             </View>
           </View>
         </View>
@@ -117,7 +121,7 @@ function IdleScreen({ onSessionStarted }: { onSessionStarted: () => void }) {
       {/* All-time stats */}
       {hasHistory && (
         <View style={idle.section}>
-          <View style={idle.allTimeCard}>
+          <View style={[idle.allTimeCard, { backgroundColor: c.isDark ? '#222' : '#1A1A1A' }]}>
             <Text style={idle.allTimeNum}>{stats.totalSessions}</Text>
             <Text style={idle.allTimeLabel}>total workouts logged</Text>
           </View>
@@ -128,15 +132,15 @@ function IdleScreen({ onSessionStarted }: { onSessionStarted: () => void }) {
       {templates.length === 0 && (
         <View style={idle.onboarding}>
           <Text style={idle.onboardingIcon}>📑</Text>
-          <Text style={idle.onboardingTitle}>Create your first template</Text>
-          <Text style={idle.onboardingBody}>
+          <Text style={[idle.onboardingTitle, { color: c.text }]}>Create your first template</Text>
+          <Text style={[idle.onboardingBody, { color: c.textSecondary }]}>
             Set up a workout template in the Templates tab, then come back here to start logging.
           </Text>
           <Pressable
-            style={idle.onboardingBtn}
+            style={[idle.onboardingBtn, { backgroundColor: c.primary }]}
             onPress={() => navigation.navigate('Templates')}
           >
-            <Text style={idle.onboardingBtnText}>Go to Templates</Text>
+            <Text style={[idle.onboardingBtnText, { color: c.primaryText }]}>Go to Templates</Text>
           </Pressable>
         </View>
       )}
@@ -246,11 +250,16 @@ export default function LogScreen() {
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
 
+  // Plate calculator state
+  const [plateCalcVisible, setPlateCalcVisible] = useState(false);
+  const [plateCalcWeight, setPlateCalcWeight] = useState(0);
+
   // Session elapsed time
   const [elapsed, setElapsed] = useState(0);
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { unit } = useUnit();
+  const c = useColors();
 
   const load = useCallback(async () => {
     const d = await getActiveDraft();
@@ -396,10 +405,10 @@ export default function LogScreen() {
 
   if (slots.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
+      <View style={[styles.emptyContainer, { backgroundColor: c.background }]}>
         <Text style={styles.emptyIcon}>⚠️</Text>
-        <Text style={styles.emptyTitle}>Template has no exercises</Text>
-        <Text style={styles.emptyBody}>
+        <Text style={[styles.emptyTitle, { color: c.text }]}>Template has no exercises</Text>
+        <Text style={[styles.emptyBody, { color: c.textSecondary }]}>
           Go to Templates, tap Edit, and add exercises to the slots before starting a workout.
         </Text>
         <Pressable
@@ -416,27 +425,27 @@ export default function LogScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView style={[styles.container, { backgroundColor: c.background }]} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Session summary header */}
-      <View style={styles.summaryCard}>
+      <View style={[styles.summaryCard, { backgroundColor: c.card, borderColor: c.border }]}>
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{formatElapsed(elapsed)}</Text>
-            <Text style={styles.summaryLabel}>Duration</Text>
+            <Text style={[styles.summaryValue, { color: c.text }]}>{formatElapsed(elapsed)}</Text>
+            <Text style={[styles.summaryLabel, { color: c.textSecondary }]}>Duration</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{completedSets}/{totalSets}</Text>
-            <Text style={styles.summaryLabel}>Sets</Text>
+            <Text style={[styles.summaryValue, { color: c.text }]}>{completedSets}/{totalSets}</Text>
+            <Text style={[styles.summaryLabel, { color: c.textSecondary }]}>Sets</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>
+            <Text style={[styles.summaryValue, { color: c.text }]}>
               {totalVolume >= 1000 ? `${(totalVolume / 1000).toFixed(1)}k` : totalVolume}
             </Text>
-            <Text style={styles.summaryLabel}>Volume ({unit})</Text>
+            <Text style={[styles.summaryLabel, { color: c.textSecondary }]}>Volume ({unit})</Text>
           </View>
         </View>
         {totalSets > 0 && (
-          <View style={styles.progressBarBg}>
+          <View style={[styles.progressBarBg, { backgroundColor: c.isDark ? '#333' : '#E8E8E8' }]}>
             <View
               style={[
                 styles.progressBarFill,
@@ -456,8 +465,15 @@ export default function LogScreen() {
                 text: 'Finish',
                 onPress: async () => {
                   try {
-                    await finalizeSession(draft.id);
+                    const sessionId = draft.id;
+                    const currentElapsed = elapsed;
+                    await finalizeSession(sessionId);
+                    await detectAndRecordPRs(sessionId);
                     await load();
+                    navigation.navigate('WorkoutSummary', {
+                      sessionId,
+                      duration: currentElapsed,
+                    });
                   } catch (err) {
                     console.error('Error finishing session:', err);
                     Alert.alert('Error', 'Failed to finish session: ' + (err as Error).message);
@@ -466,9 +482,18 @@ export default function LogScreen() {
               },
             ]);
           }}
-          style={styles.finishBtn}
+          style={[styles.finishBtn, { backgroundColor: c.success }]}
         >
           <Text style={styles.finishBtnText}>✓ Finish</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            setPlateCalcWeight(0);
+            setPlateCalcVisible(true);
+          }}
+          style={[styles.discardBtn, { borderColor: c.border, backgroundColor: c.card }]}
+        >
+          <Text style={[styles.discardBtnText, { color: c.accent }]}>📐 Plates</Text>
         </Pressable>
         <Pressable
           onPress={() => {
@@ -489,7 +514,7 @@ export default function LogScreen() {
               },
             ]);
           }}
-          style={styles.discardBtn}
+          style={[styles.discardBtn, { backgroundColor: c.card, borderColor: c.danger }]}
         >
           <Text style={styles.discardBtnText}>✕ Discard</Text>
         </Pressable>
@@ -506,7 +531,7 @@ export default function LogScreen() {
         const completedCount = sets.filter((s) => s.completed).length;
 
         return (
-          <View key={slot.session_slot_id} style={styles.slotCard}>
+          <View key={slot.session_slot_id} style={[styles.slotCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <Pressable
               onPress={() => {
                 setExpandedSlots((prev) => {
@@ -519,12 +544,12 @@ export default function LogScreen() {
                   return next;
                 });
               }}
-              style={styles.slotHeader}
+              style={[styles.slotHeader, { backgroundColor: c.sectionHeaderBg }]}
             >
               <View style={styles.slotHeaderContent}>
-                {slot.name && <Text style={styles.slotSubtitle}>{slot.name}</Text>}
+                {slot.name && <Text style={[styles.slotSubtitle, { color: c.textSecondary }]}>{slot.name}</Text>}
                 <View style={styles.slotTitleRow}>
-                  <Text style={styles.slotTitle}>
+                  <Text style={[styles.slotTitle, { color: c.text }]}>
                     {slot.exercise_name}
                     {slot.option_name ? ` (${slot.option_name})` : ''}
                   </Text>
@@ -550,7 +575,7 @@ export default function LogScreen() {
                   </Text>
                 )}
               </View>
-              <Text style={styles.chevron}>{isExpanded ? '▼' : '▶'}</Text>
+              <Text style={[styles.chevron, { color: c.textSecondary }]}>{isExpanded ? '▼' : '▶'}</Text>
             </Pressable>
 
             {isExpanded && (
@@ -577,9 +602,9 @@ export default function LogScreen() {
                   );
                   const suggestedWeight = heaviest.weight + 2.5;
                   return (
-                    <View style={styles.suggestionBanner}>
+                    <View style={[styles.suggestionBanner, { backgroundColor: c.warningBg, borderColor: c.isDark ? '#665A00' : '#F5D76E' }]}>
                       <Text style={styles.suggestionIcon}>📈</Text>
-                      <Text style={styles.suggestionText}>
+                      <Text style={[styles.suggestionText, { color: c.warningText }]}>
                         You completed all sets last session — try {suggestedWeight} {unit} × {heaviest.reps}
                       </Text>
                     </View>
@@ -587,15 +612,15 @@ export default function LogScreen() {
                 })()}
 
                 {sets.length === 0 ? (
-                  <Text style={styles.noSetsText}>No prescribed sets. Add sets in the template editor.</Text>
+                  <Text style={[styles.noSetsText, { color: c.textTertiary }]}>No prescribed sets. Add sets in the template editor.</Text>
                 ) : (
                   <>
                     <View style={styles.setsHeader}>
-                      <Text style={[styles.colLabel, { width: 36 }]} />
-                      <Text style={styles.colLabel}>#</Text>
-                      <Text style={[styles.colLabel, { flex: 1 }]}>Weight ({unit})</Text>
-                      <Text style={[styles.colLabel, { width: 64 }]}>Reps</Text>
-                      <Text style={[styles.colLabel, { width: 52 }]}>RPE</Text>
+                      <Text style={[styles.colLabel, { width: 36, color: c.textTertiary }]} />
+                      <Text style={[styles.colLabel, { color: c.textTertiary }]}>#</Text>
+                      <Text style={[styles.colLabel, { flex: 1, color: c.textTertiary }]}>Weight ({unit})</Text>
+                      <Text style={[styles.colLabel, { width: 64, color: c.textTertiary }]}>Reps</Text>
+                      <Text style={[styles.colLabel, { width: 52, color: c.textTertiary }]}>RPE</Text>
                     </View>
 
                     {sets.map((s) => (
@@ -603,7 +628,8 @@ export default function LogScreen() {
                         key={s.set_index}
                         style={[
                           styles.setRow,
-                          s.completed && styles.setRowCompleted,
+                          { borderBottomColor: c.border },
+                          s.completed && { backgroundColor: c.completedBg },
                         ]}
                       >
                         <Pressable
@@ -661,7 +687,7 @@ export default function LogScreen() {
                         >
                           {s.completed && <View style={styles.radioFill} />}
                         </Pressable>
-                        <Text style={[styles.setIndex, s.completed && styles.completedText]}>#{s.set_index}</Text>
+                        <Text style={[styles.setIndex, { color: c.textSecondary }, s.completed && styles.completedText]}>#{s.set_index}</Text>
                         <TextInput
                           value={String(s.weight)}
                           onChangeText={(text) => {
@@ -679,8 +705,16 @@ export default function LogScreen() {
                               upsertSet(selectedChoiceId, currentSet.set_index, currentSet.weight, currentSet.reps, currentSet.rpe, null, currentSet.rest_seconds).catch(() => {});
                             }
                           }}
+                          onSubmitEditing={() => {
+                            const w = setsByChoice[selectedChoiceId]?.find((x) => x.id === s.id)?.weight ?? 0;
+                            if (w > 0) {
+                              setPlateCalcWeight(w);
+                              setPlateCalcVisible(true);
+                            }
+                          }}
                           keyboardType="numeric"
-                          style={[styles.setInput, { flex: 1 }, s.completed && styles.completedInput]}
+                          placeholderTextColor={c.textTertiary}
+                          style={[styles.setInput, { flex: 1, color: c.text, backgroundColor: c.inputBg, borderColor: c.border }, s.completed && { color: c.textTertiary, backgroundColor: c.completedBg, borderColor: c.completedBorder }]}
                         />
                         <TextInput
                           value={String(s.reps)}
@@ -700,7 +734,8 @@ export default function LogScreen() {
                             }
                           }}
                           keyboardType="number-pad"
-                          style={[styles.setInput, { width: 64 }, s.completed && styles.completedInput]}
+                          placeholderTextColor={c.textTertiary}
+                          style={[styles.setInput, { width: 64, color: c.text, backgroundColor: c.inputBg, borderColor: c.border }, s.completed && { color: c.textTertiary, backgroundColor: c.completedBg, borderColor: c.completedBorder }]}
                         />
                         <TextInput
                           value={s.rpe != null ? String(s.rpe) : ''}
@@ -721,7 +756,8 @@ export default function LogScreen() {
                           }}
                           keyboardType="decimal-pad"
                           placeholder="RPE"
-                          style={[styles.setInput, { width: 52 }, s.completed && styles.completedInput]}
+                          placeholderTextColor={c.textTertiary}
+                          style={[styles.setInput, { width: 52, color: c.text, backgroundColor: c.inputBg, borderColor: c.border }, s.completed && { color: c.textTertiary, backgroundColor: c.completedBg, borderColor: c.completedBorder }]}
                         />
                       </View>
                     ))}
@@ -730,13 +766,13 @@ export default function LogScreen() {
 
                 {/* Last Time panel */}
                 {lastTimeBySlot[slot.session_slot_id] && (
-                  <View style={styles.lastTimeContainer}>
-                    <Text style={styles.lastTimeTitle}>
+                  <View style={[styles.lastTimeContainer, { backgroundColor: c.sectionHeaderBg, borderColor: c.border }]}>
+                    <Text style={[styles.lastTimeTitle, { color: c.textSecondary }]}>
                       Last time — {new Date(lastTimeBySlot[slot.session_slot_id]!.performed_at).toLocaleDateString()}
                     </Text>
                     <View style={styles.lastTimeSets}>
                       {lastTimeBySlot[slot.session_slot_id]!.sets.map((ls, i: number) => (
-                        <Text key={i} style={styles.lastTimeSet}>
+                        <Text key={i} style={[styles.lastTimeSet, { color: c.textSecondary }]}>
                           Set {ls.set_index}: {ls.weight} {unit} × {ls.reps}
                           {ls.rpe ? ` @${ls.rpe}` : ''}
                         </Text>
@@ -759,33 +795,33 @@ export default function LogScreen() {
             setTimerRunning(false);
           }}
         >
-          <View style={styles.timerModal} onStartShouldSetResponder={() => true}>
-            <Text style={styles.timerTitle}>Rest Timer</Text>
-            <Text style={styles.timerDisplay}>
+          <View style={[styles.timerModal, { backgroundColor: c.card }]} onStartShouldSetResponder={() => true}>
+            <Text style={[styles.timerTitle, { color: c.text }]}>Rest Timer</Text>
+            <Text style={[styles.timerDisplay, { color: c.success }]}>
               {Math.floor(timerSeconds / 60)}:{(timerSeconds % 60).toString().padStart(2, '0')}
             </Text>
             <View style={styles.timerControls}>
               <Pressable
-                style={styles.timerBtn}
+                style={[styles.timerBtn, { backgroundColor: c.inputBg }]}
                 onPress={() => setTimerSeconds((prev) => Math.max(0, prev - 5))}
               >
-                <Text style={styles.timerBtnText}>-5s</Text>
+                <Text style={[styles.timerBtnText, { color: c.text }]}>-5s</Text>
               </Pressable>
               <Pressable
-                style={[styles.timerBtn, styles.timerBtnPrimary]}
+                style={[styles.timerBtn, { backgroundColor: c.success }]}
                 onPress={() => {
                   setTimerRunning(!timerRunning);
                 }}
               >
-                <Text style={[styles.timerBtnText, styles.timerBtnTextPrimary]}>
+                <Text style={[styles.timerBtnText, { color: '#FFF' }]}>
                   {timerRunning ? 'Pause' : 'Start'}
                 </Text>
               </Pressable>
               <Pressable
-                style={styles.timerBtn}
+                style={[styles.timerBtn, { backgroundColor: c.inputBg }]}
                 onPress={() => setTimerSeconds((prev) => prev + 5)}
               >
-                <Text style={styles.timerBtnText}>+5s</Text>
+                <Text style={[styles.timerBtnText, { color: c.text }]}>+5s</Text>
               </Pressable>
             </View>
             <Pressable
@@ -795,11 +831,19 @@ export default function LogScreen() {
                 setTimerRunning(false);
               }}
             >
-              <Text style={styles.timerSkipText}>Skip Rest</Text>
+              <Text style={[styles.timerSkipText, { color: c.textSecondary }]}>Skip Rest</Text>
             </Pressable>
           </View>
         </Pressable>
       </Modal>
+
+      {/* Plate Calculator */}
+      <PlateCalculator
+        visible={plateCalcVisible}
+        onClose={() => setPlateCalcVisible(false)}
+        weight={plateCalcWeight}
+        unit={unit}
+      />
     </ScrollView>
   );
 }

@@ -92,6 +92,7 @@ export async function resetDb() {
     'templates',
     'exercise_options',
     'exercises',
+    'personal_records',
     'schema_migrations',
     'app_settings',
   ];

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet, SectionList } from 'react-native';
 import { listExercises, createExercise } from '../db/repositories/exercisesRepo';
+import { useColors } from '../contexts/ThemeContext';
 import type { Exercise } from '../types';
 
 /* ── Muscle-group display order & labels ──────────────────── */
@@ -61,6 +62,7 @@ export default function ExercisesScreen({ navigation }: any) {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [search, setSearch] = useState('');
   const [newName, setNewName] = useState('');
+  const c = useColors();
 
   function load() {
     listExercises().then(setExercises);
@@ -117,7 +119,7 @@ export default function ExercisesScreen({ navigation }: any) {
   }
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { backgroundColor: c.background }]}>
       <SectionList
         sections={sections}
         keyExtractor={(item) => String(item.id)}
@@ -128,25 +130,26 @@ export default function ExercisesScreen({ navigation }: any) {
               value={search}
               onChangeText={setSearch}
               placeholder="Search exercises, muscles, equipment..."
-              placeholderTextColor="#AAA"
-              style={s.searchInput}
+              placeholderTextColor={c.textTertiary}
+              style={[s.searchInput, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
             />
             <View style={s.newRow}>
               <TextInput
                 value={newName}
                 onChangeText={setNewName}
                 placeholder="Add custom exercise"
-                style={s.input}
+                placeholderTextColor={c.textTertiary}
+                style={[s.input, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
               />
-              <Pressable style={s.createBtn} onPress={handleCreate}>
-                <Text style={s.createBtnText}>Add</Text>
+              <Pressable style={[s.createBtn, { backgroundColor: c.primary }]} onPress={handleCreate}>
+                <Text style={[s.createBtnText, { color: c.primaryText }]}>Add</Text>
               </Pressable>
             </View>
           </View>
         }
         renderSectionHeader={({ section: { title } }) => (
-          <View style={s.sectionHeader}>
-            <Text style={s.sectionTitle}>{title}</Text>
+          <View style={[s.sectionHeader, { backgroundColor: c.sectionHeaderBg, borderBottomColor: c.border }]}>
+            <Text style={[s.sectionTitle, { color: c.textSecondary }]}>{title}</Text>
           </View>
         )}
         renderItem={({ item }) => (
@@ -157,10 +160,10 @@ export default function ExercisesScreen({ navigation }: any) {
                 name: item.name,
               })
             }
-            style={s.row}
+            style={[s.row, { backgroundColor: c.card, borderBottomColor: c.border }]}
           >
             <View style={s.rowContent}>
-              <Text style={s.rowText}>{item.name}</Text>
+              <Text style={[s.rowText, { color: c.text }]}>{item.name}</Text>
               {item.equipment && (
                 <View
                   style={[
@@ -176,12 +179,12 @@ export default function ExercisesScreen({ navigation }: any) {
                 </View>
               )}
             </View>
-            <Text style={s.chevron}>›</Text>
+            <Text style={[s.chevron, { color: c.textTertiary }]}>›</Text>
           </Pressable>
         )}
         ListEmptyComponent={
           <View style={s.empty}>
-            <Text style={s.emptyText}>No exercises found</Text>
+            <Text style={[s.emptyText, { color: c.textSecondary }]}>No exercises found</Text>
           </View>
         }
       />

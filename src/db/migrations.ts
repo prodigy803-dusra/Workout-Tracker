@@ -171,4 +171,18 @@ export const migrations: string[] = [
   `ALTER TABLE exercises ADD COLUMN video_url TEXT NULL;`,
   `ALTER TABLE exercises ADD COLUMN instructions TEXT NULL;`,
   `ALTER TABLE exercises ADD COLUMN tips TEXT NULL;`,
+  // 30 – personal records table
+  `
+  CREATE TABLE IF NOT EXISTS personal_records(
+    id INTEGER PRIMARY KEY,
+    exercise_id INT NOT NULL,
+    session_id INT NOT NULL,
+    pr_type TEXT NOT NULL,
+    value REAL NOT NULL,
+    previous_value REAL NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(exercise_id) REFERENCES exercises(id),
+    FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
+  );
+  `,
 ];

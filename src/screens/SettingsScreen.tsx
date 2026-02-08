@@ -5,6 +5,7 @@ import { Paths, File } from 'expo-file-system';
 import { resetDb, executeSqlAsync, db } from '../db/db';
 import { importExercises } from '../db/repositories/exercisesRepo';
 import { useUnit } from '../contexts/UnitContext';
+import { useTheme, useColors, ThemeMode } from '../contexts/ThemeContext';
 
 const BACKUP_TABLES = [
   'exercises',
@@ -17,6 +18,7 @@ const BACKUP_TABLES = [
   'session_slots',
   'session_slot_choices',
   'sets',
+  'personal_records',
   'app_settings',
 ] as const;
 
@@ -25,6 +27,8 @@ export default function SettingsScreen() {
   const [resetting, setResetting] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const { unit, setUnit } = useUnit();
+  const { mode, setMode } = useTheme();
+  const c = useColors();
 
   async function exportJson() {
     try {
@@ -128,8 +132,29 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      <Text style={styles.sectionTitle}>Unit</Text>
+    <ScrollView style={[styles.container, { backgroundColor: c.background }]} contentContainerStyle={{ paddingBottom: 40 }}>
+      <Text style={[styles.sectionTitle, { color: c.text }]}>Theme</Text>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+        {(['light', 'dark', 'system'] as ThemeMode[]).map((m) => (
+          <Pressable
+            key={m}
+            onPress={() => setMode(m)}
+            style={[
+              styles.button,
+              m === mode
+                ? { backgroundColor: c.primary }
+                : { backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
+              { flex: 1 },
+            ]}
+          >
+            <Text style={[styles.buttonText, m === mode ? { color: c.primaryText } : { color: c.text }]}>
+              {m === 'light' ? '☀️ Light' : m === 'dark' ? '🌙 Dark' : '📱 System'}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={[styles.sectionTitle, { color: c.text }]}>Unit</Text>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
         {(['kg', 'lb'] as const).map((u) => (
           <Pressable
@@ -137,54 +162,57 @@ export default function SettingsScreen() {
             onPress={() => setUnit(u)}
             style={[
               styles.button,
-              u === unit ? {} : { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#DDD' },
+              u === unit
+                ? { backgroundColor: c.primary }
+                : { backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
               { flex: 1 },
             ]}
           >
-            <Text style={[styles.buttonText, u !== unit && { color: '#111' }]}>
+            <Text style={[styles.buttonText, u === unit ? { color: c.primaryText } : { color: c.text }]}>
               {u.toUpperCase()}
             </Text>
           </Pressable>
         ))}
       </View>
 
-      <Text style={styles.sectionTitle}>Data</Text>
+      <Text style={[styles.sectionTitle, { color: c.text }]}>Data</Text>
 
-      <Pressable onPress={exportJson} style={styles.button}>
-        <Text style={styles.buttonText}>Export Full Backup</Text>
+      <Pressable onPress={exportJson} style={[styles.button, { backgroundColor: c.primary }]}>
+        <Text style={[styles.buttonText, { color: c.primaryText }]}>Export Full Backup</Text>
       </Pressable>
-      <Text style={styles.hint}>
+      <Text style={[styles.hint, { color: c.textSecondary }]}>
         Exports all exercises, templates, sessions, sets, and settings as a single JSON file.
       </Text>
 
-      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Restore Backup</Text>
-      <Text style={styles.hint}>
+      <Text style={[styles.sectionTitle, { marginTop: 24, color: c.text }]}>Restore Backup</Text>
+      <Text style={[styles.hint, { color: c.textSecondary }]}>
         Paste a previously exported JSON backup below to restore all data.
       </Text>
       <TextInput
         value={json}
         onChangeText={setJson}
         placeholder='Paste backup JSON here...'
+        placeholderTextColor={c.textTertiary}
         multiline
-        style={styles.textArea}
+        style={[styles.textArea, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
       />
       <Pressable
         onPress={restoreBackup}
-        style={[styles.button, restoring && { opacity: 0.5 }]}
+        style={[styles.button, { backgroundColor: c.primary }, restoring && { opacity: 0.5 }]}
         disabled={restoring}
       >
-        <Text style={styles.buttonText}>
+        <Text style={[styles.buttonText, { color: c.primaryText }]}>
           {restoring ? 'Restoring...' : 'Restore Backup'}
         </Text>
       </Pressable>
 
-      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Danger Zone</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 24, color: c.text }]}>Danger Zone</Text>
       <Pressable
         onPress={handleReset}
-        style={[styles.button, styles.dangerButton]}
+        style={[styles.button, { backgroundColor: c.dangerBg, borderWidth: 1, borderColor: c.danger }]}
         disabled={resetting}
       >
-        <Text style={[styles.buttonText, styles.dangerText]}>
+        <Text style={[styles.buttonText, { color: c.danger }]}>
           {resetting ? 'Resetting...' : 'Reset Database'}
         </Text>
       </Pressable>

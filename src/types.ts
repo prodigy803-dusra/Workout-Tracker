@@ -193,6 +193,31 @@ export type ExerciseGuideData = {
   tips: string | null;
 };
 
+/* ── PR types ───────────────────────────────────────────── */
+
+export type PersonalRecord = {
+  id: number;
+  exercise_id: number;
+  session_id: number;
+  pr_type: 'e1rm' | 'weight';
+  value: number;
+  previous_value: number | null;
+  created_at: string;
+};
+
+/* ── Volume & streak types ──────────────────────────────── */
+
+export type MuscleVolumeRow = {
+  muscle: string;
+  sets: number;
+  volume: number;
+};
+
+export type WorkoutDay = {
+  date: string;
+  count: number;
+};
+
 /* ── Navigation types ───────────────────────────────────── */
 
 export type RootTabParamList = {
@@ -201,6 +226,11 @@ export type RootTabParamList = {
   Templates: undefined;
   Exercises: undefined;
   Settings: undefined;
+};
+
+export type LogStackParamList = {
+  LogHome: undefined;
+  WorkoutSummary: { sessionId: number; duration: number };
 };
 
 export type HistoryStackParamList = {
