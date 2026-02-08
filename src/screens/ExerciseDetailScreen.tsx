@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { executeSqlAsync } from '../db/db';
 import { listExerciseOptions, createExerciseOption } from '../db/repositories/exercisesRepo';
+import MuscleMap from '../components/MuscleMap';
+import { getMuscleInfo, ALL_MUSCLE_IDS } from '../data/muscleExerciseMap';
 
 export default function ExerciseDetailScreen({ route }: any) {
   const { exerciseId, name } = route.params;
@@ -32,6 +34,19 @@ export default function ExerciseDetailScreen({ route }: any) {
     setOptions(opts);
   }
 
+  // Resolve muscle groups for this exercise
+  const muscleInfo = useMemo(() => getMuscleInfo(name), [name]);
+  const primaryMuscles = useMemo(() => {
+    if (!muscleInfo) return [];
+    if (muscleInfo.primary === 'full_body') return ALL_MUSCLE_IDS;
+    return [muscleInfo.primary];
+  }, [muscleInfo]);
+  const secondaryMuscles = useMemo(() => {
+    if (!muscleInfo?.secondary) return [];
+    if (muscleInfo.secondary === 'full_body') return ALL_MUSCLE_IDS;
+    return [muscleInfo.secondary];
+  }, [muscleInfo]);
+
   useEffect(() => {
     loadStats();
     loadOptions();
@@ -46,8 +61,30 @@ export default function ExerciseDetailScreen({ route }: any) {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
       <Text style={styles.title}>{name}</Text>
+
+      {muscleInfo && (
+        <View style={styles.muscleCard}>
+          <Text style={styles.sectionTitle}>Muscles Worked</Text>
+          <MuscleMap
+            primaryMuscles={primaryMuscles}
+            secondaryMuscles={secondaryMuscles}
+          />
+          <View style={styles.muscleLabels}>
+            <Text style={styles.muscleLabel}>
+              <Text style={{ color: '#E8443A', fontWeight: '700' }}>●</Text>{' '}
+              {muscleInfo.primary.replace(/_/g, ' ')}
+            </Text>
+            {muscleInfo.secondary && (
+              <Text style={styles.muscleLabel}>
+                <Text style={{ color: '#F5A623', fontWeight: '700' }}>●</Text>{' '}
+                {muscleInfo.secondary.replace(/_/g, ' ')}
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
 
       <View style={styles.statsCard}>
         <Text style={styles.sectionTitle}>Stats</Text>
@@ -89,13 +126,32 @@ export default function ExerciseDetailScreen({ route }: any) {
           </Pressable>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#F6F4F1' },
   title: { fontSize: 22, fontWeight: '700', color: '#1A1A1A', marginBottom: 16 },
+  muscleCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E6E1DB',
+  },
+  muscleLabels: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 6,
+    justifyContent: 'center',
+  },
+  muscleLabel: {
+    fontSize: 13,
+    color: '#555',
+    textTransform: 'capitalize',
+  },
   statsCard: {
     backgroundColor: '#FFF',
     borderRadius: 12,

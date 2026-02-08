@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
 import { listHistory } from '../db/repositories/sessionsRepo';
 import { overallStats } from '../db/repositories/statsRepo';
 import { useUnit } from '../contexts/UnitContext';
@@ -96,10 +95,9 @@ export default function HistoryScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <FlashList
+      <FlatList
         data={items}
         keyExtractor={(item) => String(item.id)}
-        estimatedItemSize={140}
         ListHeaderComponent={header}
         ListEmptyComponent={
           <View style={styles.empty}>

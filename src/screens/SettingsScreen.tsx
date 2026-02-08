@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, TextInput, Alert, StyleSheet } from 'react-native';
-import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { Paths, File } from 'expo-file-system';
 import { resetDb, executeSqlAsync } from '../db/db';
 import { importExercises } from '../db/repositories/exercisesRepo';
 import { useUnit } from '../contexts/UnitContext';
@@ -12,18 +12,31 @@ export default function SettingsScreen() {
   const { unit, setUnit } = useUnit();
 
   async function exportJson() {
-    const data = await executeSqlAsync(
-      `SELECT 'sessions' as type, json_group_array(json_object(
-        'id', id, 'performed_at', performed_at, 'notes', notes, 'status', status, 'template_id', template_id, 'created_at', created_at
-      )) as payload FROM sessions;`
-    );
-    const payload = {
-      sessions: JSON.parse(data.rows.item(0).payload || '[]'),
-    };
-    const path = `${FileSystem.documentDirectory}export.json`;
-    await FileSystem.writeAsStringAsync(path, JSON.stringify(payload, null, 2));
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(path);
+    try {
+      const sessions = await executeSqlAsync(`SELECT * FROM sessions WHERE status='final';`);
+      const sets = await executeSqlAsync(`SELECT * FROM sets;`);
+      const templates = await executeSqlAsync(`SELECT * FROM templates;`);
+      const exercises = await executeSqlAsync(`SELECT * FROM exercises;`);
+      const exerciseOptions = await executeSqlAsync(`SELECT * FROM exercise_options;`);
+
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        sessions: sessions.rows._array,
+        sets: sets.rows._array,
+        templates: templates.rows._array,
+        exercises: exercises.rows._array,
+        exercise_options: exerciseOptions.rows._array,
+      };
+      const jsonStr = JSON.stringify(payload, null, 2);
+      if (await Sharing.isAvailableAsync()) {
+        const file = new File(Paths.cache, 'export.json');
+        file.write(jsonStr);
+        await Sharing.shareAsync(file.uri);
+      } else {
+        Alert.alert('Sharing not available', 'Your device does not support file sharing.');
+      }
+    } catch (e) {
+      Alert.alert('Export Error', 'Could not export data.');
     }
   }
 

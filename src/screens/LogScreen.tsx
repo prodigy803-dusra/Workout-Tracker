@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Alert, TextInput, Modal } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   finalizeSession,
   getActiveDraft,
@@ -8,6 +8,7 @@ import {
   listSlotOptions,
   selectSlotChoice,
   discardDraft,
+  createDraftFromTemplate,
 } from '../db/repositories/sessionsRepo';
 import {
   listSetsForChoice,
@@ -15,6 +16,8 @@ import {
   upsertSet,
   lastTimeForOption,
 } from '../db/repositories/setsRepo';
+import { listTemplates } from '../db/repositories/templatesRepo';
+import { overallStats } from '../db/repositories/statsRepo';
 import OptionChips from '../components/OptionChips';
 import { useUnit } from '../contexts/UnitContext';
 
@@ -33,6 +36,215 @@ type LastTimeData = {
   sets: any[];
 } | null;
 
+/* ═══════════════════════════════════════════════════════════
+ *  Idle screen — shown when no workout is in progress
+ * ═══════════════════════════════════════════════════════════ */
+function IdleScreen({ onSessionStarted }: { onSessionStarted: () => void }) {
+  const navigation = useNavigation<any>();
+  const { unit } = useUnit();
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [greeting, setGreeting] = useState('');
+
+  useEffect(() => {
+    const h = new Date().getHours();
+    if (h < 12) setGreeting('Good morning');
+    else if (h < 17) setGreeting('Good afternoon');
+    else setGreeting('Good evening');
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      listTemplates().then(setTemplates);
+      overallStats().then(setStats);
+    }, [])
+  );
+
+  const last7 = stats?.last7;
+  const hasHistory = stats && stats.totalSessions > 0;
+
+  async function quickStart(templateId: number) {
+    try {
+      await createDraftFromTemplate(templateId);
+      onSessionStarted();
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to start session');
+    }
+  }
+
+  return (
+    <ScrollView style={idle.container} contentContainerStyle={idle.content}>
+      {/* Greeting */}
+      <View style={idle.hero}>
+        <Text style={idle.greeting}>{greeting} 👋</Text>
+        <Text style={idle.heroTitle}>Ready to train?</Text>
+      </View>
+
+      {/* Quick-start templates */}
+      {templates.length > 0 && (
+        <View style={idle.section}>
+          <Text style={idle.sectionTitle}>QUICK START</Text>
+          <View style={idle.templateGrid}>
+            {templates.slice(0, 6).map((t) => (
+              <Pressable
+                key={t.id}
+                style={idle.templateCard}
+                onPress={() => quickStart(t.id)}
+              >
+                <Text style={idle.templateIcon}>🏋️</Text>
+                <Text style={idle.templateName} numberOfLines={2}>
+                  {t.name}
+                </Text>
+                <Text style={idle.templateAction}>Start →</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Weekly stats summary */}
+      {hasHistory && last7 && (
+        <View style={idle.section}>
+          <Text style={idle.sectionTitle}>THIS WEEK</Text>
+          <View style={idle.statsRow}>
+            <View style={idle.statCard}>
+              <Text style={idle.statNumber}>{last7.sessionsCount}</Text>
+              <Text style={idle.statLabel}>Workouts</Text>
+            </View>
+            <View style={idle.statCard}>
+              <Text style={idle.statNumber}>{last7.setsCount}</Text>
+              <Text style={idle.statLabel}>Sets</Text>
+            </View>
+            <View style={idle.statCard}>
+              <Text style={idle.statNumber}>
+                {last7.totalVolume >= 1000
+                  ? `${(last7.totalVolume / 1000).toFixed(1)}k`
+                  : last7.totalVolume}
+              </Text>
+              <Text style={idle.statLabel}>Vol ({unit})</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* All-time stats */}
+      {hasHistory && (
+        <View style={idle.section}>
+          <View style={idle.allTimeCard}>
+            <Text style={idle.allTimeNum}>{stats.totalSessions}</Text>
+            <Text style={idle.allTimeLabel}>total workouts logged</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Empty state for new users */}
+      {templates.length === 0 && (
+        <View style={idle.onboarding}>
+          <Text style={idle.onboardingIcon}>📑</Text>
+          <Text style={idle.onboardingTitle}>Create your first template</Text>
+          <Text style={idle.onboardingBody}>
+            Set up a workout template in the Templates tab, then come back here to start logging.
+          </Text>
+          <Pressable
+            style={idle.onboardingBtn}
+            onPress={() => navigation.navigate('Templates')}
+          >
+            <Text style={idle.onboardingBtnText}>Go to Templates</Text>
+          </Pressable>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const idle = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F6F4F1' },
+  content: { padding: 20, paddingBottom: 40 },
+
+  hero: { marginBottom: 28 },
+  greeting: { fontSize: 16, color: '#888', marginBottom: 4 },
+  heroTitle: { fontSize: 28, fontWeight: '800', color: '#1A1A1A' },
+
+  section: { marginBottom: 24 },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#999',
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+
+  templateGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  templateCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 16,
+    width: '48%' as any,
+    flexGrow: 1,
+    flexBasis: '46%',
+    borderWidth: 1,
+    borderColor: '#E6E1DB',
+    minHeight: 100,
+    justifyContent: 'space-between',
+  },
+  templateIcon: { fontSize: 22, marginBottom: 8 },
+  templateName: { fontSize: 15, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 },
+  templateAction: { fontSize: 13, fontWeight: '600', color: '#4A90D9' },
+
+  statsRow: { flexDirection: 'row', gap: 10 },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E6E1DB',
+  },
+  statNumber: { fontSize: 24, fontWeight: '800', color: '#1A1A1A' },
+  statLabel: { fontSize: 12, color: '#888', marginTop: 4 },
+
+  allTimeCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  allTimeNum: { fontSize: 32, fontWeight: '800', color: '#FFF' },
+  allTimeLabel: { fontSize: 15, color: '#AAA' },
+
+  onboarding: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  onboardingIcon: { fontSize: 48, marginBottom: 12 },
+  onboardingTitle: { fontSize: 20, fontWeight: '700', color: '#1A1A1A' },
+  onboardingBody: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 20,
+    paddingHorizontal: 16,
+  },
+  onboardingBtn: {
+    backgroundColor: '#111',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+  },
+  onboardingBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+});
+
+/* ═══════════════════════════════════════════════════════════
+ *  Main Log screen — active workout
+ * ═══════════════════════════════════════════════════════════ */
 export default function LogScreen() {
   const [draft, setDraft] = useState<any>(null);
   const [slots, setSlots] = useState<any[]>([]);
@@ -100,14 +312,13 @@ export default function LogScreen() {
       setExpandedSlots(new Set([firstIncomplete]));
     }
 
-    // Load "last time" data for each slot
-    const lastTimeMap: Record<number, LastTimeData> = {};
-    for (const s of slotRows) {
-      if (s.template_slot_option_id) {
-        lastTimeMap[s.session_slot_id] = await lastTimeForOption(s.template_slot_option_id);
-      }
-    }
-    setLastTimeBySlot(lastTimeMap);
+    // Load "last time" data for each slot (parallelized)
+    const lastTimeEntries = await Promise.all(
+      slotRows
+        .filter((s) => s.template_slot_option_id)
+        .map(async (s) => [s.session_slot_id, await lastTimeForOption(s.template_slot_option_id)] as const)
+    );
+    setLastTimeBySlot(Object.fromEntries(lastTimeEntries));
   }, []);
 
   // Cooldown timer effect
@@ -173,13 +384,7 @@ export default function LogScreen() {
   );
 
   if (!draft) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>🏋️</Text>
-        <Text style={styles.emptyTitle}>No Active Session</Text>
-        <Text style={styles.emptyBody}>Go to Templates and tap Start to begin logging.</Text>
-      </View>
-    );
+    return <IdleScreen onSessionStarted={load} />;
   }
 
   if (slots.length === 0) {
@@ -413,7 +618,7 @@ export default function LogScreen() {
                         <TextInput
                           value={String(s.weight)}
                           onChangeText={(text) => {
-                            const weight = parseFloat(text) || 0;
+                            const weight = text === '' ? 0 : (parseFloat(text) || 0);
                             setSetsByChoice((prev) => ({
                               ...prev,
                               [selectedChoiceId]: prev[selectedChoiceId].map((x) =>
@@ -424,7 +629,7 @@ export default function LogScreen() {
                           onEndEditing={() => {
                             const currentSet = setsByChoice[selectedChoiceId]?.find((x) => x.id === s.id);
                             if (currentSet) {
-                              upsertSet(selectedChoiceId, currentSet.set_index, currentSet.weight, currentSet.reps, currentSet.rpe, null, currentSet.rest_seconds);
+                              upsertSet(selectedChoiceId, currentSet.set_index, currentSet.weight, currentSet.reps, currentSet.rpe, null, currentSet.rest_seconds).catch(() => {});
                             }
                           }}
                           keyboardType="numeric"
@@ -433,7 +638,7 @@ export default function LogScreen() {
                         <TextInput
                           value={String(s.reps)}
                           onChangeText={(text) => {
-                            const reps = parseInt(text, 10) || 0;
+                            const reps = text === '' ? 0 : (parseInt(text, 10) || 0);
                             setSetsByChoice((prev) => ({
                               ...prev,
                               [selectedChoiceId]: prev[selectedChoiceId].map((x) =>
@@ -444,7 +649,7 @@ export default function LogScreen() {
                           onEndEditing={() => {
                             const currentSet = setsByChoice[selectedChoiceId]?.find((x) => x.id === s.id);
                             if (currentSet) {
-                              upsertSet(selectedChoiceId, currentSet.set_index, currentSet.weight, currentSet.reps, currentSet.rpe, null, currentSet.rest_seconds);
+                              upsertSet(selectedChoiceId, currentSet.set_index, currentSet.weight, currentSet.reps, currentSet.rpe, null, currentSet.rest_seconds).catch(() => {});
                             }
                           }}
                           keyboardType="number-pad"
@@ -464,7 +669,7 @@ export default function LogScreen() {
                           onEndEditing={() => {
                             const currentSet = setsByChoice[selectedChoiceId]?.find((x) => x.id === s.id);
                             if (currentSet) {
-                              upsertSet(selectedChoiceId, currentSet.set_index, currentSet.weight, currentSet.reps, currentSet.rpe, null, currentSet.rest_seconds);
+                              upsertSet(selectedChoiceId, currentSet.set_index, currentSet.weight, currentSet.reps, currentSet.rpe, null, currentSet.rest_seconds).catch(() => {});
                             }
                           }}
                           keyboardType="decimal-pad"

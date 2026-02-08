@@ -8,6 +8,7 @@ import {
   FlatList,
   StyleSheet,
   ScrollView,
+  Alert,
 } from 'react-native';
 import {
   getTemplate,
@@ -33,6 +34,7 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
   const [pickerStep, setPickerStep] = useState<'exercise' | 'option'>('exercise');
   const [pickerExerciseId, setPickerExerciseId] = useState<number | null>(null);
   const [exerciseOptions, setExerciseOptions] = useState<any[]>([]);
+  const [pickerSearch, setPickerSearch] = useState('');
 
   // Prescribed sets editor state (per slot)
   const [editingSetsForSlot, setEditingSetsForSlot] = useState<number | null>(null);
@@ -53,9 +55,14 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
   }, []);
 
   async function addNewSlot() {
-    const nextIndex = slots.length + 1;
-    await addSlot(templateId, nextIndex, `Slot ${nextIndex}`);
-    await load();
+    const maxIndex = slots.reduce((max: number, s: any) => Math.max(max, s.slot_index ?? 0), 0);
+    const nextIndex = maxIndex + 1;
+    try {
+      await addSlot(templateId, nextIndex, `Slot ${nextIndex}`);
+      await load();
+    } catch (e) {
+      Alert.alert('Error', 'Could not add slot.');
+    }
   }
 
   function openPicker(slotId: number) {
@@ -63,6 +70,7 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
     setPickerStep('exercise');
     setPickerExerciseId(null);
     setExerciseOptions([]);
+    setPickerSearch('');
   }
 
   function closePicker() {
@@ -70,6 +78,7 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
     setPickerStep('exercise');
     setPickerExerciseId(null);
     setExerciseOptions([]);
+    setPickerSearch('');
   }
 
   async function handlePickExercise(exerciseId: number) {
@@ -78,7 +87,11 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
     if (opts.length === 0) {
       // No options — add directly with null option
       const order = options.filter((o) => o.template_slot_id === pickerSlotId).length;
-      await addTemplateSlotOption(pickerSlotId!, exerciseId, null, order);
+      try {
+        await addTemplateSlotOption(pickerSlotId!, exerciseId, null, order);
+      } catch {
+        Alert.alert('Duplicate', 'This exercise is already in the slot.');
+      }
       closePicker();
       await load();
     } else {
@@ -90,7 +103,11 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
   async function handlePickOption(exerciseOptionId: number | null) {
     if (!pickerSlotId || !pickerExerciseId) return;
     const order = options.filter((o) => o.template_slot_id === pickerSlotId).length;
-    await addTemplateSlotOption(pickerSlotId, pickerExerciseId, exerciseOptionId, order);
+    try {
+      await addTemplateSlotOption(pickerSlotId, pickerExerciseId, exerciseOptionId, order);
+    } catch {
+      Alert.alert('Duplicate', 'This option is already in the slot.');
+    }
     closePicker();
     await load();
   }
@@ -154,7 +171,7 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
           <View key={s.id} style={styles.slotCard}>
             <TextInput
               defaultValue={s.name || ''}
-              onEndEditing={(e) => updateSlotName(s.id, e.nativeEvent.text)}
+              onEndEditing={(e) => { updateSlotName(s.id, e.nativeEvent.text).catch(() => {}); }}
               placeholder="Slot name"
               style={styles.slotNameInput}
             />
@@ -217,18 +234,40 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
             </View>
 
             {pickerStep === 'exercise' && (
-              <FlatList
-                data={exercises}
-                keyExtractor={(item) => String(item.id)}
-                renderItem={({ item }) => (
-                  <Pressable
-                    onPress={() => handlePickExercise(item.id)}
-                    style={styles.pickerRow}
-                  >
-                    <Text style={styles.pickerRowText}>{item.name}</Text>
-                  </Pressable>
-                )}
-              />
+              <>
+                <TextInput
+                  value={pickerSearch}
+                  onChangeText={setPickerSearch}
+                  placeholder="Search exercises…"
+                  autoFocus
+                  style={styles.pickerSearch}
+                />
+                <FlatList
+                  data={exercises.filter((e: any) => {
+                    if (!pickerSearch.trim()) return true;
+                    const q = pickerSearch.toLowerCase();
+                    return (
+                      e.name?.toLowerCase().includes(q) ||
+                      e.primary_muscle?.toLowerCase().includes(q) ||
+                      e.equipment?.toLowerCase().includes(q) ||
+                      e.aliases?.toLowerCase().includes(q)
+                    );
+                  })}
+                  keyExtractor={(item) => String(item.id)}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item }) => (
+                    <Pressable
+                      onPress={() => handlePickExercise(item.id)}
+                      style={styles.pickerRow}
+                    >
+                      <Text style={styles.pickerRowText}>{item.name}</Text>
+                      {item.primary_muscle ? (
+                        <Text style={styles.pickerRowSub}>{item.primary_muscle}</Text>
+                      ) : null}
+                    </Pressable>
+                  )}
+                />
+              </>
             )}
 
             {pickerStep === 'option' && (
@@ -439,6 +478,18 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F0F0F0',
   },
   pickerRowText: { fontSize: 16, color: '#1A1A1A' },
+  pickerRowSub: { fontSize: 12, color: '#888', marginTop: 2 },
+  pickerSearch: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#DDD',
+    borderRadius: 10,
+    fontSize: 15,
+    backgroundColor: '#F9F9F9',
+  },
   setsEditorScroll: { maxHeight: 400, paddingHorizontal: 16 },
   setEditorCard: {
     marginVertical: 8,

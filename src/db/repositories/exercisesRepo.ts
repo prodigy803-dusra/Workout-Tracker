@@ -7,7 +7,8 @@ function now() {
 
 export async function listExercises() {
   const res = await executeSqlAsync(
-    `SELECT id, name FROM exercises ORDER BY name;`
+    `SELECT id, name, primary_muscle, secondary_muscle, aliases, equipment, movement_pattern
+     FROM exercises ORDER BY name;`
   );
   return res.rows._array;
 }
@@ -71,11 +72,12 @@ export async function importExercises(payload: {
         await executeSqlAsync(
           `INSERT INTO exercise_options(exercise_id, name, name_norm, order_index, created_at)
            VALUES (?,?,?,?,?);`,
-          [exId, opt, normalizeName(opt), order++, now()]
+          [exId, opt, normalizeName(opt), order, now()]
         );
       } catch {
-        order += 1;
+        // duplicate — skip
       }
+      order += 1;
     }
   }
 }

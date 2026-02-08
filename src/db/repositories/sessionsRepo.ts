@@ -94,11 +94,11 @@ export async function createDraftFromTemplate(templateId: number) {
       JOIN sessions s ON s.id = ss.session_id
       JOIN session_slot_choices ssc ON ssc.id = ss.selected_session_slot_choice_id
       JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
-      WHERE s.status='final' AND ss.slot_index = ?
+      WHERE s.status='final' AND s.template_id = ? AND ss.slot_index = ?
       ORDER BY s.performed_at DESC, s.id DESC, ss.id DESC
       LIMIT 1;
       `,
-      [slot.slot_index]
+      [templateId, slot.slot_index]
     );
 
     let defaultOptionId: number | null = null;
@@ -199,9 +199,9 @@ export async function listDraftSlots(sessionId: number) {
     SELECT ss.id as session_slot_id, ss.slot_index, ss.name, ss.selected_session_slot_choice_id,
            tco.id as template_slot_option_id, e.name as exercise_name, eo.name as option_name
     FROM session_slots ss
-    JOIN session_slot_choices ssc ON ssc.id = ss.selected_session_slot_choice_id
-    JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
-    JOIN exercises e ON e.id = tco.exercise_id
+    LEFT JOIN session_slot_choices ssc ON ssc.id = ss.selected_session_slot_choice_id
+    LEFT JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+    LEFT JOIN exercises e ON e.id = tco.exercise_id
     LEFT JOIN exercise_options eo ON eo.id = tco.exercise_option_id
     WHERE ss.session_id=?
     ORDER BY ss.slot_index;

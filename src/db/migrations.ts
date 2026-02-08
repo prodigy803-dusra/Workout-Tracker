@@ -161,4 +161,10 @@ export const migrations: string[] = [
   `
   ALTER TABLE sets ADD COLUMN rest_seconds INT NULL;
   `,
+  // 22 – exercise metadata columns
+  `ALTER TABLE exercises ADD COLUMN primary_muscle TEXT NULL;`,
+  `ALTER TABLE exercises ADD COLUMN secondary_muscle TEXT NULL;`,
+  `ALTER TABLE exercises ADD COLUMN aliases TEXT NULL;`,
+  `ALTER TABLE exercises ADD COLUMN equipment TEXT NULL;`,
+  `ALTER TABLE exercises ADD COLUMN movement_pattern TEXT NULL;`,
 ];

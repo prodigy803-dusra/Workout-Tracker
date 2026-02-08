@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Pressable, Text, TextInput, Alert, StyleSheet } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { View, Pressable, Text, TextInput, Alert, StyleSheet, FlatList } from 'react-native';
 
 import { createTemplate, listTemplates, deleteTemplate } from '../db/repositories/templatesRepo';
 import {
@@ -137,10 +136,9 @@ export default function TemplatesScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <FlashList
+      <FlatList
         data={templates}
         keyExtractor={(item) => String(item.id)}
-        estimatedItemSize={88}
         ListHeaderComponent={header}
         ListEmptyComponent={
           <View style={styles.empty}>

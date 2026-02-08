@@ -55,6 +55,7 @@ const RAW: Array<[string, string, string | null]> = [
   ['conventional deadlift', 'hamstrings', 'glutes'],
   ['sumo deadlift', 'hamstrings', 'glutes'],
   ['trap bar deadlift', 'hamstrings', 'glutes'],
+  ['good morning', 'hamstrings', 'lower_back'],
 
   // HAMSTRING ISOLATION
   ['lying leg curl', 'hamstrings', null],
@@ -66,7 +67,11 @@ const RAW: Array<[string, string, string | null]> = [
   ['machine hip thrust', 'glutes', 'hamstrings'],
   ['cable kickback', 'glutes', null],
   ['bulgarian split squat', 'glutes', 'quads'],
+  ['walking lunge', 'glutes', 'quads'],
   ['step up', 'glutes', 'quads'],
+
+  // CALVES
+  ['hip abduction machine', 'glutes', 'core'],
 
   // CALVES
   ['standing calf raise', 'calves', null],
@@ -80,17 +85,22 @@ const RAW: Array<[string, string, string | null]> = [
   ['decline barbell bench', 'chest', 'triceps'],
   ['dumbbell bench press', 'chest', 'triceps'],
   ['incline dumbbell press', 'chest', 'triceps'],
+  ['weighted pushup', 'chest', 'triceps'],
+  ['weighted decline pushup', 'chest', 'triceps'],
   ['pec deck', 'chest', null],
+  ['dumbbell fly', 'chest', null],
   ['cable fly mid', 'chest', null],
   ['cable fly low to high', 'chest', null],
   ['cable fly high to low', 'chest', null],
   ['dip', 'chest', 'triceps'],
+  ['diamond pushup', 'triceps', 'chest'],
 
   // BACK – VERTICAL PULLS
   ['pull up', 'lats', 'biceps'],
   ['chin up', 'lats', 'biceps'],
   ['lat pulldown', 'lats', 'biceps'],
   ['neutral pulldown', 'lats', 'biceps'],
+  ['dumbbell pullover', 'lats', 'chest'],
 
   // BACK – ROWS
   ['seated cable row', 'mid_back', 'biceps'],
@@ -101,6 +111,7 @@ const RAW: Array<[string, string, string | null]> = [
 
   // BACK – MISC
   ['face pull', 'rear_delt', 'mid_back'],
+  ['reverse pec deck', 'rear_delt', null],
   ['straight arm pulldown', 'lats', null],
   ['back extension', 'lower_back', 'glutes'],
   ['reverse hyper', 'lower_back', 'glutes'],
@@ -122,6 +133,8 @@ const RAW: Array<[string, string, string | null]> = [
   ['ez bar curl', 'biceps', null],
   ['dumbbell curl', 'biceps', null],
   ['hammer curl', 'biceps', null],
+  ['concentration curl', 'biceps', null],
+  ['preacher curl', 'biceps', null],
   ['preacher curl machine', 'biceps', null],
 
   // TRICEPS
