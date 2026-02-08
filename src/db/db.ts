@@ -1,6 +1,5 @@
 import { openDatabaseSync } from 'expo-sqlite';
 import { migrations } from './migrations';
-import { seedIfNeeded } from './seed';
 
 const DB_NAME = 'workout.db';
 const db = openDatabaseSync(DB_NAME);
@@ -40,6 +39,7 @@ export async function executeSqlAsync(
 
 export async function initDb() {
   await runMigrations();
+  const { seedIfNeeded } = await import('./seed');
   await seedIfNeeded();
 }
 
@@ -71,6 +71,7 @@ export async function resetDb() {
     'session_slot_choices',
     'session_slots',
     'sessions',
+    'template_prescribed_sets',
     'template_slot_options',
     'template_slots',
     'templates',

@@ -56,46 +56,61 @@ export default function TemplatesScreen({ navigation }: any) {
   }, [newName]);
 
   async function handleStart(templateId: number) {
-    if (activeDraft && activeDraft.template_id === templateId) {
-      // Same template — just resume
+    try {
+      if (activeDraft && activeDraft.template_id === templateId) {
+        // Same template — just resume
+        navigation.navigate('Log');
+        return;
+      }
+
+      if (activeDraft) {
+        // Different template has an active draft
+        Alert.alert(
+          'Different session in progress',
+          'You have an active session from another template. What do you want to do?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Finish & Start New',
+              onPress: async () => {
+                try {
+                  await finalizeSession(activeDraft.id);
+                  await createDraftFromTemplate(templateId);
+                  await load();
+                  navigation.navigate('Log');
+                } catch (err) {
+                  console.error('Error in Finish & Start New:', err);
+                  Alert.alert('Error', 'Failed to start new session: ' + (err as Error).message);
+                }
+              },
+            },
+            {
+              text: 'Discard & Start New',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await discardDraft(activeDraft.id);
+                  await createDraftFromTemplate(templateId);
+                  await load();
+                  navigation.navigate('Log');
+                } catch (err) {
+                  console.error('Error in Discard & Start New:', err);
+                  Alert.alert('Error', 'Failed to start new session: ' + (err as Error).message);
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      await createDraftFromTemplate(templateId);
+      await load();
       navigation.navigate('Log');
-      return;
+    } catch (err) {
+      console.error('Error starting session:', err);
+      Alert.alert('Error', 'Failed to start session: ' + (err as Error).message);
     }
-
-    if (activeDraft) {
-      // Different template has an active draft
-      Alert.alert(
-        'Different session in progress',
-        'You have an active session from another template. What do you want to do?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Finish & Start New',
-            onPress: async () => {
-              await finalizeSession(activeDraft.id);
-              await createDraftFromTemplate(templateId);
-              await load();
-              navigation.navigate('Log');
-            },
-          },
-          {
-            text: 'Discard & Start New',
-            style: 'destructive',
-            onPress: async () => {
-              await discardDraft(activeDraft.id);
-              await createDraftFromTemplate(templateId);
-              await load();
-              navigation.navigate('Log');
-            },
-          },
-        ]
-      );
-      return;
-    }
-
-    await createDraftFromTemplate(templateId);
-    await load();
-    navigation.navigate('Log');
   }
 
   async function handleEnd() {

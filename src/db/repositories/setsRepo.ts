@@ -26,7 +26,7 @@ export async function upsertSet(
     INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, created_at)
     VALUES (?,?,?,?,?,?,?,?)
     ON CONFLICT(session_slot_choice_id, set_index)
-    DO UPDATE SET weight=excluded.weight, reps=excluded.reps, rpe=excluded.rpe, notes=excluded.notes;
+    DO UPDATE SET weight=excluded.weight, reps=excluded.reps, rpe=excluded.rpe, notes=excluded.notes, rest_seconds=excluded.rest_seconds;
     `,
     [choiceId, setIndex, weight, reps, rpe, notes, restSeconds, now()]
   );

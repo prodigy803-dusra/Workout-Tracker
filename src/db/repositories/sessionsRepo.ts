@@ -1,4 +1,4 @@
-import { executeSqlAsync } from '../db';
+import { executeSqlAsync, db } from '../db';
 
 function now() {
   return new Date().toISOString();
@@ -9,18 +9,31 @@ function now() {
  * Returns the historical weight/reps/rpe values from the last completed session.
  */
 async function getLastPerformedSets(templateSlotOptionId: number) {
-  const res = await executeSqlAsync(
+  // Find the single most recent session_slot_choice for this exercise
+  const choiceRes = await executeSqlAsync(
     `
-    SELECT s.set_index, s.weight, s.reps, s.rpe, s.rest_seconds
-    FROM sets s
-    JOIN session_slot_choices ssc ON ssc.id = s.session_slot_choice_id
+    SELECT ssc.id
+    FROM session_slot_choices ssc
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     JOIN sessions ses ON ses.id = ss.session_id
     WHERE ssc.template_slot_option_id = ? AND ses.status = 'final'
-    ORDER BY ses.performed_at DESC, ses.id DESC, s.set_index ASC
-    LIMIT 20;
+    ORDER BY ses.performed_at DESC, ses.id DESC
+    LIMIT 1;
     `,
     [templateSlotOptionId]
+  );
+
+  if (choiceRes.rows.length === 0) {
+    return [];
+  }
+
+  const choiceId = choiceRes.rows.item(0).id;
+
+  const res = await executeSqlAsync(
+    `SELECT set_index, weight, reps, rpe, rest_seconds
+     FROM sets WHERE session_slot_choice_id = ?
+     ORDER BY set_index ASC;`,
+    [choiceId]
   );
   return res.rows._array;
 }
@@ -45,24 +58,25 @@ export async function finalizeSession(sessionId: number) {
 }
 
 export async function createDraftFromTemplate(templateId: number) {
-  await executeSqlAsync(
-    `INSERT INTO sessions(performed_at, notes, status, template_id, created_at)
-     VALUES (?,?,?,?,?);`,
-    [now(), null, 'draft', templateId, now()]
-  );
-  const sRes = await executeSqlAsync(
-    `SELECT id FROM sessions ORDER BY id DESC LIMIT 1;`
-  );
-  const sessionId = sRes.rows.item(0).id;
+  return await db.withTransactionAsync(async () => {
+    await executeSqlAsync(
+      `INSERT INTO sessions(performed_at, notes, status, template_id, created_at)
+       VALUES (?,?,?,?,?);`,
+      [now(), null, 'draft', templateId, now()]
+    );
+    const sRes = await executeSqlAsync(
+      `SELECT id FROM sessions ORDER BY id DESC LIMIT 1;`
+    );
+    const sessionId = sRes.rows.item(0).id;
 
-  const slotsRes = await executeSqlAsync(
-    `SELECT id, slot_index, name FROM template_slots
-     WHERE template_id=? ORDER BY slot_index;`,
-    [templateId]
-  );
-  const slots = slotsRes.rows._array;
+    const slotsRes = await executeSqlAsync(
+      `SELECT id, slot_index, name FROM template_slots
+       WHERE template_id=? ORDER BY slot_index;`,
+      [templateId]
+    );
+    const slots = slotsRes.rows._array;
 
-  for (const slot of slots) {
+    for (const slot of slots) {
     await executeSqlAsync(
       `INSERT INTO session_slots(session_id, template_slot_id, slot_index, name, created_at)
        VALUES (?,?,?,?,?);`,
@@ -173,9 +187,10 @@ export async function createDraftFromTemplate(templateId: number) {
         );
       }
     }
-  }
+    }
 
-  return sessionId;
+    return sessionId;
+  });
 }
 
 export async function listDraftSlots(sessionId: number) {

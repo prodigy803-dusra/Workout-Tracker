@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Alert, TextInput, Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -13,6 +13,7 @@ import {
   listSetsForChoice,
   toggleSetCompleted,
   upsertSet,
+  lastTimeForOption,
 } from '../db/repositories/setsRepo';
 import OptionChips from '../components/OptionChips';
 import { useUnit } from '../contexts/UnitContext';
@@ -27,18 +28,28 @@ type SetData = {
   completed: boolean;
 };
 
+type LastTimeData = {
+  performed_at: string;
+  sets: any[];
+} | null;
+
 export default function LogScreen() {
   const [draft, setDraft] = useState<any>(null);
   const [slots, setSlots] = useState<any[]>([]);
   const [optionsBySlot, setOptionsBySlot] = useState<Record<number, any[]>>({});
   const [setsByChoice, setSetsByChoice] = useState<Record<number, SetData[]>>({});
   const [expandedSlots, setExpandedSlots] = useState<Set<number>>(new Set());
-  
+  const [lastTimeBySlot, setLastTimeBySlot] = useState<Record<number, LastTimeData>>({});
+
   // Timer modal state
   const [timerVisible, setTimerVisible] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
-  
+
+  // Session elapsed time
+  const [elapsed, setElapsed] = useState(0);
+  const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const { unit } = useUnit();
 
   const load = useCallback(async () => {
@@ -48,6 +59,7 @@ export default function LogScreen() {
       setSlots([]);
       setOptionsBySlot({});
       setSetsByChoice({});
+      setLastTimeBySlot({});
       return;
     }
 
@@ -55,17 +67,19 @@ export default function LogScreen() {
     const slotRows = await listDraftSlots(d.id);
     setSlots(slotRows);
 
+    // Auto-expand first incomplete slot
     const optionsEntries = await Promise.all(
       slotRows.map(async (s) => [s.session_slot_id, await listSlotOptions(s.session_slot_id)] as const)
     );
     setOptionsBySlot(Object.fromEntries(optionsEntries));
 
     const setsMap: Record<number, SetData[]> = {};
+    let firstIncomplete: number | null = null;
     for (const s of slotRows) {
       const choiceId = s.selected_session_slot_choice_id;
       if (!choiceId) continue;
       const setRows = await listSetsForChoice(choiceId);
-      setsMap[choiceId] = setRows.map((row: any) => ({
+      const mapped = setRows.map((row: any) => ({
         id: row.id,
         set_index: row.set_index,
         weight: row.weight,
@@ -74,8 +88,26 @@ export default function LogScreen() {
         rest_seconds: row.rest_seconds,
         completed: !!row.completed,
       }));
+      setsMap[choiceId] = mapped;
+      if (firstIncomplete === null && mapped.some((x) => !x.completed)) {
+        firstIncomplete = s.session_slot_id;
+      }
     }
     setSetsByChoice(setsMap);
+
+    // Auto-expand first incomplete slot on initial load
+    if (firstIncomplete !== null) {
+      setExpandedSlots(new Set([firstIncomplete]));
+    }
+
+    // Load "last time" data for each slot
+    const lastTimeMap: Record<number, LastTimeData> = {};
+    for (const s of slotRows) {
+      if (s.template_slot_option_id) {
+        lastTimeMap[s.session_slot_id] = await lastTimeForOption(s.template_slot_option_id);
+      }
+    }
+    setLastTimeBySlot(lastTimeMap);
   }, []);
 
   // Cooldown timer effect
@@ -93,6 +125,46 @@ export default function LogScreen() {
     }, 1000);
     return () => clearInterval(interval);
   }, [timerRunning, timerSeconds]);
+
+  // Session elapsed timer
+  useEffect(() => {
+    if (!draft) {
+      if (elapsedRef.current) clearInterval(elapsedRef.current);
+      return;
+    }
+    const startTime = new Date(draft.created_at).getTime();
+    const tick = () => setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    tick();
+    elapsedRef.current = setInterval(tick, 1000);
+    return () => {
+      if (elapsedRef.current) clearInterval(elapsedRef.current);
+    };
+  }, [draft]);
+
+  // Compute overall progress and volume
+  const { totalSets, completedSets, totalVolume } = useMemo(() => {
+    let total = 0;
+    let completed = 0;
+    let volume = 0;
+    for (const sets of Object.values(setsByChoice)) {
+      for (const s of sets) {
+        total++;
+        if (s.completed) {
+          completed++;
+          volume += (s.weight || 0) * (s.reps || 0);
+        }
+      }
+    }
+    return { totalSets: total, completedSets: completed, totalVolume: volume };
+  }, [setsByChoice]);
+
+  const formatElapsed = (secs: number) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -119,13 +191,13 @@ export default function LogScreen() {
           Go to Templates, tap Edit, and add exercises to the slots before starting a workout.
         </Text>
         <Pressable
-          style={styles.discardBtn}
+          style={styles.emptyDiscardBtn}
           onPress={async () => {
             await discardDraft(draft.id);
             await load();
           }}
         >
-          <Text style={styles.discardBtnText}>End Session</Text>
+          <Text style={styles.emptyDiscardBtnText}>End Session</Text>
         </Pressable>
       </View>
     );
@@ -133,23 +205,83 @@ export default function LogScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      <Pressable
-        onPress={() => {
-          Alert.alert('Finish Session', 'Save and finalize this workout?', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Finish',
-              onPress: async () => {
-                await finalizeSession(draft.id);
-                await load();
+      {/* Session summary header */}
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{formatElapsed(elapsed)}</Text>
+            <Text style={styles.summaryLabel}>Duration</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{completedSets}/{totalSets}</Text>
+            <Text style={styles.summaryLabel}>Sets</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>
+              {totalVolume >= 1000 ? `${(totalVolume / 1000).toFixed(1)}k` : totalVolume}
+            </Text>
+            <Text style={styles.summaryLabel}>Volume ({unit})</Text>
+          </View>
+        </View>
+        {totalSets > 0 && (
+          <View style={styles.progressBarBg}>
+            <View
+              style={[
+                styles.progressBarFill,
+                { width: `${(completedSets / totalSets) * 100}%` },
+              ]}
+            />
+          </View>
+        )}
+      </View>
+
+      <View style={styles.actionRow}>
+        <Pressable
+          onPress={() => {
+            Alert.alert('Finish Session', 'Save and finalize this workout?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Finish',
+                onPress: async () => {
+                  try {
+                    await finalizeSession(draft.id);
+                    await load();
+                  } catch (err) {
+                    console.error('Error finishing session:', err);
+                    Alert.alert('Error', 'Failed to finish session: ' + (err as Error).message);
+                  }
+                },
               },
-            },
-          ]);
-        }}
-        style={styles.finishBtn}
-      >
-        <Text style={styles.finishBtnText}>✓ Finish Session</Text>
-      </Pressable>
+            ]);
+          }}
+          style={styles.finishBtn}
+        >
+          <Text style={styles.finishBtnText}>✓ Finish</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            Alert.alert('Discard Workout', 'This will delete all progress for this session. Are you sure?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Discard',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await discardDraft(draft.id);
+                    await load();
+                  } catch (err) {
+                    console.error('Error discarding session:', err);
+                    Alert.alert('Error', 'Failed to discard session: ' + (err as Error).message);
+                  }
+                },
+              },
+            ]);
+          }}
+          style={styles.discardBtn}
+        >
+          <Text style={styles.discardBtnText}>✕ Discard</Text>
+        </Pressable>
+      </View>
 
       {slots.map((slot) => {
         const options = optionsBySlot[slot.session_slot_id] || [];
@@ -210,10 +342,9 @@ export default function LogScreen() {
                     <View style={styles.setsHeader}>
                       <Text style={[styles.colLabel, { width: 36 }]} />
                       <Text style={styles.colLabel}>#</Text>
-                      <Text style={[styles.colLabel, { flex: 1 }]}>Weight</Text>
+                      <Text style={[styles.colLabel, { flex: 1 }]}>Weight ({unit})</Text>
                       <Text style={[styles.colLabel, { width: 64 }]}>Reps</Text>
                       <Text style={[styles.colLabel, { width: 52 }]}>RPE</Text>
-                      <Text style={[styles.colLabel, { width: 36 }]} />
                     </View>
 
                     {sets.map((s) => (
@@ -230,12 +361,35 @@ export default function LogScreen() {
                             if (!s.completed) {
                               // Mark as completed and start timer
                               await toggleSetCompleted(s.id, true);
+                              const updatedSets = setsByChoice[selectedChoiceId].map((x) =>
+                                x.id === s.id ? { ...x, completed: true } : x
+                              );
                               setSetsByChoice((prev) => ({
                                 ...prev,
-                                [selectedChoiceId]: prev[selectedChoiceId].map((x) =>
-                                  x.id === s.id ? { ...x, completed: true } : x
-                                ),
+                                [selectedChoiceId]: updatedSets,
                               }));
+
+                              // Auto-expand next incomplete slot if this slot is fully done
+                              if (updatedSets.every((x) => x.completed)) {
+                                const currentIndex = slots.findIndex(
+                                  (sl) => sl.session_slot_id === slot.session_slot_id
+                                );
+                                for (let i = currentIndex + 1; i < slots.length; i++) {
+                                  const nextSlot = slots[i];
+                                  const nextChoiceId = nextSlot.selected_session_slot_choice_id;
+                                  const nextSets = setsByChoice[nextChoiceId] || [];
+                                  if (nextSets.some((x) => !x.completed)) {
+                                    setExpandedSlots((prev) => {
+                                      const n = new Set(prev);
+                                      n.delete(slot.session_slot_id);
+                                      n.add(nextSlot.session_slot_id);
+                                      return n;
+                                    });
+                                    break;
+                                  }
+                                }
+                              }
+
                               if (s.rest_seconds && s.rest_seconds > 0) {
                                 setTimerSeconds(s.rest_seconds);
                                 setTimerRunning(true);
@@ -268,7 +422,10 @@ export default function LogScreen() {
                             }));
                           }}
                           onEndEditing={() => {
-                            upsertSet(selectedChoiceId, s.set_index, s.weight, s.reps, s.rpe, null, s.rest_seconds);
+                            const currentSet = setsByChoice[selectedChoiceId]?.find((x) => x.id === s.id);
+                            if (currentSet) {
+                              upsertSet(selectedChoiceId, currentSet.set_index, currentSet.weight, currentSet.reps, currentSet.rpe, null, currentSet.rest_seconds);
+                            }
                           }}
                           keyboardType="numeric"
                           style={[styles.setInput, { flex: 1 }, s.completed && styles.completedInput]}
@@ -285,7 +442,10 @@ export default function LogScreen() {
                             }));
                           }}
                           onEndEditing={() => {
-                            upsertSet(selectedChoiceId, s.set_index, s.weight, s.reps, s.rpe, null, s.rest_seconds);
+                            const currentSet = setsByChoice[selectedChoiceId]?.find((x) => x.id === s.id);
+                            if (currentSet) {
+                              upsertSet(selectedChoiceId, currentSet.set_index, currentSet.weight, currentSet.reps, currentSet.rpe, null, currentSet.rest_seconds);
+                            }
                           }}
                           keyboardType="number-pad"
                           style={[styles.setInput, { width: 64 }, s.completed && styles.completedInput]}
@@ -302,7 +462,10 @@ export default function LogScreen() {
                             }));
                           }}
                           onEndEditing={() => {
-                            upsertSet(selectedChoiceId, s.set_index, s.weight, s.reps, s.rpe, null, s.rest_seconds);
+                            const currentSet = setsByChoice[selectedChoiceId]?.find((x) => x.id === s.id);
+                            if (currentSet) {
+                              upsertSet(selectedChoiceId, currentSet.set_index, currentSet.weight, currentSet.reps, currentSet.rpe, null, currentSet.rest_seconds);
+                            }
                           }}
                           keyboardType="decimal-pad"
                           placeholder="RPE"
@@ -311,6 +474,23 @@ export default function LogScreen() {
                       </View>
                     ))}
                   </>
+                )}
+
+                {/* Last Time panel */}
+                {lastTimeBySlot[slot.session_slot_id] && (
+                  <View style={styles.lastTimeContainer}>
+                    <Text style={styles.lastTimeTitle}>
+                      Last time — {new Date(lastTimeBySlot[slot.session_slot_id]!.performed_at).toLocaleDateString()}
+                    </Text>
+                    <View style={styles.lastTimeSets}>
+                      {lastTimeBySlot[slot.session_slot_id]!.sets.map((ls: any, i: number) => (
+                        <Text key={i} style={styles.lastTimeSet}>
+                          Set {ls.set_index}: {ls.weight} {unit} × {ls.reps}
+                          {ls.rpe ? ` @${ls.rpe}` : ''}
+                        </Text>
+                      ))}
+                    </View>
+                  </View>
                 )}
               </View>
             )}
@@ -374,6 +554,43 @@ export default function LogScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#F6F4F1' },
+
+  // Summary card
+  summaryCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E6E1DB',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  summaryItem: { alignItems: 'center' },
+  summaryValue: { fontSize: 22, fontWeight: '700', color: '#1A1A1A', fontVariant: ['tabular-nums'] },
+  summaryLabel: { fontSize: 11, color: '#888', marginTop: 2, fontWeight: '600' },
+  progressBarBg: {
+    height: 6,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 3,
+    marginTop: 14,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: 6,
+    backgroundColor: '#1A7F37',
+    borderRadius: 3,
+  },
+
+  // Action buttons
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
@@ -384,20 +601,30 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: '#1A1A1A' },
   emptyBody: { fontSize: 14, color: '#888', marginTop: 6, textAlign: 'center' },
-  discardBtn: {
+  emptyDiscardBtn: {
     backgroundColor: '#DC2626',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 10,
     marginTop: 20,
   },
-  discardBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  emptyDiscardBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  discardBtn: {
+    backgroundColor: '#FFF',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#DC2626',
+  },
+  discardBtnText: { color: '#DC2626', fontSize: 15, fontWeight: '700' },
   finishBtn: {
     backgroundColor: '#1A7F37',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 16,
+    flex: 2,
   },
   finishBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   slotCard: {
@@ -460,7 +687,42 @@ const styles = StyleSheet.create({
   },
   setIndex: { width: 28, fontSize: 13, color: '#888', fontWeight: '600' },
   setValue: { fontSize: 15, color: '#1A1A1A', fontWeight: '500' },
+  setInput: {
+    fontSize: 15,
+    color: '#1A1A1A',
+    fontWeight: '500',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    textAlign: 'center',
+  },
+  completedInput: {
+    color: '#999',
+    backgroundColor: '#F0FFF4',
+    borderColor: '#D0E8D6',
+  },
   completedText: { color: '#999', textDecorationLine: 'line-through' },
+
+  // Last time panel
+  lastTimeContainer: {
+    marginTop: 12,
+    padding: 10,
+    backgroundColor: '#F6F4F1',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E6E1DB',
+  },
+  lastTimeTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#888',
+    marginBottom: 4,
+  },
+  lastTimeSets: { gap: 2 },
+  lastTimeSet: { fontSize: 13, color: '#666' },
   
   // Timer Modal Styles
   timerBackdrop: {
