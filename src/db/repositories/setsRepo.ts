@@ -1,10 +1,11 @@
 import { executeSqlAsync } from '../db';
+import type { SetRow, LastTimeData } from '../../types';
 
 function now() {
   return new Date().toISOString();
 }
 
-export async function listSetsForChoice(choiceId: number) {
+export async function listSetsForChoice(choiceId: number): Promise<SetRow[]> {
   const res = await executeSqlAsync(
     `SELECT * FROM sets WHERE session_slot_choice_id=? ORDER BY set_index;`,
     [choiceId]
@@ -62,7 +63,7 @@ export async function toggleSetCompleted(setId: number, completed: boolean) {
   );
 }
 
-export async function lastTimeForOption(templateSlotOptionId: number) {
+export async function lastTimeForOption(templateSlotOptionId: number): Promise<LastTimeData> {
   const res = await executeSqlAsync(
     `
     SELECT s.performed_at, ssc.id as session_slot_choice_id

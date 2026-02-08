@@ -21,13 +21,14 @@ import {
   replacePrescribedSets,
 } from '../db/repositories/templatesRepo';
 import { listExercises, listExerciseOptions } from '../db/repositories/exercisesRepo';
+import type { Exercise, ExerciseOption } from '../types';
 
 export default function TemplateEditorScreen({ route, navigation }: any) {
   const { templateId } = route.params;
-  const [tpl, setTpl] = useState<any>(null);
-  const [slots, setSlots] = useState<any[]>([]);
-  const [options, setOptions] = useState<any[]>([]);
-  const [exercises, setExercises] = useState<any[]>([]);
+  const [tpl, setTpl] = useState<{ id: number; name: string } | null>(null);
+  const [slots, setSlots] = useState<Array<{ id: number; slot_index: number; name: string | null }>>([]);
+  const [options, setOptions] = useState<Array<{ id: number; template_slot_id: number; order_index: number; exercise_name: string; option_name: string | null; exercise_id: number; exercise_option_id: number | null }>>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
 
   // Picker state
   const [pickerSlotId, setPickerSlotId] = useState<number | null>(null);

@@ -4,13 +4,14 @@ import { executeSqlAsync } from '../db/db';
 import { listExerciseOptions, createExerciseOption } from '../db/repositories/exercisesRepo';
 import MuscleMap from '../components/MuscleMap';
 import { getMuscleInfo, ALL_MUSCLE_IDS } from '../data/muscleExerciseMap';
+import type { ExerciseStats, ExerciseGuideData, ExerciseOption } from '../types';
 
 export default function ExerciseDetailScreen({ route }: any) {
   const { exerciseId, name } = route.params;
-  const [stats, setStats] = useState<any>(null);
-  const [options, setOptions] = useState<any[]>([]);
+  const [stats, setStats] = useState<ExerciseStats | null>(null);
+  const [options, setOptions] = useState<Pick<ExerciseOption, 'id' | 'name' | 'order_index'>[]>([]);
   const [newOption, setNewOption] = useState('');
-  const [guide, setGuide] = useState<{ video_url: string | null; instructions: string | null; tips: string | null }>({ video_url: null, instructions: null, tips: null });
+  const [guide, setGuide] = useState<ExerciseGuideData>({ video_url: null, instructions: null, tips: null });
 
   async function loadGuide() {
     const res = await executeSqlAsync(

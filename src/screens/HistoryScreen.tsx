@@ -3,10 +3,11 @@ import { View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
 import { listHistory } from '../db/repositories/sessionsRepo';
 import { overallStats } from '../db/repositories/statsRepo';
 import { useUnit } from '../contexts/UnitContext';
+import type { HistoryItem, OverallStats } from '../types';
 
 export default function HistoryScreen({ navigation }: any) {
-  const [items, setItems] = useState<any[]>([]);
-  const [stats, setStats] = useState<{ totalSessions: number; last7: any } | null>(null);
+  const [items, setItems] = useState<HistoryItem[]>([]);
+  const [stats, setStats] = useState<OverallStats | null>(null);
   const { unit } = useUnit();
 
   useEffect(() => {

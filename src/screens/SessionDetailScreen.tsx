@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { getSessionDetail } from '../db/repositories/sessionsRepo';
+import type { SessionDetail } from '../types';
 
 export default function SessionDetailScreen({ route }: any) {
   const { sessionId } = route.params;
-  const [detail, setDetail] = useState<any>(null);
+  const [detail, setDetail] = useState<SessionDetail | null>(null);
 
   useEffect(() => {
     getSessionDetail(sessionId).then(setDetail);

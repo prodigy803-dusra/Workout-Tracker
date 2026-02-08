@@ -20,21 +20,7 @@ import { listTemplates } from '../db/repositories/templatesRepo';
 import { overallStats } from '../db/repositories/statsRepo';
 import OptionChips from '../components/OptionChips';
 import { useUnit } from '../contexts/UnitContext';
-
-type SetData = {
-  id: number;
-  set_index: number;
-  weight: number;
-  reps: number;
-  rpe: number | null;
-  rest_seconds: number | null;
-  completed: boolean;
-};
-
-type LastTimeData = {
-  performed_at: string;
-  sets: any[];
-} | null;
+import type { Session, DraftSlot, SlotOption, SetData, LastTimeData, OverallStats, Template } from '../types';
 
 /* ═══════════════════════════════════════════════════════════
  *  Idle screen — shown when no workout is in progress
@@ -42,8 +28,8 @@ type LastTimeData = {
 function IdleScreen({ onSessionStarted }: { onSessionStarted: () => void }) {
   const navigation = useNavigation<any>();
   const { unit } = useUnit();
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>(null);
+  const [templates, setTemplates] = useState<Pick<Template, 'id' | 'name'>[]>([]);
+  const [stats, setStats] = useState<OverallStats | null>(null);
   const [greeting, setGreeting] = useState('');
 
   useEffect(() => {
@@ -247,9 +233,9 @@ const idle = StyleSheet.create({
  * ═══════════════════════════════════════════════════════════ */
 export default function LogScreen() {
   const navigation = useNavigation<any>();
-  const [draft, setDraft] = useState<any>(null);
-  const [slots, setSlots] = useState<any[]>([]);
-  const [optionsBySlot, setOptionsBySlot] = useState<Record<number, any[]>>({});
+  const [draft, setDraft] = useState<Session | null>(null);
+  const [slots, setSlots] = useState<DraftSlot[]>([]);
+  const [optionsBySlot, setOptionsBySlot] = useState<Record<number, SlotOption[]>>({});
   const [setsByChoice, setSetsByChoice] = useState<Record<number, SetData[]>>({});
   const [expandedSlots, setExpandedSlots] = useState<Set<number>>(new Set());
   const [lastTimeBySlot, setLastTimeBySlot] = useState<Record<number, LastTimeData>>({});
@@ -292,7 +278,7 @@ export default function LogScreen() {
       const choiceId = s.selected_session_slot_choice_id;
       if (!choiceId) continue;
       const setRows = await listSetsForChoice(choiceId);
-      const mapped = setRows.map((row: any) => ({
+      const mapped: SetData[] = setRows.map((row) => ({
         id: row.id,
         set_index: row.set_index,
         weight: row.weight,
@@ -706,7 +692,7 @@ export default function LogScreen() {
                       Last time — {new Date(lastTimeBySlot[slot.session_slot_id]!.performed_at).toLocaleDateString()}
                     </Text>
                     <View style={styles.lastTimeSets}>
-                      {lastTimeBySlot[slot.session_slot_id]!.sets.map((ls: any, i: number) => (
+                      {lastTimeBySlot[slot.session_slot_id]!.sets.map((ls, i: number) => (
                         <Text key={i} style={styles.lastTimeSet}>
                           Set {ls.set_index}: {ls.weight} {unit} × {ls.reps}
                           {ls.rpe ? ` @${ls.rpe}` : ''}

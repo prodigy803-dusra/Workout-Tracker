@@ -1,11 +1,12 @@
 import { executeSqlAsync } from '../db';
 import { normalizeName } from '../../utils/normalize';
+import type { Template } from '../../types';
 
 function now() {
   return new Date().toISOString();
 }
 
-export async function listTemplates() {
+export async function listTemplates(): Promise<Pick<Template, 'id' | 'name'>[]> {
   const res = await executeSqlAsync(
     `SELECT id, name FROM templates ORDER BY name;`
   );

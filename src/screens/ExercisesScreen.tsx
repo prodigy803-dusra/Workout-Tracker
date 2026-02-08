@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet, SectionList } from 'react-native';
 import { listExercises, createExercise } from '../db/repositories/exercisesRepo';
+import type { Exercise } from '../types';
 
 /* ── Muscle-group display order & labels ──────────────────── */
 const GROUP_ORDER = [
@@ -57,7 +58,7 @@ const EQUIP_COLORS: Record<string, string> = {
 };
 
 export default function ExercisesScreen({ navigation }: any) {
-  const [exercises, setExercises] = useState<any[]>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
   const [search, setSearch] = useState('');
   const [newName, setNewName] = useState('');
 

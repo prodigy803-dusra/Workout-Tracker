@@ -1,4 +1,5 @@
 import { executeSqlAsync, db } from '../db';
+import type { Session, DraftSlot, SlotOption, HistoryItem, SessionDetail } from '../../types';
 
 function now() {
   return new Date().toISOString();
@@ -38,7 +39,7 @@ async function getLastPerformedSets(templateSlotOptionId: number) {
   return res.rows._array;
 }
 
-export async function getActiveDraft() {
+export async function getActiveDraft(): Promise<Session | null> {
   const res = await executeSqlAsync(
     `SELECT * FROM sessions WHERE status='draft' ORDER BY id DESC LIMIT 1;`
   );
@@ -193,7 +194,7 @@ export async function createDraftFromTemplate(templateId: number) {
   });
 }
 
-export async function listDraftSlots(sessionId: number) {
+export async function listDraftSlots(sessionId: number): Promise<DraftSlot[]> {
   const res = await executeSqlAsync(
     `
     SELECT ss.id as session_slot_id, ss.slot_index, ss.name, ss.selected_session_slot_choice_id,
@@ -211,7 +212,7 @@ export async function listDraftSlots(sessionId: number) {
   return res.rows._array;
 }
 
-export async function listSlotOptions(sessionSlotId: number) {
+export async function listSlotOptions(sessionSlotId: number): Promise<SlotOption[]> {
   const res = await executeSqlAsync(
     `
     SELECT ssc.id as session_slot_choice_id, tco.id as template_slot_option_id,
@@ -315,7 +316,7 @@ export async function selectSlotChoice(
   return choiceId;
 }
 
-export async function listHistory() {
+export async function listHistory(): Promise<HistoryItem[]> {
   const res = await executeSqlAsync(
     `
     SELECT s.id, s.performed_at, s.created_at, t.name as template_name,
@@ -347,7 +348,7 @@ export async function listHistory() {
   return res.rows._array;
 }
 
-export async function getSessionDetail(sessionId: number) {
+export async function getSessionDetail(sessionId: number): Promise<SessionDetail> {
   const sRes = await executeSqlAsync(
     `SELECT s.id, s.performed_at, s.notes, t.name as template_name
      FROM sessions s LEFT JOIN templates t ON t.id = s.template_id WHERE s.id=?;`,

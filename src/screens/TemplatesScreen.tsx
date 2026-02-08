@@ -8,11 +8,12 @@ import {
   finalizeSession,
   getActiveDraft,
 } from '../db/repositories/sessionsRepo';
+import type { Template, Session } from '../types';
 
 export default function TemplatesScreen({ navigation }: any) {
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<Pick<Template, 'id' | 'name'>[]>([]);
   const [newName, setNewName] = useState('');
-  const [activeDraft, setActiveDraft] = useState<any>(null);
+  const [activeDraft, setActiveDraft] = useState<Session | null>(null);
 
   const load = useCallback(async () => {
     const [tpls, draft] = await Promise.all([listTemplates(), getActiveDraft()]);

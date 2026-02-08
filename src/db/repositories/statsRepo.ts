@@ -1,6 +1,7 @@
 import { executeSqlAsync } from '../db';
+import type { OverallStats } from '../../types';
 
-export async function overallStats() {
+export async function overallStats(): Promise<OverallStats> {
   const totalSessions = await executeSqlAsync(
     `SELECT COUNT(*) as c FROM sessions WHERE status='final';`
   );

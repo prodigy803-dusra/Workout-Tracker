@@ -1,11 +1,12 @@
 import { executeSqlAsync } from '../db';
 import { normalizeName } from '../../utils/normalize';
+import type { Exercise, ExerciseOption } from '../../types';
 
 function now() {
   return new Date().toISOString();
 }
 
-export async function listExercises() {
+export async function listExercises(): Promise<Exercise[]> {
   const res = await executeSqlAsync(
     `SELECT id, name, primary_muscle, secondary_muscle, aliases, equipment, movement_pattern,
             video_url, instructions, tips
@@ -14,7 +15,7 @@ export async function listExercises() {
   return res.rows._array;
 }
 
-export async function listExerciseOptions(exerciseId: number) {
+export async function listExerciseOptions(exerciseId: number): Promise<Pick<ExerciseOption, 'id' | 'name' | 'order_index'>[]> {
   const res = await executeSqlAsync(
     `SELECT id, name, order_index FROM exercise_options
      WHERE exercise_id=? ORDER BY order_index;`,
