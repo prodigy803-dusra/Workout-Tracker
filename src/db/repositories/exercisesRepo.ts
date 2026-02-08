@@ -7,7 +7,8 @@ function now() {
 
 export async function listExercises() {
   const res = await executeSqlAsync(
-    `SELECT id, name, primary_muscle, secondary_muscle, aliases, equipment, movement_pattern
+    `SELECT id, name, primary_muscle, secondary_muscle, aliases, equipment, movement_pattern,
+            video_url, instructions, tips
      FROM exercises ORDER BY name;`
   );
   return res.rows._array;

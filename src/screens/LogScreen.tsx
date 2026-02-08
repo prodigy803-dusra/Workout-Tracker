@@ -246,6 +246,7 @@ const idle = StyleSheet.create({
  *  Main Log screen — active workout
  * ═══════════════════════════════════════════════════════════ */
 export default function LogScreen() {
+  const navigation = useNavigation<any>();
   const [draft, setDraft] = useState<any>(null);
   const [slots, setSlots] = useState<any[]>([]);
   const [optionsBySlot, setOptionsBySlot] = useState<Record<number, any[]>>({});
@@ -516,10 +517,27 @@ export default function LogScreen() {
             >
               <View style={styles.slotHeaderContent}>
                 {slot.name && <Text style={styles.slotSubtitle}>{slot.name}</Text>}
-                <Text style={styles.slotTitle}>
-                  {slot.exercise_name}
-                  {slot.option_name ? ` (${slot.option_name})` : ''}
-                </Text>
+                <View style={styles.slotTitleRow}>
+                  <Text style={styles.slotTitle}>
+                    {slot.exercise_name}
+                    {slot.option_name ? ` (${slot.option_name})` : ''}
+                  </Text>
+                  {slot.exercise_id && (
+                    <Pressable
+                      hitSlop={8}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        navigation.navigate('Exercises', {
+                          screen: 'ExerciseDetail',
+                          params: { exerciseId: slot.exercise_id, name: slot.exercise_name },
+                        });
+                      }}
+                      style={styles.infoBtn}
+                    >
+                      <Text style={styles.infoBtnText}>?</Text>
+                    </Pressable>
+                  )}
+                </View>
                 {sets.length > 0 && (
                   <Text style={styles.progressText}>
                     {completedCount}/{sets.length} sets done
@@ -848,7 +866,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   slotHeaderContent: { flex: 1 },
-  slotTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1A' },
+  slotTitleRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8 },
+  slotTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1A', flex: 1 },
+  infoBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E6E1DB',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  infoBtnText: { fontSize: 13, fontWeight: '700', color: '#555' },
   slotSubtitle: { fontSize: 13, color: '#888', marginBottom: 4 },
   chevron: { fontSize: 16, color: '#888', marginLeft: 12 },
   slotContent: { padding: 14 },

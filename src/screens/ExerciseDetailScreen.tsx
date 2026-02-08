@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Linking } from 'react-native';
 import { executeSqlAsync } from '../db/db';
 import { listExerciseOptions, createExerciseOption } from '../db/repositories/exercisesRepo';
 import MuscleMap from '../components/MuscleMap';
@@ -10,6 +10,15 @@ export default function ExerciseDetailScreen({ route }: any) {
   const [stats, setStats] = useState<any>(null);
   const [options, setOptions] = useState<any[]>([]);
   const [newOption, setNewOption] = useState('');
+  const [guide, setGuide] = useState<{ video_url: string | null; instructions: string | null; tips: string | null }>({ video_url: null, instructions: null, tips: null });
+
+  async function loadGuide() {
+    const res = await executeSqlAsync(
+      `SELECT video_url, instructions, tips FROM exercises WHERE id=?;`,
+      [exerciseId]
+    );
+    if (res.rows.length) setGuide(res.rows.item(0));
+  }
 
   async function loadStats() {
     const res = await executeSqlAsync(
@@ -50,6 +59,7 @@ export default function ExerciseDetailScreen({ route }: any) {
   useEffect(() => {
     loadStats();
     loadOptions();
+    loadGuide();
   }, [exerciseId]);
 
   async function handleAddOption() {
@@ -84,6 +94,36 @@ export default function ExerciseDetailScreen({ route }: any) {
             )}
           </View>
         </View>
+      )}
+
+      {/* ── How To Perform ── */}
+      {guide.instructions && (
+        <View style={styles.guideCard}>
+          <Text style={styles.sectionTitle}>How To Perform</Text>
+          {guide.instructions.split('\n').map((line, i) => (
+            <Text key={i} style={styles.stepText}>{line}</Text>
+          ))}
+        </View>
+      )}
+
+      {/* ── Tips ── */}
+      {guide.tips && (
+        <View style={styles.guideCard}>
+          <Text style={styles.sectionTitle}>Tips</Text>
+          {guide.tips.split('\n').map((line, i) => (
+            <Text key={i} style={styles.tipText}>{line}</Text>
+          ))}
+        </View>
+      )}
+
+      {/* ── Watch Video ── */}
+      {guide.video_url && (
+        <Pressable
+          style={styles.videoBtn}
+          onPress={() => Linking.openURL(guide.video_url!)}
+        >
+          <Text style={styles.videoBtnText}>▶  Watch Video Tutorial</Text>
+        </Pressable>
       )}
 
       <View style={styles.statsCard}>
@@ -200,4 +240,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addBtnText: { color: '#FFF', fontWeight: '600' },
+  guideCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E6E1DB',
+  },
+  stepText: { fontSize: 14, color: '#333', lineHeight: 22, marginBottom: 4 },
+  tipText: { fontSize: 14, color: '#555', lineHeight: 22, marginBottom: 4 },
+  videoBtn: {
+    backgroundColor: '#1A73E8',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center' as const,
+    marginBottom: 16,
+  },
+  videoBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 });

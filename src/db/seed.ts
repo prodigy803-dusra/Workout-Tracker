@@ -1,5 +1,6 @@
 import { executeSqlAsync } from './db';
 import { normalizeName } from '../utils/normalize';
+import { EXERCISE_GUIDES } from '../data/exerciseGuides';
 
 function now() {
   return new Date().toISOString();
@@ -105,7 +106,7 @@ const EXERCISE_LIBRARY: ExEntry[] = [
  * Ensures every exercise in the master library exists in the DB.
  * Uses a version stamp so bulk inserts only run once per library version.
  */
-const LIBRARY_VERSION = 3; // bump when EXERCISE_LIBRARY changes
+const LIBRARY_VERSION = 4; // bump when EXERCISE_LIBRARY changes
 
 export async function ensureExerciseLibrary() {
   // Check if we've already synced this version
@@ -127,6 +128,16 @@ export async function ensureExerciseLibrary() {
        WHERE name_norm=? AND primary_muscle IS NULL;`,
       [primary, secondary, aliases, equipment, pattern, normalizeName(name)]
     );
+
+    // Populate guide data (video_url, instructions, tips)
+    const guide = EXERCISE_GUIDES[normalizeName(name)];
+    if (guide) {
+      await executeSqlAsync(
+        `UPDATE exercises SET video_url=?, instructions=?, tips=?
+         WHERE name_norm=? AND video_url IS NULL;`,
+        [guide.url, guide.steps, guide.tips, normalizeName(name)]
+      );
+    }
   }
 
   await executeSqlAsync(

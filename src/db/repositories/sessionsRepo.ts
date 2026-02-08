@@ -197,7 +197,7 @@ export async function listDraftSlots(sessionId: number) {
   const res = await executeSqlAsync(
     `
     SELECT ss.id as session_slot_id, ss.slot_index, ss.name, ss.selected_session_slot_choice_id,
-           tco.id as template_slot_option_id, e.name as exercise_name, eo.name as option_name
+           tco.id as template_slot_option_id, e.id as exercise_id, e.name as exercise_name, eo.name as option_name
     FROM session_slots ss
     LEFT JOIN session_slot_choices ssc ON ssc.id = ss.selected_session_slot_choice_id
     LEFT JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id

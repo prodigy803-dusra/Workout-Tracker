@@ -167,4 +167,8 @@ export const migrations: string[] = [
   `ALTER TABLE exercises ADD COLUMN aliases TEXT NULL;`,
   `ALTER TABLE exercises ADD COLUMN equipment TEXT NULL;`,
   `ALTER TABLE exercises ADD COLUMN movement_pattern TEXT NULL;`,
+  // 27 – exercise guide columns
+  `ALTER TABLE exercises ADD COLUMN video_url TEXT NULL;`,
+  `ALTER TABLE exercises ADD COLUMN instructions TEXT NULL;`,
+  `ALTER TABLE exercises ADD COLUMN tips TEXT NULL;`,
 ];
