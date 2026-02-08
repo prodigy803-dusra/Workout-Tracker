@@ -1,6 +1,7 @@
 import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Alert, TextInput, Modal } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Alert, TextInput, Modal, Vibration } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { executeSqlAsync } from '../db/db';
 import {
   finalizeSession,
   getActiveDraft,
@@ -272,24 +273,42 @@ export default function LogScreen() {
     );
     setOptionsBySlot(Object.fromEntries(optionsEntries));
 
+    // Batch-load all sets for all choices in one query
+    const choiceIds = slotRows
+      .map((s) => s.selected_session_slot_choice_id)
+      .filter((id): id is number => id != null);
+
     const setsMap: Record<number, SetData[]> = {};
     let firstIncomplete: number | null = null;
-    for (const s of slotRows) {
-      const choiceId = s.selected_session_slot_choice_id;
-      if (!choiceId) continue;
-      const setRows = await listSetsForChoice(choiceId);
-      const mapped: SetData[] = setRows.map((row) => ({
-        id: row.id,
-        set_index: row.set_index,
-        weight: row.weight,
-        reps: row.reps,
-        rpe: row.rpe,
-        rest_seconds: row.rest_seconds,
-        completed: !!row.completed,
-      }));
-      setsMap[choiceId] = mapped;
-      if (firstIncomplete === null && mapped.some((x) => !x.completed)) {
-        firstIncomplete = s.session_slot_id;
+
+    if (choiceIds.length > 0) {
+      const placeholders = choiceIds.map(() => '?').join(',');
+      const allSetsRes = await executeSqlAsync(
+        `SELECT * FROM sets WHERE session_slot_choice_id IN (${placeholders}) ORDER BY session_slot_choice_id, set_index;`,
+        choiceIds
+      );
+      // Group by choice id
+      for (const row of allSetsRes.rows._array) {
+        const cid = row.session_slot_choice_id;
+        if (!setsMap[cid]) setsMap[cid] = [];
+        setsMap[cid].push({
+          id: row.id,
+          set_index: row.set_index,
+          weight: row.weight,
+          reps: row.reps,
+          rpe: row.rpe,
+          rest_seconds: row.rest_seconds,
+          completed: !!row.completed,
+        });
+      }
+      // Determine first incomplete slot
+      for (const s of slotRows) {
+        const choiceId = s.selected_session_slot_choice_id;
+        if (!choiceId) continue;
+        const mapped = setsMap[choiceId] || [];
+        if (firstIncomplete === null && mapped.some((x) => !x.completed)) {
+          firstIncomplete = s.session_slot_id;
+        }
       }
     }
     setSetsByChoice(setsMap);
@@ -302,7 +321,7 @@ export default function LogScreen() {
     // Load "last time" data for each slot (parallelized)
     const lastTimeEntries = await Promise.all(
       slotRows
-        .filter((s) => s.template_slot_option_id)
+        .filter((s): s is DraftSlot & { template_slot_option_id: number } => s.template_slot_option_id != null)
         .map(async (s) => [s.session_slot_id, await lastTimeForOption(s.template_slot_option_id)] as const)
     );
     setLastTimeBySlot(Object.fromEntries(lastTimeEntries));
@@ -316,6 +335,7 @@ export default function LogScreen() {
         if (prev <= 1) {
           setTimerRunning(false);
           setTimerVisible(false);
+          Vibration.vibrate([0, 300, 100, 300]);
           return 0;
         }
         return prev - 1;
@@ -537,12 +557,34 @@ export default function LogScreen() {
               <View style={styles.slotContent}>
                 <OptionChips
                   options={options}
-                  selectedTemplateOptionId={selectedTemplateOptionId}
+                  selectedTemplateOptionId={selectedTemplateOptionId ?? 0}
                   onSelect={async (templateSlotOptionId) => {
                     await selectSlotChoice(slot.session_slot_id, templateSlotOptionId);
                     await load();
                   }}
                 />
+
+                {/* Progressive overload suggestion */}
+                {(() => {
+                  const lt = lastTimeBySlot[slot.session_slot_id];
+                  if (!lt || lt.sets.length === 0) return null;
+                  const allCompleted = lt.sets.every((s) => s.completed);
+                  if (!allCompleted) return null;
+                  // Suggest +2.5 on the heaviest set
+                  const heaviest = lt.sets.reduce(
+                    (max, s) => (s.weight > max.weight ? s : max),
+                    lt.sets[0]
+                  );
+                  const suggestedWeight = heaviest.weight + 2.5;
+                  return (
+                    <View style={styles.suggestionBanner}>
+                      <Text style={styles.suggestionIcon}>📈</Text>
+                      <Text style={styles.suggestionText}>
+                        You completed all sets last session — try {suggestedWeight} {unit} × {heaviest.reps}
+                      </Text>
+                    </View>
+                  );
+                })()}
 
                 {sets.length === 0 ? (
                   <Text style={styles.noSetsText}>No prescribed sets. Add sets in the template editor.</Text>
@@ -586,8 +628,9 @@ export default function LogScreen() {
                                 for (let i = currentIndex + 1; i < slots.length; i++) {
                                   const nextSlot = slots[i];
                                   const nextChoiceId = nextSlot.selected_session_slot_choice_id;
+                                  if (!nextChoiceId) continue;
                                   const nextSets = setsByChoice[nextChoiceId] || [];
-                                  if (nextSets.some((x) => !x.completed)) {
+                                  if (nextSets.some((x: SetData) => !x.completed)) {
                                     setExpandedSlots((prev) => {
                                       const n = new Set(prev);
                                       n.delete(slot.session_slot_id);
@@ -942,6 +985,21 @@ const styles = StyleSheet.create({
   },
   lastTimeSets: { gap: 2 },
   lastTimeSet: { fontSize: 13, color: '#666' },
+
+  // Progressive overload suggestion
+  suggestionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBE6',
+    borderWidth: 1,
+    borderColor: '#F5D76E',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+    gap: 8,
+  },
+  suggestionIcon: { fontSize: 16 },
+  suggestionText: { fontSize: 13, color: '#7A6B00', flex: 1 },
   
   // Timer Modal Styles
   timerBackdrop: {

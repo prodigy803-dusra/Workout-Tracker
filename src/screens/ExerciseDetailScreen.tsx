@@ -2,7 +2,9 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Linking } from 'react-native';
 import { executeSqlAsync } from '../db/db';
 import { listExerciseOptions, createExerciseOption } from '../db/repositories/exercisesRepo';
+import { e1rmHistory } from '../db/repositories/statsRepo';
 import MuscleMap from '../components/MuscleMap';
+import TrendChart, { DataPoint } from '../components/TrendChart';
 import { getMuscleInfo, ALL_MUSCLE_IDS } from '../data/muscleExerciseMap';
 import type { ExerciseStats, ExerciseGuideData, ExerciseOption } from '../types';
 
@@ -12,6 +14,7 @@ export default function ExerciseDetailScreen({ route }: any) {
   const [options, setOptions] = useState<Pick<ExerciseOption, 'id' | 'name' | 'order_index'>[]>([]);
   const [newOption, setNewOption] = useState('');
   const [guide, setGuide] = useState<ExerciseGuideData>({ video_url: null, instructions: null, tips: null });
+  const [trendData, setTrendData] = useState<DataPoint[]>([]);
 
   async function loadGuide() {
     const res = await executeSqlAsync(
@@ -61,6 +64,7 @@ export default function ExerciseDetailScreen({ route }: any) {
     loadStats();
     loadOptions();
     loadGuide();
+    e1rmHistory(exerciseId).then(setTrendData);
   }, [exerciseId]);
 
   async function handleAddOption() {
@@ -144,6 +148,13 @@ export default function ExerciseDetailScreen({ route }: any) {
           </Text>
         </View>
       </View>
+
+      {/* ── e1RM Trend Chart ── */}
+      {trendData.length >= 2 && (
+        <View style={styles.statsCard}>
+          <TrendChart data={trendData} label="Estimated 1RM Trend" unit="weight" color="#4A90D9" />
+        </View>
+      )}
 
       <View style={styles.optionsCard}>
         <Text style={styles.sectionTitle}>Variants</Text>

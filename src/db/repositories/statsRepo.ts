@@ -1,5 +1,26 @@
 import { executeSqlAsync } from '../db';
 import type { OverallStats } from '../../types';
+import type { DataPoint } from '../../components/TrendChart';
+
+export async function e1rmHistory(exerciseId: number): Promise<DataPoint[]> {
+  const res = await executeSqlAsync(
+    `
+    SELECT s.performed_at as date,
+           MAX(se.weight * (1 + se.reps / 30.0)) as value
+    FROM sets se
+    JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+    JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    JOIN sessions s ON s.id = ss.session_id
+    WHERE tco.exercise_id = ? AND s.status='final'
+      AND se.reps BETWEEN 1 AND 12 AND se.weight > 0 AND se.completed = 1
+    GROUP BY s.id
+    ORDER BY s.performed_at ASC;
+    `,
+    [exerciseId]
+  );
+  return res.rows._array;
+}
 
 export async function overallStats(): Promise<OverallStats> {
   const totalSessions = await executeSqlAsync(
