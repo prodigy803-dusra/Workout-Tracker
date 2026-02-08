@@ -1,3 +1,13 @@
+/**
+ * Root navigation — bottom tab navigator with five tabs.
+ *
+ * Tabs:
+ *   Log        — active workout / idle dashboard
+ *   History    — stack: list → session detail
+ *   Templates  — stack: list → template editor
+ *   Exercises  — stack: list → exercise detail
+ *   Settings   — unit toggle, backup/restore, reset
+ */
 import React from 'react';
 import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';

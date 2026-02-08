@@ -1,3 +1,10 @@
+/**
+ * TrendChart — a minimal SVG line chart for displaying time-series data
+ * (e.g. estimated 1RM over time). Built with react-native-svg.
+ *
+ * Shows gridlines, axis labels, data points, and a filled area under the curve.
+ * Renders a "No data yet" message when fewer than 2 data points exist.
+ */
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';

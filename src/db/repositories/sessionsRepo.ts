@@ -1,3 +1,12 @@
+/**
+ * Sessions repository — manages workout sessions (drafts + finalized).
+ *
+ * A session is created as a "draft" from a template. The user logs sets,
+ * then finalizes the session to mark it complete. Drafts can also be discarded.
+ *
+ * Session structure:
+ *   Session → SessionSlots → SessionSlotChoices → Sets
+ */
 import { executeSqlAsync, db } from '../db';
 import type { Session, DraftSlot, SlotOption, HistoryItem, SessionDetail } from '../../types';
 
@@ -39,6 +48,7 @@ async function getLastPerformedSets(templateSlotOptionId: number) {
   return res.rows._array;
 }
 
+/** Get the current in-progress draft session, or null if none exists. */
 export async function getActiveDraft(): Promise<Session | null> {
   const res = await executeSqlAsync(
     `SELECT * FROM sessions WHERE status='draft' ORDER BY id DESC LIMIT 1;`
@@ -47,10 +57,12 @@ export async function getActiveDraft(): Promise<Session | null> {
   return res.rows.item(0);
 }
 
+/** Delete a draft session and all its associated data (cascades). */
 export async function discardDraft(sessionId: number) {
   await executeSqlAsync(`DELETE FROM sessions WHERE id=?;`, [sessionId]);
 }
 
+/** Mark a draft session as finalized with the current timestamp. */
 export async function finalizeSession(sessionId: number) {
   await executeSqlAsync(
     `UPDATE sessions SET status='final', performed_at=? WHERE id=?;`,
@@ -58,6 +70,11 @@ export async function finalizeSession(sessionId: number) {
   );
 }
 
+/**
+ * Create a new draft session from a template.
+ * Pre-populates slots, choices, and sets with either historical data
+ * (what the user lifted last time) or the template's prescribed sets.
+ */
 export async function createDraftFromTemplate(templateId: number) {
   return await db.withTransactionAsync(async () => {
     await executeSqlAsync(

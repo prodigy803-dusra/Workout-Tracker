@@ -1,3 +1,9 @@
+/**
+ * Sets repository — manages individual set records within a workout session.
+ *
+ * Each set belongs to a session_slot_choice and records weight, reps, RPE,
+ * rest duration, and completion status.
+ */
 import { executeSqlAsync } from '../db';
 import type { SetRow, LastTimeData } from '../../types';
 
@@ -5,6 +11,7 @@ function now() {
   return new Date().toISOString();
 }
 
+/** Get all sets for a given session slot choice, ordered by set index. */
 export async function listSetsForChoice(choiceId: number): Promise<SetRow[]> {
   const res = await executeSqlAsync(
     `SELECT * FROM sets WHERE session_slot_choice_id=? ORDER BY set_index;`,
@@ -13,6 +20,7 @@ export async function listSetsForChoice(choiceId: number): Promise<SetRow[]> {
   return res.rows._array;
 }
 
+/** Insert or update a set (upsert on session_slot_choice_id + set_index). */
 export async function upsertSet(
   choiceId: number,
   setIndex: number,
@@ -33,6 +41,7 @@ export async function upsertSet(
   );
 }
 
+/** Delete a single set by choice ID and set index. */
 export async function deleteSet(choiceId: number, setIndex: number) {
   await executeSqlAsync(
     `DELETE FROM sets WHERE session_slot_choice_id=? AND set_index=?;`,
@@ -40,6 +49,7 @@ export async function deleteSet(choiceId: number, setIndex: number) {
   );
 }
 
+/** Replace all sets for a choice with new rows (validates input). */
 export async function replaceSetsForChoice(
   choiceId: number,
   rows: Array<{ set_index: number; weight: string; reps: string; rpe: string }>
@@ -56,6 +66,7 @@ export async function replaceSetsForChoice(
   }
 }
 
+/** Mark a set as completed or uncompleted. */
 export async function toggleSetCompleted(setId: number, completed: boolean) {
   await executeSqlAsync(
     `UPDATE sets SET completed=? WHERE id=?;`,
@@ -63,6 +74,11 @@ export async function toggleSetCompleted(setId: number, completed: boolean) {
   );
 }
 
+/**
+ * Fetch what the user lifted last time for a given exercise option.
+ * Returns the date and full set list from the most recent finalized session,
+ * or null if no history exists.
+ */
 export async function lastTimeForOption(templateSlotOptionId: number): Promise<LastTimeData> {
   const res = await executeSqlAsync(
     `

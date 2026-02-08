@@ -1,3 +1,7 @@
+/**
+ * App entry point — initialises the database, shows a loading spinner,
+ * then renders the root navigator wrapped in gesture + navigation providers.
+ */
 import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';

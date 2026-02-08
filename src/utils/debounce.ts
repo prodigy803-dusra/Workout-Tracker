@@ -1,3 +1,7 @@
+/**
+ * useDebouncedCallback — delays invoking `fn` until `delayMs` ms have elapsed
+ * since the last call. Useful for search inputs and auto-save.
+ */
 import { useRef, useCallback } from 'react';
 
 export function useDebouncedCallback<T extends (...args: any[]) => void>(

@@ -1,3 +1,12 @@
+/**
+ * Database layer — wraps expo-sqlite with a simple async API.
+ *
+ * Provides:
+ * - `executeSqlAsync()` — run any SQL statement
+ * - `initDb()`          — run migrations + seed data
+ * - `resetDb()`         — drop all tables and re-initialise
+ * - `db`                — raw expo-sqlite handle (for transactions)
+ */
 import { openDatabaseSync } from 'expo-sqlite';
 import { migrations } from './migrations';
 
@@ -22,6 +31,10 @@ function wrapRows<T>(rows: T[]): RowsWrapper<T> {
   };
 }
 
+/**
+ * Execute a SQL statement and return the result.
+ * SELECT / PRAGMA queries return rows; other statements return an empty row set.
+ */
 export async function executeSqlAsync(
   sql: string,
   params: (string | number | null)[] = []
@@ -37,6 +50,7 @@ export async function executeSqlAsync(
   return { rows: wrapRows([]) };
 }
 
+/** Initialise the database: run pending migrations then seed default data. */
 export async function initDb() {
   await runMigrations();
   const { seedIfNeeded } = await import('./seed');
@@ -65,6 +79,7 @@ async function runMigrations() {
   }
 }
 
+/** Drop every table and re-initialise from scratch (migrations + seed). */
 export async function resetDb() {
   const tables = [
     'sets',

@@ -1,3 +1,9 @@
+/**
+ * Exercise repository — CRUD operations for exercises and their variants.
+ *
+ * Exercises are the core entities (e.g. "Bench Press").
+ * Exercise options are variants of an exercise (e.g. "Barbell", "Dumbbell").
+ */
 import { executeSqlAsync } from '../db';
 import { normalizeName } from '../../utils/normalize';
 import type { Exercise, ExerciseOption } from '../../types';
@@ -6,6 +12,7 @@ function now() {
   return new Date().toISOString();
 }
 
+/** Fetch all exercises ordered alphabetically. */
 export async function listExercises(): Promise<Exercise[]> {
   const res = await executeSqlAsync(
     `SELECT id, name, primary_muscle, secondary_muscle, aliases, equipment, movement_pattern,
@@ -15,6 +22,7 @@ export async function listExercises(): Promise<Exercise[]> {
   return res.rows._array;
 }
 
+/** Fetch variants for a specific exercise (e.g. Barbell, Dumbbell). */
 export async function listExerciseOptions(exerciseId: number): Promise<Pick<ExerciseOption, 'id' | 'name' | 'order_index'>[]> {
   const res = await executeSqlAsync(
     `SELECT id, name, order_index FROM exercise_options
@@ -24,6 +32,7 @@ export async function listExerciseOptions(exerciseId: number): Promise<Pick<Exer
   return res.rows._array;
 }
 
+/** Create a new exercise with the given name. */
 export async function createExercise(name: string) {
   await executeSqlAsync(
     `INSERT INTO exercises(name, name_norm, created_at) VALUES (?,?,?);`,
@@ -31,6 +40,7 @@ export async function createExercise(name: string) {
   );
 }
 
+/** Add a new variant to an exercise. */
 export async function createExerciseOption(
   exerciseId: number,
   name: string,
@@ -43,6 +53,7 @@ export async function createExerciseOption(
   );
 }
 
+/** Bulk-import exercises (and optional variants) from a JSON payload. */
 export async function importExercises(payload: {
   exercises: { name: string; options?: string[] }[];
 }) {

@@ -1,3 +1,10 @@
+/**
+ * Templates repository — CRUD for workout templates, slots, options, and prescribed sets.
+ *
+ * A template defines a workout structure:
+ *   Template → Slots (exercise positions) → Options (exercise variants per slot)
+ *   Each slot can also have prescribed sets (default weight/reps/rest).
+ */
 import { executeSqlAsync } from '../db';
 import { normalizeName } from '../../utils/normalize';
 import type { Template } from '../../types';
@@ -6,6 +13,7 @@ function now() {
   return new Date().toISOString();
 }
 
+/** List all templates (id + name), alphabetically. */
 export async function listTemplates(): Promise<Pick<Template, 'id' | 'name'>[]> {
   const res = await executeSqlAsync(
     `SELECT id, name FROM templates ORDER BY name;`
@@ -13,6 +21,7 @@ export async function listTemplates(): Promise<Pick<Template, 'id' | 'name'>[]> 
   return res.rows._array;
 }
 
+/** Fetch a template with its slots and exercise options. */
 export async function getTemplate(templateId: number) {
   const t = await executeSqlAsync(
     `SELECT id, name FROM templates WHERE id=?;`,
@@ -47,6 +56,7 @@ export async function getTemplate(templateId: number) {
   };
 }
 
+/** Create a new empty template. */
 export async function createTemplate(name: string) {
   await executeSqlAsync(
     `INSERT INTO templates(name, name_norm, created_at) VALUES (?,?,?);`,

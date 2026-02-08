@@ -1,7 +1,14 @@
+/**
+ * Stats repository — aggregate queries for dashboard and exercise analytics.
+ */
 import { executeSqlAsync } from '../db';
 import type { OverallStats } from '../../types';
 import type { DataPoint } from '../../components/TrendChart';
 
+/**
+ * Get the estimated 1RM (Epley formula) for an exercise across all sessions.
+ * Used to render the trend chart on the Exercise Detail screen.
+ */
 export async function e1rmHistory(exerciseId: number): Promise<DataPoint[]> {
   const res = await executeSqlAsync(
     `
@@ -22,6 +29,7 @@ export async function e1rmHistory(exerciseId: number): Promise<DataPoint[]> {
   return res.rows._array;
 }
 
+/** Fetch high-level stats: total sessions + last-7-day summary. */
 export async function overallStats(): Promise<OverallStats> {
   const totalSessions = await executeSqlAsync(
     `SELECT COUNT(*) as c FROM sessions WHERE status='final';`
@@ -45,6 +53,7 @@ export async function overallStats(): Promise<OverallStats> {
   };
 }
 
+/** Volume and session count per template. */
 export async function perTemplateStats() {
   const res = await executeSqlAsync(
     `

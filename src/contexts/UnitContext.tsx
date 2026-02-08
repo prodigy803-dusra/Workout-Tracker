@@ -1,3 +1,7 @@
+/**
+ * UnitContext — provides the user's preferred weight unit (kg / lb)
+ * and persists the choice in the app_settings database table.
+ */
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { executeSqlAsync } from '../db/db';
 import type { Unit } from '../utils/units';

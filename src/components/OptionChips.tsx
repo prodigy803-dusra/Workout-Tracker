@@ -1,3 +1,8 @@
+/**
+ * OptionChips — horizontal row of selectable pills for switching
+ * between exercise variants within a template slot.
+ * Only renders when a slot has more than one option.
+ */
 import React from 'react';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 
