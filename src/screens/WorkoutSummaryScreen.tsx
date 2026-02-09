@@ -8,6 +8,8 @@ import { useColors, ThemeColors } from '../contexts/ThemeContext';
 import { useUnit } from '../contexts/UnitContext';
 import { getSessionDetail } from '../db/repositories/sessionsRepo';
 import { getSessionPRs } from '../db/repositories/statsRepo';
+import ConfettiCannon from '../components/ConfettiCannon';
+import { haptic } from '../utils/haptics';
 import type { SessionDetail } from '../types';
 
 type PRRecord = {
@@ -23,10 +25,17 @@ export default function WorkoutSummaryScreen({ route, navigation }: any) {
   const { unit } = useUnit();
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [prs, setPrs] = useState<PRRecord[]>([]);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
     getSessionDetail(sessionId).then(setDetail);
-    getSessionPRs(sessionId).then(setPrs);
+    getSessionPRs(sessionId).then((records) => {
+      setPrs(records);
+      if (records.length > 0) {
+        setShowConfetti(true);
+        haptic('success');
+      }
+    });
   }, [sessionId]);
 
   if (!detail) return null;
@@ -172,6 +181,8 @@ export default function WorkoutSummaryScreen({ route, navigation }: any) {
           <Text style={s.doneBtnText}>Done</Text>
         </Pressable>
       </View>
+      {/* Confetti overlay */}
+      <ConfettiCannon active={showConfetti} onComplete={() => setShowConfetti(false)} />
     </ScrollView>
   );
 }

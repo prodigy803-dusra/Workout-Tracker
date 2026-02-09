@@ -3,12 +3,21 @@ import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { getSessionDetail } from '../db/repositories/sessionsRepo';
 import { getSessionPRs } from '../db/repositories/statsRepo';
 import { useColors } from '../contexts/ThemeContext';
-import type { SessionDetail, PersonalRecord } from '../types';
+import type { SessionDetail } from '../types';
+
+type SessionPR = {
+  id: number;
+  exercise_id: number;
+  exercise_name: string;
+  pr_type: string;
+  value: number;
+  previous_value: number | null;
+};
 
 export default function SessionDetailScreen({ route }: any) {
   const { sessionId } = route.params;
   const [detail, setDetail] = useState<SessionDetail | null>(null);
-  const [prs, setPrs] = useState<PersonalRecord[]>([]);
+  const [prs, setPrs] = useState<SessionPR[]>([]);
   const c = useColors();
 
   useEffect(() => {
@@ -57,7 +66,19 @@ export default function SessionDetailScreen({ route }: any) {
                 <Text style={[styles.setText, { color: c.text }]}>
                   {s.weight} × {s.reps}
                 </Text>
-                {s.rpe != null && <Text style={[styles.rpeText, { color: c.textSecondary }]}>@{s.rpe}</Text>}
+                {s.rpe != null && (
+                  <Text
+                    style={[
+                      styles.rpeText,
+                      {
+                        color: s.rpe <= 7 ? c.success : s.rpe <= 8.5 ? (c.isDark ? c.warning : '#B8860B') : c.danger,
+                        fontWeight: '700',
+                      },
+                    ]}
+                  >
+                    @{s.rpe}
+                  </Text>
+                )}
               </View>
             ))}
           </View>

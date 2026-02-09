@@ -1,5 +1,6 @@
 import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Alert, TextInput, Modal, Vibration } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Alert, TextInput, Modal, Vibration, Animated as RNAnimated } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { executeSqlAsync } from '../db/db';
 import {
@@ -16,6 +17,8 @@ import {
   toggleSetCompleted,
   upsertSet,
   lastTimeForOption,
+  deleteSet,
+  generateWarmupSets,
 } from '../db/repositories/setsRepo';
 import { listTemplates } from '../db/repositories/templatesRepo';
 import { overallStats } from '../db/repositories/statsRepo';
@@ -24,6 +27,7 @@ import OptionChips from '../components/OptionChips';
 import PlateCalculator from '../components/PlateCalculator';
 import { useUnit } from '../contexts/UnitContext';
 import { useColors } from '../contexts/ThemeContext';
+import { haptic } from '../utils/haptics';
 import type { Session, DraftSlot, SlotOption, SetData, LastTimeData, OverallStats, Template } from '../types';
 
 /* ═══════════════════════════════════════════════════════════
@@ -254,6 +258,10 @@ export default function LogScreen() {
   const [plateCalcVisible, setPlateCalcVisible] = useState(false);
   const [plateCalcWeight, setPlateCalcWeight] = useState(0);
 
+  // Session notes
+  const [sessionNotes, setSessionNotes] = useState('');
+  const [notesExpanded, setNotesExpanded] = useState(false);
+
   // Session elapsed time
   const [elapsed, setElapsed] = useState(0);
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -273,6 +281,7 @@ export default function LogScreen() {
     }
 
     setDraft(d);
+    setSessionNotes(d.notes || '');
     const slotRows = await listDraftSlots(d.id);
     setSlots(slotRows);
 
@@ -345,6 +354,7 @@ export default function LogScreen() {
           setTimerRunning(false);
           setTimerVisible(false);
           Vibration.vibrate([0, 300, 100, 300]);
+          haptic('warning');
           return 0;
         }
         return prev - 1;
@@ -465,6 +475,7 @@ export default function LogScreen() {
                 text: 'Finish',
                 onPress: async () => {
                   try {
+                    haptic('success');
                     const sessionId = draft.id;
                     const currentElapsed = elapsed;
                     await finalizeSession(sessionId);
@@ -504,6 +515,7 @@ export default function LogScreen() {
                 style: 'destructive',
                 onPress: async () => {
                   try {
+                    haptic('error');
                     await discardDraft(draft.id);
                     await load();
                   } catch (err) {
@@ -519,6 +531,34 @@ export default function LogScreen() {
           <Text style={styles.discardBtnText}>✕ Discard</Text>
         </Pressable>
       </View>
+
+      {/* Session Notes */}
+      <Pressable
+        onPress={() => setNotesExpanded(!notesExpanded)}
+        style={[styles.notesToggle, { backgroundColor: c.card, borderColor: c.border }]}
+      >
+        <Text style={[styles.notesToggleText, { color: c.textSecondary }]}>
+          {notesExpanded ? '📝 Notes ▼' : `📝 Notes ${sessionNotes ? '•' : ''}▶`}
+        </Text>
+      </Pressable>
+      {notesExpanded && (
+        <TextInput
+          value={sessionNotes}
+          onChangeText={setSessionNotes}
+          onEndEditing={() => {
+            if (draft) {
+              executeSqlAsync(
+                `UPDATE sessions SET notes=? WHERE id=?;`,
+                [sessionNotes || null, draft.id]
+              ).catch(() => {});
+            }
+          }}
+          placeholder="How's this workout going? Any notes..."
+          placeholderTextColor={c.textTertiary}
+          multiline
+          style={[styles.notesInput, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
+        />
+      )}
 
       {slots.map((slot) => {
         const options = optionsBySlot[slot.session_slot_id] || [];
@@ -595,7 +635,6 @@ export default function LogScreen() {
                   if (!lt || lt.sets.length === 0) return null;
                   const allCompleted = lt.sets.every((s) => s.completed);
                   if (!allCompleted) return null;
-                  // Suggest +2.5 on the heaviest set
                   const heaviest = lt.sets.reduce(
                     (max, s) => (s.weight > max.weight ? s : max),
                     lt.sets[0]
@@ -608,6 +647,24 @@ export default function LogScreen() {
                         You completed all sets last session — try {suggestedWeight} {unit} × {heaviest.reps}
                       </Text>
                     </View>
+                  );
+                })()}
+
+                {/* Warm-up generator */}
+                {sets.length > 0 && !sets.some((s) => s.completed) && (() => {
+                  const heaviest = sets.reduce((max, s) => (s.weight > max.weight ? s : max), sets[0]);
+                  if (heaviest.weight <= 0) return null;
+                  return (
+                    <Pressable
+                      onPress={async () => {
+                        haptic('light');
+                        await generateWarmupSets(selectedChoiceId, heaviest.weight, unit);
+                        await load();
+                      }}
+                      style={[styles.warmupBtn, { borderColor: c.accent, backgroundColor: c.accentBg }]}
+                    >
+                      <Text style={[styles.warmupBtnText, { color: c.accent }]}>🔥 Generate Warm-Up Sets</Text>
+                    </Pressable>
                   );
                 })()}
 
@@ -624,8 +681,33 @@ export default function LogScreen() {
                     </View>
 
                     {sets.map((s) => (
-                      <View
+                      <Swipeable
                         key={s.set_index}
+                        friction={2}
+                        rightThreshold={40}
+                        renderRightActions={(_progress, dragX) => {
+                          const scale = dragX.interpolate({
+                            inputRange: [-80, 0],
+                            outputRange: [1, 0.5],
+                            extrapolate: 'clamp',
+                          });
+                          return (
+                            <Pressable
+                              onPress={async () => {
+                                haptic('error');
+                                await deleteSet(selectedChoiceId, s.set_index);
+                                await load();
+                              }}
+                              style={styles.swipeDelete}
+                            >
+                              <RNAnimated.Text style={[styles.swipeDeleteText, { transform: [{ scale }] }]}>
+                                🗑️
+                              </RNAnimated.Text>
+                            </Pressable>
+                          );
+                        }}
+                      >
+                      <View
                         style={[
                           styles.setRow,
                           { borderBottomColor: c.border },
@@ -637,6 +719,7 @@ export default function LogScreen() {
                           onPress={async () => {
                             if (!s.completed) {
                               // Mark as completed and start timer
+                              haptic('medium');
                               await toggleSetCompleted(s.id, true);
                               const updatedSets = setsByChoice[selectedChoiceId].map((x) =>
                                 x.id === s.id ? { ...x, completed: true } : x
@@ -737,29 +820,54 @@ export default function LogScreen() {
                           placeholderTextColor={c.textTertiary}
                           style={[styles.setInput, { width: 64, color: c.text, backgroundColor: c.inputBg, borderColor: c.border }, s.completed && { color: c.textTertiary, backgroundColor: c.completedBg, borderColor: c.completedBorder }]}
                         />
-                        <TextInput
-                          value={s.rpe != null ? String(s.rpe) : ''}
-                          onChangeText={(text) => {
-                            const rpe = text ? parseFloat(text) : null;
+                        <Pressable
+                          onPress={() => {
+                            haptic('selection');
+                            // Cycle RPE: null → 6 → 7 → 8 → 9 → 10 → null
+                            const rpeOrder = [null, 6, 7, 8, 9, 10];
+                            const currentIdx = rpeOrder.indexOf(s.rpe);
+                            const nextRpe = rpeOrder[(currentIdx + 1) % rpeOrder.length];
                             setSetsByChoice((prev) => ({
                               ...prev,
                               [selectedChoiceId]: prev[selectedChoiceId].map((x) =>
-                                x.id === s.id ? { ...x, rpe } : x
+                                x.id === s.id ? { ...x, rpe: nextRpe } : x
                               ),
                             }));
-                          }}
-                          onEndEditing={() => {
                             const currentSet = setsByChoice[selectedChoiceId]?.find((x) => x.id === s.id);
                             if (currentSet) {
-                              upsertSet(selectedChoiceId, currentSet.set_index, currentSet.weight, currentSet.reps, currentSet.rpe, null, currentSet.rest_seconds).catch(() => {});
+                              upsertSet(selectedChoiceId, currentSet.set_index, currentSet.weight, currentSet.reps, nextRpe, null, currentSet.rest_seconds).catch(() => {});
                             }
                           }}
-                          keyboardType="decimal-pad"
-                          placeholder="RPE"
-                          placeholderTextColor={c.textTertiary}
-                          style={[styles.setInput, { width: 52, color: c.text, backgroundColor: c.inputBg, borderColor: c.border }, s.completed && { color: c.textTertiary, backgroundColor: c.completedBg, borderColor: c.completedBorder }]}
-                        />
+                          style={[
+                            styles.rpeChip,
+                            {
+                              backgroundColor: s.rpe == null ? c.inputBg
+                                : s.rpe <= 7 ? (c.isDark ? '#1A2E1F' : '#E6F9ED')
+                                : s.rpe <= 8.5 ? (c.isDark ? '#3A3420' : '#FFF8E1')
+                                : (c.isDark ? '#3A1A1A' : '#FFEBEE'),
+                              borderColor: s.rpe == null ? c.border
+                                : s.rpe <= 7 ? c.success
+                                : s.rpe <= 8.5 ? c.warning
+                                : c.danger,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.rpeChipText,
+                              {
+                                color: s.rpe == null ? c.textTertiary
+                                  : s.rpe <= 7 ? c.success
+                                  : s.rpe <= 8.5 ? (c.isDark ? c.warning : '#B8860B')
+                                  : c.danger,
+                              },
+                            ]}
+                          >
+                            {s.rpe != null ? `@${s.rpe}` : 'RPE'}
+                          </Text>
+                        </Pressable>
                       </View>
+                      </Swipeable>
                     ))}
                   </>
                 )}
@@ -1044,6 +1152,58 @@ const styles = StyleSheet.create({
   },
   suggestionIcon: { fontSize: 16 },
   suggestionText: { fontSize: 13, color: '#7A6B00', flex: 1 },
+
+  // Warm-up generator
+  warmupBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+    gap: 6,
+  },
+  warmupBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // RPE chip
+  rpeChip: {
+    width: 52,
+    paddingVertical: 7,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rpeChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  // Session notes
+  notesToggle: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  notesToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  notesInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    height: 80,
+    marginBottom: 12,
+    fontSize: 14,
+    textAlignVertical: 'top',
+  },
   
   // Timer Modal Styles
   timerBackdrop: {
@@ -1109,5 +1269,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
     textDecorationLine: 'underline',
+  },
+
+  // Swipe to delete
+  swipeDelete: {
+    backgroundColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 70,
+    borderRadius: 0,
+  },
+  swipeDeleteText: {
+    fontSize: 20,
   },
 });

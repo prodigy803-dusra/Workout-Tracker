@@ -146,6 +146,7 @@ export type HistoryItem = {
   performed_at: string;
   created_at: string;
   template_name: string | null;
+  notes: string | null;
   slots_count: number;
   completed_sets_count: number;
   sets_count: number;
@@ -216,6 +217,15 @@ export type MuscleVolumeRow = {
 export type WorkoutDay = {
   date: string;
   count: number;
+};
+
+/* ── Body weight types ──────────────────────────────────── */
+
+export type BodyWeightEntry = {
+  id: number;
+  weight: number;
+  unit: string;
+  measured_at: string;
 };
 
 /* ── Navigation types ───────────────────────────────────── */

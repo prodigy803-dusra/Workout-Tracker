@@ -336,7 +336,7 @@ export async function selectSlotChoice(
 export async function listHistory(): Promise<HistoryItem[]> {
   const res = await executeSqlAsync(
     `
-    SELECT s.id, s.performed_at, s.created_at, t.name as template_name,
+    SELECT s.id, s.performed_at, s.created_at, s.notes, t.name as template_name,
            (SELECT COUNT(*) FROM session_slots ss WHERE ss.session_id = s.id) as slots_count,
            (SELECT COUNT(*) FROM sets se
             JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id

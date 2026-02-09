@@ -156,6 +156,12 @@ export default function HistoryScreen({ navigation }: any) {
               </View>
             </View>
 
+            {item.notes ? (
+              <Text style={[styles.sessionNotes, { color: c.textSecondary, borderTopColor: c.border }]} numberOfLines={2}>
+                📝 {item.notes}
+              </Text>
+            ) : null}
+
             {item.exercises && (
               <View style={[styles.exercisesRow, { borderTopColor: c.border }]}>
                 <Text style={[styles.exercisesLabel, { color: c.textSecondary }]}>Exercises:</Text>
@@ -410,5 +416,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
     textAlign: 'center',
+  },
+
+  sessionNotes: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    paddingTop: 8,
+    marginTop: 8,
+    borderTopWidth: 1,
   },
 });

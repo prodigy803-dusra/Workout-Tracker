@@ -93,6 +93,7 @@ export async function resetDb() {
     'exercise_options',
     'exercises',
     'personal_records',
+    'body_weight',
     'schema_migrations',
     'app_settings',
   ];

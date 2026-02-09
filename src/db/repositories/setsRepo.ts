@@ -101,3 +101,61 @@ export async function lastTimeForOption(templateSlotOptionId: number): Promise<L
   );
   return { performed_at: row.performed_at, sets: sets.rows._array };
 }
+
+/**
+ * Generate warm-up sets leading up to the working weight.
+ * Inserts warm-up sets at the beginning, reindexing existing sets.
+ * Ramp: bar only × 10, 50% × 5, 70% × 3, 85% × 2
+ */
+export async function generateWarmupSets(
+  choiceId: number,
+  workingWeight: number,
+  unit: 'kg' | 'lb'
+): Promise<void> {
+  const barWeight = unit === 'kg' ? 20 : 45;
+  const roundTo = unit === 'kg' ? 2.5 : 5;
+  const round = (v: number) => Math.round(v / roundTo) * roundTo;
+
+  const warmups: Array<{ weight: number; reps: number }> = [];
+
+  if (workingWeight > barWeight * 2) {
+    warmups.push({ weight: barWeight, reps: 10 });
+  }
+  const w50 = round(workingWeight * 0.5);
+  const w70 = round(workingWeight * 0.7);
+  const w85 = round(workingWeight * 0.85);
+
+  if (w50 > barWeight) warmups.push({ weight: w50, reps: 5 });
+  if (w70 > w50) warmups.push({ weight: w70, reps: 3 });
+  if (w85 > w70) warmups.push({ weight: w85, reps: 2 });
+
+  if (warmups.length === 0) return;
+
+  // Get existing sets
+  const existingRes = await executeSqlAsync(
+    `SELECT * FROM sets WHERE session_slot_choice_id=? ORDER BY set_index;`,
+    [choiceId]
+  );
+  const existingSets = existingRes.rows._array;
+
+  // Delete all and re-insert with warm-ups prepended
+  await executeSqlAsync(`DELETE FROM sets WHERE session_slot_choice_id=?;`, [choiceId]);
+
+  const ts = new Date().toISOString();
+  for (let i = 0; i < warmups.length; i++) {
+    await executeSqlAsync(
+      `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, created_at)
+       VALUES (?,?,?,?,NULL,NULL,60,0,?);`,
+      [choiceId, i + 1, warmups[i].weight, warmups[i].reps, ts]
+    );
+  }
+
+  const offset = warmups.length;
+  for (const s of existingSets) {
+    await executeSqlAsync(
+      `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?);`,
+      [choiceId, s.set_index + offset, s.weight, s.reps, s.rpe, s.notes, s.rest_seconds, s.completed, ts]
+    );
+  }
+}

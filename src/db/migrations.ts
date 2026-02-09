@@ -185,4 +185,13 @@ export const migrations: string[] = [
     FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
   );
   `,
+  // 31 – body weight tracking
+  `
+  CREATE TABLE IF NOT EXISTS body_weight(
+    id INTEGER PRIMARY KEY,
+    weight REAL NOT NULL,
+    unit TEXT NOT NULL,
+    measured_at TEXT NOT NULL
+  );
+  `,
 ];

@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, TextInput, Alert, StyleSheet, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Sharing from 'expo-sharing';
 import { Paths, File } from 'expo-file-system';
 import { resetDb, executeSqlAsync, db } from '../db/db';
 import { importExercises } from '../db/repositories/exercisesRepo';
+import { logBodyWeight, bodyWeightTrend, latestBodyWeight } from '../db/repositories/bodyWeightRepo';
 import { useUnit } from '../contexts/UnitContext';
 import { useTheme, useColors, ThemeMode } from '../contexts/ThemeContext';
+import TrendChart from '../components/TrendChart';
+import { haptic } from '../utils/haptics';
 
 const BACKUP_TABLES = [
   'exercises',
@@ -19,6 +23,7 @@ const BACKUP_TABLES = [
   'session_slot_choices',
   'sets',
   'personal_records',
+  'body_weight',
   'app_settings',
 ] as const;
 
@@ -29,6 +34,24 @@ export default function SettingsScreen() {
   const { unit, setUnit } = useUnit();
   const { mode, setMode } = useTheme();
   const c = useColors();
+
+  // Body weight tracker state
+  const [bwInput, setBwInput] = useState('');
+  const [bwTrend, setBwTrend] = useState<Array<{ date: string; value: number }>>([]);
+  const [bwLatest, setBwLatest] = useState<{ weight: number; measured_at: string } | null>(null);
+
+  const loadBodyWeight = useCallback(async () => {
+    const trend = await bodyWeightTrend();
+    setBwTrend(trend);
+    const latest = await latestBodyWeight();
+    setBwLatest(latest);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadBodyWeight();
+    }, [loadBodyWeight])
+  );
 
   async function exportJson() {
     try {
@@ -175,6 +198,51 @@ export default function SettingsScreen() {
         ))}
       </View>
 
+      <Text style={[styles.sectionTitle, { color: c.text }]}>Body Weight</Text>
+      <View style={[styles.bwCard, { backgroundColor: c.card, borderColor: c.border }]}>
+        {bwLatest && (
+          <View style={{ marginBottom: 12 }}>
+            <Text style={[styles.bwCurrent, { color: c.text }]}>
+              {bwLatest.weight} {unit}
+            </Text>
+            <Text style={[styles.bwDate, { color: c.textSecondary }]}>
+              Last logged: {new Date(bwLatest.measured_at).toLocaleDateString()}
+            </Text>
+          </View>
+        )}
+        <View style={styles.bwInputRow}>
+          <TextInput
+            value={bwInput}
+            onChangeText={setBwInput}
+            placeholder={`Weight (${unit})`}
+            placeholderTextColor={c.textTertiary}
+            keyboardType="decimal-pad"
+            style={[styles.bwInput, { backgroundColor: c.inputBg, borderColor: c.border, color: c.text }]}
+          />
+          <Pressable
+            onPress={async () => {
+              const w = parseFloat(bwInput);
+              if (!w || w <= 0) {
+                Alert.alert('Invalid', 'Enter a valid weight');
+                return;
+              }
+              haptic('light');
+              await logBodyWeight(w, unit);
+              setBwInput('');
+              await loadBodyWeight();
+            }}
+            style={[styles.bwLogBtn, { backgroundColor: c.primary }]}
+          >
+            <Text style={[styles.bwLogBtnText, { color: c.primaryText }]}>Log</Text>
+          </Pressable>
+        </View>
+        {bwTrend.length >= 2 && (
+          <View style={{ marginTop: 12 }}>
+            <TrendChart data={bwTrend} label="Body Weight" unit={unit} />
+          </View>
+        )}
+      </View>
+
       <Text style={[styles.sectionTitle, { color: c.text }]}>Data</Text>
 
       <Pressable onPress={exportJson} style={[styles.button, { backgroundColor: c.primary }]}>
@@ -244,5 +312,45 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     marginBottom: 8,
     textAlignVertical: 'top',
+  },
+
+  // Body weight tracker
+  bwCard: {
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  bwCurrent: {
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  bwDate: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  bwInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  bwInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  bwLogBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bwLogBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
