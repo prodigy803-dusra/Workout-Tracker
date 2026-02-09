@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet, SectionList } from 'react-native';
-import { listExercises, createExercise } from '../db/repositories/exercisesRepo';
+import { View, Text, Pressable, TextInput, StyleSheet, SectionList, Alert } from 'react-native';
+import { listExercises, createExercise, deleteExercise } from '../db/repositories/exercisesRepo';
 import { useColors } from '../contexts/ThemeContext';
 import type { Exercise } from '../types';
 
@@ -113,6 +113,31 @@ export default function ExercisesScreen({ navigation }: any) {
     load();
   }
 
+  async function handleDelete(exercise: Exercise) {
+    Alert.alert(
+      'Delete Exercise',
+      `Remove "${exercise.name}" from your exercise library?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const deleted = await deleteExercise(exercise.id);
+            if (deleted) {
+              load();
+            } else {
+              Alert.alert(
+                'In Use',
+                'This exercise is used in one or more templates. Remove it from those templates first.'
+              );
+            }
+          },
+        },
+      ]
+    );
+  }
+
   function equipColor(equip: string | null) {
     if (!equip) return '#AAA';
     return EQUIP_COLORS[equip.toLowerCase()] || '#AAA';
@@ -160,6 +185,7 @@ export default function ExercisesScreen({ navigation }: any) {
                 name: item.name,
               })
             }
+            onLongPress={() => handleDelete(item)}
             style={[s.row, { backgroundColor: c.card, borderBottomColor: c.border }]}
           >
             <View style={s.rowContent}>

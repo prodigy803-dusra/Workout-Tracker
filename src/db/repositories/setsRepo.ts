@@ -96,7 +96,7 @@ export async function lastTimeForOption(templateSlotOptionId: number): Promise<L
 
   const row = res.rows.item(0);
   const sets = await executeSqlAsync(
-    `SELECT * FROM sets WHERE session_slot_choice_id=? ORDER BY set_index;`,
+    `SELECT * FROM sets WHERE session_slot_choice_id=? AND is_warmup=0 ORDER BY set_index;`,
     [row.session_slot_choice_id]
   );
   return { performed_at: row.performed_at, sets: sets.rows._array };
@@ -144,8 +144,8 @@ export async function generateWarmupSets(
   const ts = new Date().toISOString();
   for (let i = 0; i < warmups.length; i++) {
     await executeSqlAsync(
-      `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, created_at)
-       VALUES (?,?,?,?,NULL,NULL,60,0,?);`,
+      `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, is_warmup, created_at)
+       VALUES (?,?,?,?,NULL,NULL,60,0,1,?);`,
       [choiceId, i + 1, warmups[i].weight, warmups[i].reps, ts]
     );
   }
@@ -153,9 +153,9 @@ export async function generateWarmupSets(
   const offset = warmups.length;
   for (const s of existingSets) {
     await executeSqlAsync(
-      `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, created_at)
-       VALUES (?,?,?,?,?,?,?,?,?);`,
-      [choiceId, s.set_index + offset, s.weight, s.reps, s.rpe, s.notes, s.rest_seconds, s.completed, ts]
+      `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, is_warmup, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?);`,
+      [choiceId, s.set_index + offset, s.weight, s.reps, s.rpe, s.notes, s.rest_seconds, s.completed, s.is_warmup ?? 0, ts]
     );
   }
 }

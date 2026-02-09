@@ -40,6 +40,24 @@ export async function createExercise(name: string) {
   );
 }
 
+/**
+ * Delete an exercise if it's not referenced by any template or session.
+ * Returns true if deleted, false if in use.
+ */
+export async function deleteExercise(exerciseId: number): Promise<boolean> {
+  // Check if used in any template slot options
+  const tsoRes = await executeSqlAsync(
+    `SELECT COUNT(*) as cnt FROM template_slot_options WHERE exercise_id = ?;`,
+    [exerciseId]
+  );
+  if (tsoRes.rows.item(0).cnt > 0) return false;
+
+  // Safe to delete
+  await executeSqlAsync(`DELETE FROM exercise_options WHERE exercise_id = ?;`, [exerciseId]);
+  await executeSqlAsync(`DELETE FROM exercises WHERE id = ?;`, [exerciseId]);
+  return true;
+}
+
 /** Add a new variant to an exercise. */
 export async function createExerciseOption(
   exerciseId: number,

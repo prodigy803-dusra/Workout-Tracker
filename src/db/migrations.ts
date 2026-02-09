@@ -194,4 +194,6 @@ export const migrations: string[] = [
     measured_at TEXT NOT NULL
   );
   `,
+  // 32 – warmup flag on sets (prevents warmups accumulating across sessions)
+  `ALTER TABLE sets ADD COLUMN is_warmup INT NOT NULL DEFAULT 0;`,
 ];

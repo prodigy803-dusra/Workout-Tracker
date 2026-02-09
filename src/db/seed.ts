@@ -103,26 +103,33 @@ const EXERCISE_LIBRARY: ExEntry[] = [
 ];
 
 /**
- * Ensures every exercise in the master library exists in the DB.
- * Uses a version stamp so bulk inserts only run once per library version.
+ * Ensures the exercise library is seeded on FIRST install only.
+ * On subsequent launches, only updates metadata (muscle groups, equipment, guides)
+ * for exercises that already exist — never re-inserts exercises the user deleted.
  */
-const LIBRARY_VERSION = 4; // bump when EXERCISE_LIBRARY changes
+const LIBRARY_VERSION = 5; // bump when EXERCISE_LIBRARY changes
 
 export async function ensureExerciseLibrary() {
-  // Check if we've already synced this version
   const vRes = await executeSqlAsync(
     `SELECT value FROM app_settings WHERE key='exercise_library_version';`
   );
   const currentVersion = vRes.rows.length ? parseInt(vRes.rows.item(0).value, 10) : 0;
   if (currentVersion >= LIBRARY_VERSION) return;
 
+  const isFirstInstall = currentVersion === 0;
+
   for (const [name, primary, secondary, aliases, equipment, pattern] of EXERCISE_LIBRARY) {
-    await executeSqlAsync(
-      `INSERT OR IGNORE INTO exercises(name, name_norm, primary_muscle, secondary_muscle, aliases, equipment, movement_pattern, created_at)
-       VALUES (?,?,?,?,?,?,?,?);`,
-      [name, normalizeName(name), primary, secondary, aliases, equipment, pattern, now()]
-    );
-    // Also update existing rows that don't have metadata yet
+    if (isFirstInstall) {
+      // First install: insert all exercises
+      await executeSqlAsync(
+        `INSERT OR IGNORE INTO exercises(name, name_norm, primary_muscle, secondary_muscle, aliases, equipment, movement_pattern, created_at)
+         VALUES (?,?,?,?,?,?,?,?);`,
+        [name, normalizeName(name), primary, secondary, aliases, equipment, pattern, now()]
+      );
+    }
+
+    // Always update metadata on EXISTING exercises that are missing it
+    // (never re-inserts deleted exercises)
     await executeSqlAsync(
       `UPDATE exercises SET primary_muscle=?, secondary_muscle=?, aliases=?, equipment=?, movement_pattern=?
        WHERE name_norm=? AND primary_muscle IS NULL;`,
@@ -151,8 +158,60 @@ export async function ensureExerciseLibrary() {
  */
 export async function seedIfNeeded() {
   await ensureExerciseLibrary();
-  await ensureProgramTemplates();
+  await cleanupSeededTemplates();
+  await ensureFullbody6Templates();
 }
+
+/**
+ * One-time cleanup: remove auto-seeded program templates that the user didn't create.
+ * Runs once and records that cleanup was done.
+ */
+const SEEDED_TEMPLATE_NAMES = [
+  '5d-fb-day1', '5d-fb-day2', '5d-fb-day3', '5d-fb-day4', '5d-fb-day5',
+  '6d-fb-day1', '6d-fb-day2', '6d-fb-day3', '6d-fb-day4', '6d-fb-day5', '6d-fb-day6',
+];
+
+async function cleanupSeededTemplates() {
+  const vRes = await executeSqlAsync(
+    `SELECT value FROM app_settings WHERE key='seeded_templates_cleaned';`
+  );
+  if (vRes.rows.length > 0) return; // already cleaned up
+
+  for (const nameNorm of SEEDED_TEMPLATE_NAMES) {
+    // Only delete if the template hasn't been used in any finalized session
+    const usageRes = await executeSqlAsync(
+      `SELECT COUNT(*) as cnt FROM sessions s
+       JOIN templates t ON t.id = s.template_id
+       WHERE t.name_norm = ? AND s.status = 'final';`,
+      [nameNorm]
+    );
+    const usageCount = usageRes.rows.item(0).cnt;
+
+    if (usageCount === 0) {
+      // Safe to delete — user never completed a workout with this template
+      await executeSqlAsync(
+        `DELETE FROM templates WHERE name_norm = ?;`,
+        [nameNorm]
+      );
+    }
+  }
+
+  // Also discard any active draft sessions from seeded templates
+  for (const nameNorm of SEEDED_TEMPLATE_NAMES) {
+    await executeSqlAsync(
+      `DELETE FROM sessions WHERE status = 'draft' AND template_id IN (
+        SELECT id FROM templates WHERE name_norm = ?
+      );`,
+      [nameNorm]
+    );
+  }
+
+  await executeSqlAsync(
+    `INSERT OR REPLACE INTO app_settings(key, value) VALUES ('seeded_templates_cleaned', '1');`
+  );
+}
+
+/* Program template seeding has been removed — users build their own templates. */
 
 /* ── Helper: look up exercise ID by name ──────────────────────── */
 async function exId(name: string): Promise<number> {
@@ -167,7 +226,7 @@ async function exId(name: string): Promise<number> {
 /* ── Helper: create a full template from a declarative spec ───── */
 type SlotSpec = {
   name: string;
-  exercises: string[]; // exercise names from EXERCISE_LIBRARY
+  exercises: string[];
   sets: number;
   repsLow: number;
   repsHigh: number;
@@ -175,22 +234,46 @@ type SlotSpec = {
 };
 
 async function createProgramTemplate(templateName: string, slots: SlotSpec[]) {
-  // Skip if template already exists
+  // Get or create the template
+  let templateId: number;
   const existing = await executeSqlAsync(
     `SELECT id FROM templates WHERE name_norm=?;`,
     [normalizeName(templateName)]
   );
-  if (existing.rows.length > 0) return;
-
-  await executeSqlAsync(
-    `INSERT INTO templates(name, name_norm, created_at) VALUES (?,?,?);`,
-    [templateName, normalizeName(templateName), now()]
-  );
-  const tRes = await executeSqlAsync(
-    `SELECT id FROM templates WHERE name_norm=?;`,
-    [normalizeName(templateName)]
-  );
-  const templateId = tRes.rows.item(0).id;
+  if (existing.rows.length > 0) {
+    templateId = existing.rows.item(0).id;
+    // Check if fully built (has correct number of slots with options)
+    const slotCount = await executeSqlAsync(
+      `SELECT COUNT(*) as cnt FROM template_slots WHERE template_id=?;`,
+      [templateId]
+    );
+    if (slotCount.rows.item(0).cnt >= slots.length) return; // already complete
+    // Partial build — wipe everything and rebuild
+    // Manually delete children (prescribed_sets, slot_options) then slots
+    await executeSqlAsync(
+      `DELETE FROM template_prescribed_sets WHERE template_slot_id IN (
+        SELECT id FROM template_slots WHERE template_id=?
+      );`,
+      [templateId]
+    );
+    await executeSqlAsync(
+      `DELETE FROM template_slot_options WHERE template_slot_id IN (
+        SELECT id FROM template_slots WHERE template_id=?
+      );`,
+      [templateId]
+    );
+    await executeSqlAsync(`DELETE FROM template_slots WHERE template_id=?;`, [templateId]);
+  } else {
+    await executeSqlAsync(
+      `INSERT INTO templates(name, name_norm, created_at) VALUES (?,?,?);`,
+      [templateName, normalizeName(templateName), now()]
+    );
+    const tRes = await executeSqlAsync(
+      `SELECT id FROM templates WHERE name_norm=?;`,
+      [normalizeName(templateName)]
+    );
+    templateId = tRes.rows.item(0).id;
+  }
 
   for (let i = 0; i < slots.length; i++) {
     const slot = slots[i];
@@ -206,7 +289,6 @@ async function createProgramTemplate(templateName: string, slots: SlotSpec[]) {
     );
     const slotId = slotRes.rows.item(0).id;
 
-    // Add exercise options
     for (let o = 0; o < slot.exercises.length; o++) {
       const exerciseId = await exId(slot.exercises[o]);
       await executeSqlAsync(
@@ -216,7 +298,6 @@ async function createProgramTemplate(templateName: string, slots: SlotSpec[]) {
       );
     }
 
-    // Add prescribed sets
     const midReps = Math.round((slot.repsLow + slot.repsHigh) / 2);
     const rest = slot.rest ?? 90;
     for (let s = 1; s <= slot.sets; s++) {
@@ -230,73 +311,16 @@ async function createProgramTemplate(templateName: string, slots: SlotSpec[]) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PROGRAM TEMPLATES
+   6-DAY FULLBODY PROGRAM
    ═══════════════════════════════════════════════════════════════ */
-async function ensureProgramTemplates() {
+async function ensureFullbody6Templates() {
   const vRes = await executeSqlAsync(
-    `SELECT value FROM app_settings WHERE key='program_templates_version';`
+    `SELECT value FROM app_settings WHERE key='fullbody6_version';`
   );
   const currentVersion = vRes.rows.length ? parseInt(vRes.rows.item(0).value, 10) : 0;
   if (currentVersion >= 1) return;
 
-  /* ────────── 5-DAY FULLBODY ────────── */
-
-  await createProgramTemplate('5D-FB-Day1', [
-    { name: 'Chest – Horizontal Push', exercises: ['Barbell Bench Press', 'Dumbbell Bench Press', 'Weighted Pushup'], sets: 3, repsLow: 5, repsHigh: 8, rest: 120 },
-    { name: 'Back – Vertical Pull', exercises: ['Pull Up', 'Chin Up', 'Lat Pulldown', 'Dumbbell Pullover'], sets: 3, repsLow: 8, repsHigh: 12 },
-    { name: 'Shoulders – Overhead Press', exercises: ['Overhead Press', 'Dumbbell Shoulder Press'], sets: 3, repsLow: 5, repsHigh: 8, rest: 120 },
-    { name: 'Biceps – Normal Curl', exercises: ['Barbell Curl', 'EZ Bar Curl', 'Dumbbell Curl'], sets: 3, repsLow: 8, repsHigh: 12 },
-    { name: 'Triceps – Lateral Head', exercises: ['Tricep Pushdown', 'Diamond Pushup', 'Dip'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
-    { name: 'Quads – Squat', exercises: ['Barbell Back Squat', 'Barbell Front Squat', 'Goblet Squat'], sets: 3, repsLow: 5, repsHigh: 8, rest: 120 },
-    { name: 'Hamstrings – Curl', exercises: ['Lying Leg Curl', 'Nordic Curl'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
-    { name: 'Calves – Calf Raise', exercises: ['Standing Calf Raise', 'Seated Calf Raise'], sets: 3, repsLow: 15, repsHigh: 30, rest: 45 },
-  ]);
-
-  await createProgramTemplate('5D-FB-Day2', [
-    { name: 'Back – Horizontal Pull', exercises: ['Barbell Row', 'One Arm Dumbbell Row'], sets: 3, repsLow: 5, repsHigh: 8, rest: 120 },
-    { name: 'Chest – Incline Push', exercises: ['Incline Barbell Bench', 'Incline Dumbbell Press', 'Weighted Decline Pushup'], sets: 3, repsLow: 8, repsHigh: 12 },
-    { name: 'Biceps – Brachialis', exercises: ['Hammer Curl'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
-    { name: 'Shoulders – Lateral Raise', exercises: ['Dumbbell Lateral Raise', 'Cable Lateral Raise'], sets: 3, repsLow: 15, repsHigh: 20, rest: 45 },
-    { name: 'Shoulders – Rear Delt', exercises: ['Rear Delt Fly', 'Reverse Pec Deck', 'Face Pull'], sets: 3, repsLow: 15, repsHigh: 20, rest: 45 },
-    { name: 'Triceps – Overhead Extension', exercises: ['Skullcrusher', 'Overhead Tricep Extension'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
-    { name: 'Hamstrings – Hip Hinge', exercises: ['Romanian Deadlift', 'Stiff Leg Deadlift', 'Good Morning'], sets: 3, repsLow: 8, repsHigh: 12 },
-    { name: 'Quads – Isolation', exercises: ['Leg Extension', 'Leg Press 45', 'Hack Squat Machine', 'Bulgarian Split Squat'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
-  ]);
-
-  await createProgramTemplate('5D-FB-Day3', [
-    { name: 'Shoulders – Overhead Press', exercises: ['Overhead Press', 'Dumbbell Shoulder Press'], sets: 3, repsLow: 5, repsHigh: 8, rest: 120 },
-    { name: 'Back – Vertical Pull', exercises: ['Pull Up', 'Chin Up', 'Lat Pulldown', 'Dumbbell Pullover'], sets: 3, repsLow: 8, repsHigh: 12 },
-    { name: 'Chest – Isolation', exercises: ['Dumbbell Fly', 'Cable Fly Mid'], sets: 3, repsLow: 12, repsHigh: 20, rest: 60 },
-    { name: 'Biceps – Peak Curl', exercises: ['Concentration Curl', 'Preacher Curl'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
-    { name: 'Triceps – Lateral Head', exercises: ['Tricep Pushdown', 'Diamond Pushup', 'Dip'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
-    { name: 'Glutes – Hip Thrust', exercises: ['Barbell Hip Thrust', 'Machine Hip Thrust'], sets: 3, repsLow: 8, repsHigh: 12 },
-    { name: 'Calves – Calf Raise', exercises: ['Standing Calf Raise', 'Seated Calf Raise'], sets: 3, repsLow: 15, repsHigh: 30, rest: 45 },
-  ]);
-
-  await createProgramTemplate('5D-FB-Day4', [
-    { name: 'Biceps – Normal Curl', exercises: ['Barbell Curl', 'EZ Bar Curl', 'Dumbbell Curl'], sets: 3, repsLow: 5, repsHigh: 8, rest: 120 },
-    { name: 'Chest – Horizontal Push', exercises: ['Barbell Bench Press', 'Dumbbell Bench Press', 'Weighted Pushup'], sets: 3, repsLow: 8, repsHigh: 12 },
-    { name: 'Back – Horizontal Pull', exercises: ['Barbell Row', 'One Arm Dumbbell Row'], sets: 3, repsLow: 8, repsHigh: 12 },
-    { name: 'Shoulders – Lateral Raise', exercises: ['Dumbbell Lateral Raise', 'Cable Lateral Raise'], sets: 3, repsLow: 15, repsHigh: 20, rest: 45 },
-    { name: 'Shoulders – Rear Delt', exercises: ['Rear Delt Fly', 'Reverse Pec Deck', 'Face Pull'], sets: 5, repsLow: 15, repsHigh: 20, rest: 45 },
-    { name: 'Triceps – Overhead Extension', exercises: ['Skullcrusher', 'Overhead Tricep Extension'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
-    { name: 'Quads – Squat', exercises: ['Barbell Back Squat', 'Barbell Front Squat', 'Goblet Squat'], sets: 3, repsLow: 5, repsHigh: 8, rest: 120 },
-    { name: 'Hamstrings – Curl', exercises: ['Lying Leg Curl', 'Nordic Curl'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
-  ]);
-
-  await createProgramTemplate('5D-FB-Day5', [
-    { name: 'Chest – Incline Push', exercises: ['Incline Barbell Bench', 'Incline Dumbbell Press', 'Weighted Decline Pushup'], sets: 3, repsLow: 5, repsHigh: 8, rest: 120 },
-    { name: 'Back – Vertical Pull', exercises: ['Pull Up', 'Chin Up', 'Lat Pulldown', 'Dumbbell Pullover'], sets: 3, repsLow: 8, repsHigh: 12 },
-    { name: 'Biceps – Normal Curl', exercises: ['Barbell Curl', 'EZ Bar Curl', 'Dumbbell Curl'], sets: 3, repsLow: 8, repsHigh: 12 },
-    { name: 'Triceps – Overhead Extension', exercises: ['Skullcrusher', 'Overhead Tricep Extension'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
-    { name: 'Hamstrings – Hip Hinge', exercises: ['Romanian Deadlift', 'Stiff Leg Deadlift', 'Good Morning'], sets: 3, repsLow: 8, repsHigh: 12 },
-    { name: 'Quads – Isolation', exercises: ['Leg Extension', 'Leg Press 45', 'Hack Squat Machine', 'Bulgarian Split Squat'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
-    { name: 'Calves – Calf Raise', exercises: ['Standing Calf Raise', 'Seated Calf Raise'], sets: 3, repsLow: 15, repsHigh: 30, rest: 45 },
-  ]);
-
-  /* ────────── 6-DAY FULLBODY ────────── */
-
-  await createProgramTemplate('6D-FB-Day1', [
+  await createProgramTemplate('Fullbody 1', [
     { name: 'Chest – Horizontal Push', exercises: ['Barbell Bench Press', 'Dumbbell Bench Press', 'Weighted Pushup'], sets: 3, repsLow: 5, repsHigh: 8, rest: 120 },
     { name: 'Chest – Incline Push', exercises: ['Incline Barbell Bench', 'Incline Dumbbell Press', 'Weighted Decline Pushup'], sets: 3, repsLow: 8, repsHigh: 12 },
     { name: 'Back – Vertical Pull', exercises: ['Pull Up', 'Chin Up', 'Lat Pulldown', 'Dumbbell Pullover'], sets: 3, repsLow: 8, repsHigh: 12 },
@@ -306,7 +330,7 @@ async function ensureProgramTemplates() {
     { name: 'Calves – Calf Raise', exercises: ['Standing Calf Raise', 'Seated Calf Raise'], sets: 3, repsLow: 15, repsHigh: 30, rest: 45 },
   ]);
 
-  await createProgramTemplate('6D-FB-Day2', [
+  await createProgramTemplate('Fullbody 2', [
     { name: 'Back – Horizontal Pull', exercises: ['Barbell Row', 'One Arm Dumbbell Row'], sets: 3, repsLow: 5, repsHigh: 8, rest: 120 },
     { name: 'Back – Vertical Pull', exercises: ['Pull Up', 'Chin Up', 'Lat Pulldown', 'Dumbbell Pullover'], sets: 3, repsLow: 8, repsHigh: 12 },
     { name: 'Shoulders – Overhead Press', exercises: ['Overhead Press', 'Dumbbell Shoulder Press'], sets: 3, repsLow: 8, repsHigh: 12 },
@@ -316,7 +340,7 @@ async function ensureProgramTemplates() {
     { name: 'Calves – Calf Raise', exercises: ['Standing Calf Raise', 'Seated Calf Raise'], sets: 3, repsLow: 15, repsHigh: 30, rest: 45 },
   ]);
 
-  await createProgramTemplate('6D-FB-Day3', [
+  await createProgramTemplate('Fullbody 3', [
     { name: 'Shoulders – Overhead Press', exercises: ['Overhead Press', 'Dumbbell Shoulder Press'], sets: 3, repsLow: 8, repsHigh: 12 },
     { name: 'Shoulders – Lateral Raise', exercises: ['Dumbbell Lateral Raise', 'Cable Lateral Raise'], sets: 3, repsLow: 15, repsHigh: 20, rest: 45 },
     { name: 'Back – Vertical Pull', exercises: ['Pull Up', 'Chin Up', 'Lat Pulldown', 'Dumbbell Pullover'], sets: 3, repsLow: 8, repsHigh: 12 },
@@ -326,7 +350,7 @@ async function ensureProgramTemplates() {
     { name: 'Triceps – Lateral Head', exercises: ['Tricep Pushdown', 'Diamond Pushup', 'Dip'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
   ]);
 
-  await createProgramTemplate('6D-FB-Day4', [
+  await createProgramTemplate('Fullbody 4', [
     { name: 'Biceps – Normal Curl', exercises: ['Barbell Curl', 'EZ Bar Curl', 'Dumbbell Curl'], sets: 3, repsLow: 8, repsHigh: 12 },
     { name: 'Biceps – Brachialis', exercises: ['Hammer Curl'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
     { name: 'Shoulders – Lateral Raise', exercises: ['Dumbbell Lateral Raise', 'Cable Lateral Raise'], sets: 3, repsLow: 15, repsHigh: 20, rest: 45 },
@@ -336,7 +360,7 @@ async function ensureProgramTemplates() {
     { name: 'Calves – Calf Raise', exercises: ['Standing Calf Raise', 'Seated Calf Raise'], sets: 3, repsLow: 15, repsHigh: 30, rest: 45 },
   ]);
 
-  await createProgramTemplate('6D-FB-Day5', [
+  await createProgramTemplate('Fullbody 5', [
     { name: 'Quads – Squat', exercises: ['Barbell Back Squat', 'Barbell Front Squat', 'Goblet Squat'], sets: 3, repsLow: 5, repsHigh: 8, rest: 120 },
     { name: 'Quads – Isolation', exercises: ['Leg Extension', 'Leg Press 45', 'Hack Squat Machine', 'Bulgarian Split Squat'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
     { name: 'Back – Horizontal Pull', exercises: ['Barbell Row', 'One Arm Dumbbell Row'], sets: 3, repsLow: 8, repsHigh: 12 },
@@ -347,7 +371,7 @@ async function ensureProgramTemplates() {
     { name: 'Shoulders – Rear Delt', exercises: ['Rear Delt Fly', 'Reverse Pec Deck', 'Face Pull'], sets: 3, repsLow: 15, repsHigh: 20, rest: 45 },
   ]);
 
-  await createProgramTemplate('6D-FB-Day6', [
+  await createProgramTemplate('Fullbody 6', [
     { name: 'Hamstrings – Hip Hinge', exercises: ['Romanian Deadlift', 'Stiff Leg Deadlift', 'Good Morning'], sets: 3, repsLow: 8, repsHigh: 12 },
     { name: 'Hamstrings – Curl', exercises: ['Lying Leg Curl', 'Nordic Curl'], sets: 3, repsLow: 12, repsHigh: 15, rest: 60 },
     { name: 'Back – Horizontal Pull', exercises: ['Barbell Row', 'One Arm Dumbbell Row'], sets: 3, repsLow: 8, repsHigh: 12 },
@@ -358,6 +382,6 @@ async function ensureProgramTemplates() {
   ]);
 
   await executeSqlAsync(
-    `INSERT OR REPLACE INTO app_settings(key, value) VALUES ('program_templates_version', '1');`
+    `INSERT OR REPLACE INTO app_settings(key, value) VALUES ('fullbody6_version', '1');`
   );
 }

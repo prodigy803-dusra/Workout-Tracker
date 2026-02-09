@@ -13,6 +13,9 @@ import { migrations } from './migrations';
 const DB_NAME = 'workout.db';
 const db = openDatabaseSync(DB_NAME);
 
+// Enable foreign key enforcement — required for ON DELETE CASCADE to work
+db.execSync('PRAGMA foreign_keys = ON;');
+
 type RowsWrapper<T = any> = {
   length: number;
   item: (index: number) => T;
@@ -53,6 +56,7 @@ export async function executeSqlAsync(
 /** Initialise the database: run pending migrations then seed default data. */
 export async function initDb() {
   await runMigrations();
+  await cleanupOrphans();
   const { seedIfNeeded } = await import('./seed');
   await seedIfNeeded();
 }
@@ -77,6 +81,33 @@ async function runMigrations() {
       );
     });
   }
+}
+
+/**
+ * Clean up orphaned rows left behind from before PRAGMA foreign_keys was enabled.
+ * Runs on every init but is cheap (deletes nothing if no orphans exist).
+ */
+async function cleanupOrphans() {
+  // Orphaned session_slots (session deleted but slots remained)
+  await executeSqlAsync(
+    `DELETE FROM session_slots WHERE session_id NOT IN (SELECT id FROM sessions);`
+  );
+  // Orphaned session_slot_choices
+  await executeSqlAsync(
+    `DELETE FROM session_slot_choices WHERE session_slot_id NOT IN (SELECT id FROM session_slots);`
+  );
+  // Orphaned sets
+  await executeSqlAsync(
+    `DELETE FROM sets WHERE session_slot_choice_id NOT IN (SELECT id FROM session_slot_choices);`
+  );
+  // Orphaned template_slot_options
+  await executeSqlAsync(
+    `DELETE FROM template_slot_options WHERE template_slot_id NOT IN (SELECT id FROM template_slots);`
+  );
+  // Orphaned template_prescribed_sets
+  await executeSqlAsync(
+    `DELETE FROM template_prescribed_sets WHERE template_slot_id NOT IN (SELECT id FROM template_slots);`
+  );
 }
 
 /** Drop every table and re-initialise from scratch (migrations + seed). */

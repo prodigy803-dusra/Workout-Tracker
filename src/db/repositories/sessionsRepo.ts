@@ -39,9 +39,10 @@ async function getLastPerformedSets(templateSlotOptionId: number) {
 
   const choiceId = choiceRes.rows.item(0).id;
 
+  // Filter out warmup sets — they should never carry across sessions
   const res = await executeSqlAsync(
     `SELECT set_index, weight, reps, rpe, rest_seconds
-     FROM sets WHERE session_slot_choice_id = ?
+     FROM sets WHERE session_slot_choice_id = ? AND is_warmup = 0
      ORDER BY set_index ASC;`,
     [choiceId]
   );
@@ -57,8 +58,27 @@ export async function getActiveDraft(): Promise<Session | null> {
   return res.rows.item(0);
 }
 
-/** Delete a draft session and all its associated data (cascades). */
+/** Delete a draft session and all its associated data. */
 export async function discardDraft(sessionId: number) {
+  // Manually delete children first (in case foreign_keys wasn't always on)
+  await executeSqlAsync(
+    `DELETE FROM sets WHERE session_slot_choice_id IN (
+      SELECT ssc.id FROM session_slot_choices ssc
+      JOIN session_slots ss ON ss.id = ssc.session_slot_id
+      WHERE ss.session_id = ?
+    );`,
+    [sessionId]
+  );
+  await executeSqlAsync(
+    `DELETE FROM session_slot_choices WHERE session_slot_id IN (
+      SELECT id FROM session_slots WHERE session_id = ?
+    );`,
+    [sessionId]
+  );
+  await executeSqlAsync(
+    `DELETE FROM session_slots WHERE session_id = ?;`,
+    [sessionId]
+  );
   await executeSqlAsync(`DELETE FROM sessions WHERE id=?;`, [sessionId]);
 }
 
@@ -157,48 +177,57 @@ export async function createDraftFromTemplate(templateId: number) {
       [sscId, sessionSlotId]
     );
 
-    // Try to get historical data for this exercise first
+    // Get historical working sets (warmups excluded) and prescribed sets
     const historicalSets = await getLastPerformedSets(defaultOptionId);
-    
-    if (historicalSets.length > 0) {
-      // Use actual historical data from last time this exercise was performed
-      for (const hist of historicalSets) {
+    const prescribedRes = await executeSqlAsync(
+      `SELECT set_index, weight, reps, rpe, notes, rest_seconds FROM template_prescribed_sets
+       WHERE template_slot_id=? ORDER BY set_index;`,
+      [slot.id]
+    );
+    const prescribedSets = prescribedRes.rows._array;
+
+    if (prescribedSets.length > 0) {
+      // Template prescribed sets define the STRUCTURE (number of sets).
+      // Historical data fills in weight/reps from last session.
+      // Take the last N historical sets (working sets are at the end, warmups at the start).
+      const workingHistory = historicalSets.length > 0
+        ? historicalSets.slice(-prescribedSets.length)
+        : [];
+
+      for (let i = 0; i < prescribedSets.length; i++) {
+        const ps = prescribedSets[i];
+        const hist = workingHistory[i];
         await executeSqlAsync(
           `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, created_at)
            VALUES (?,?,?,?,?,?,?,?,?);`,
           [
             sscId,
-            hist.set_index,
-            hist.weight ?? 0,
-            hist.reps ?? 0,
-            hist.rpe,
-            null,
-            hist.rest_seconds ?? 90,
+            i + 1,
+            hist?.weight ?? ps.weight ?? 0,
+            hist?.reps ?? ps.reps ?? 0,
+            hist?.rpe ?? ps.rpe,
+            ps.notes,
+            hist?.rest_seconds ?? ps.rest_seconds ?? 90,
             0,
             now(),
           ]
         );
       }
-    } else {
-      // Fallback: Copy prescribed sets from template slot if no history exists
-      const prescribedSets = await executeSqlAsync(
-        `SELECT set_index, weight, reps, rpe, notes, rest_seconds FROM template_prescribed_sets
-         WHERE template_slot_id=? ORDER BY set_index;`,
-        [slot.id]
-      );
-      for (let i = 0; i < prescribedSets.rows.length; i++) {
-        const ps = prescribedSets.rows.item(i);
+    } else if (historicalSets.length > 0) {
+      // No prescribed sets — use history directly (warmups already filtered)
+      for (let i = 0; i < historicalSets.length; i++) {
+        const hist = historicalSets[i];
         await executeSqlAsync(
           `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, created_at)
            VALUES (?,?,?,?,?,?,?,?,?);`,
           [
             sscId,
-            ps.set_index,
-            ps.weight ?? 0,
-            ps.reps ?? 0,
-            ps.rpe,
-            ps.notes,
-            ps.rest_seconds ?? 90,
+            i + 1,
+            hist.weight ?? 0,
+            hist.reps ?? 0,
+            hist.rpe,
+            null,
+            hist.rest_seconds ?? 90,
             0,
             now(),
           ]
@@ -270,18 +299,55 @@ export async function selectSlotChoice(
     );
     choiceId = res.rows.item(0).id;
 
-    // Try to get historical data for this exercise first
+    // Get historical working sets (warmups excluded) and prescribed sets
     const historicalSets = await getLastPerformedSets(templateSlotOptionId);
+    const slotRes = await executeSqlAsync(
+      `SELECT template_slot_id FROM session_slots WHERE id=?;`,
+      [sessionSlotId]
+    );
+    const templateSlotId = slotRes.rows.length ? slotRes.rows.item(0).template_slot_id : null;
+    const prescribedRes = templateSlotId ? await executeSqlAsync(
+      `SELECT set_index, weight, reps, rpe, notes, rest_seconds FROM template_prescribed_sets
+       WHERE template_slot_id=? ORDER BY set_index;`,
+      [templateSlotId]
+    ) : null;
+    const prescribedSets = prescribedRes?.rows._array ?? [];
 
-    if (historicalSets.length > 0) {
-      // Use actual historical data from last time this exercise was performed
-      for (const hist of historicalSets) {
+    if (prescribedSets.length > 0) {
+      // Template prescribed sets define the structure
+      const workingHistory = historicalSets.length > 0
+        ? historicalSets.slice(-prescribedSets.length)
+        : [];
+
+      for (let i = 0; i < prescribedSets.length; i++) {
+        const ps = prescribedSets[i];
+        const hist = workingHistory[i];
         await executeSqlAsync(
           `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, created_at)
            VALUES (?,?,?,?,?,?,?,?,?);`,
           [
             choiceId,
-            hist.set_index,
+            i + 1,
+            hist?.weight ?? ps.weight ?? 0,
+            hist?.reps ?? ps.reps ?? 0,
+            hist?.rpe ?? ps.rpe,
+            ps.notes,
+            hist?.rest_seconds ?? ps.rest_seconds ?? 90,
+            0,
+            now(),
+          ]
+        );
+      }
+    } else if (historicalSets.length > 0) {
+      // No prescribed sets — use history directly (warmups already filtered)
+      for (let i = 0; i < historicalSets.length; i++) {
+        const hist = historicalSets[i];
+        await executeSqlAsync(
+          `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, created_at)
+           VALUES (?,?,?,?,?,?,?,?,?);`,
+          [
+            choiceId,
+            i + 1,
             hist.weight ?? 0,
             hist.reps ?? 0,
             hist.rpe,
@@ -291,38 +357,6 @@ export async function selectSlotChoice(
             now(),
           ]
         );
-      }
-    } else {
-      // Fallback: Copy prescribed sets from template slot to the new choice
-      const slotRes = await executeSqlAsync(
-        `SELECT template_slot_id FROM session_slots WHERE id=?;`,
-        [sessionSlotId]
-      );
-      if (slotRes.rows.length) {
-        const templateSlotId = slotRes.rows.item(0).template_slot_id;
-        const prescribedSets = await executeSqlAsync(
-          `SELECT set_index, weight, reps, rpe, notes, rest_seconds FROM template_prescribed_sets
-           WHERE template_slot_id=? ORDER BY set_index;`,
-          [templateSlotId]
-        );
-        for (let i = 0; i < prescribedSets.rows.length; i++) {
-          const ps = prescribedSets.rows.item(i);
-          await executeSqlAsync(
-            `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, created_at)
-             VALUES (?,?,?,?,?,?,?,?,?);`,
-            [
-              choiceId,
-              ps.set_index,
-              ps.weight ?? 0,
-              ps.reps ?? 0,
-              ps.rpe,
-              ps.notes,
-              ps.rest_seconds ?? 90,
-              0,
-              now(),
-            ]
-          );
-        }
       }
     }
   }
