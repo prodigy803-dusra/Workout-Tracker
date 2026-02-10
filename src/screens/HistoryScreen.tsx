@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, Pressable, StyleSheet, RefreshControl } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { listHistory } from '../db/repositories/sessionsRepo';
 import { overallStats, weeklyVolumeByMuscle, workoutDaysMap, currentStreak, prCountsBySession } from '../db/repositories/statsRepo';
 import { useUnit } from '../contexts/UnitContext';
@@ -15,20 +16,30 @@ export default function HistoryScreen({ navigation }: any) {
   const [heatmapDays, setHeatmapDays] = useState<Record<string, number>>({});
   const [streak, setStreak] = useState(0);
   const [prCounts, setPrCounts] = useState<Record<number, number>>({});
+  const [refreshing, setRefreshing] = useState(false);
   const { unit } = useUnit();
   const c = useColors();
 
+  const loadData = useCallback(() => {
+    listHistory().then(setItems);
+    overallStats().then(setStats);
+    weeklyVolumeByMuscle().then(setVolumeData);
+    workoutDaysMap().then(setHeatmapDays);
+    currentStreak().then(setStreak);
+    prCountsBySession().then(setPrCounts);
+  }, []);
+
   useEffect(() => {
-    const unsub = navigation.addListener('focus', () => {
-      listHistory().then(setItems);
-      overallStats().then(setStats);
-      weeklyVolumeByMuscle().then(setVolumeData);
-      workoutDaysMap().then(setHeatmapDays);
-      currentStreak().then(setStreak);
-      prCountsBySession().then(setPrCounts);
-    });
+    const unsub = navigation.addListener('focus', loadData);
     return unsub;
-  }, [navigation]);
+  }, [navigation, loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    loadData();
+    // Give it a brief minimum so the spinner is visible
+    setTimeout(() => setRefreshing(false), 400);
+  }, [loadData]);
 
   const formatDuration = (start: string, end: string) => {
     const startTime = new Date(start).getTime();
@@ -121,10 +132,14 @@ export default function HistoryScreen({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
-      <FlatList
+      <FlashList
         data={items}
         keyExtractor={(item) => String(item.id)}
+        estimatedItemSize={160}
         ListHeaderComponent={header}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.accent} colors={[c.accent]} />
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🏋️</Text>

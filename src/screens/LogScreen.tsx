@@ -1,7 +1,8 @@
 import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Alert, TextInput, Modal, Vibration, Animated as RNAnimated } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Alert, TextInput, Modal, Animated as RNAnimated, Platform, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useKeepAwake } from 'expo-keep-awake';
 import { executeSqlAsync } from '../db/db';
 import {
   finalizeSession,
@@ -19,12 +20,17 @@ import {
   lastTimeForOption,
   deleteSet,
   generateWarmupSets,
+  addDropSegment,
+  updateDropSegment,
+  deleteDropSegment,
 } from '../db/repositories/setsRepo';
 import { listTemplates } from '../db/repositories/templatesRepo';
 import { overallStats } from '../db/repositories/statsRepo';
 import { detectAndRecordPRs } from '../db/repositories/statsRepo';
 import OptionChips from '../components/OptionChips';
 import PlateCalculator from '../components/PlateCalculator';
+import { useRestTimer } from '../hooks/useRestTimer';
+import type { NextSetInfo, NextExerciseInfo } from '../hooks/useRestTimer';
 import { useUnit } from '../contexts/UnitContext';
 import { useColors } from '../contexts/ThemeContext';
 import { haptic } from '../utils/haptics';
@@ -40,6 +46,7 @@ function IdleScreen({ onSessionStarted }: { onSessionStarted: () => void }) {
   const [templates, setTemplates] = useState<Pick<Template, 'id' | 'name'>[]>([]);
   const [stats, setStats] = useState<OverallStats | null>(null);
   const [greeting, setGreeting] = useState('');
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     const h = new Date().getHours();
@@ -59,11 +66,15 @@ function IdleScreen({ onSessionStarted }: { onSessionStarted: () => void }) {
   const hasHistory = stats && stats.totalSessions > 0;
 
   async function quickStart(templateId: number) {
+    if (starting) return;
+    setStarting(true);
     try {
       await createDraftFromTemplate(templateId);
       onSessionStarted();
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to start session');
+    } finally {
+      setStarting(false);
     }
   }
 
@@ -83,14 +94,15 @@ function IdleScreen({ onSessionStarted }: { onSessionStarted: () => void }) {
             {templates.slice(0, 6).map((t) => (
               <Pressable
                 key={t.id}
-                style={[idle.templateCard, { backgroundColor: c.card, borderColor: c.border }]}
+                style={[idle.templateCard, { backgroundColor: c.card, borderColor: c.border }, starting && { opacity: 0.5 }]}
                 onPress={() => quickStart(t.id)}
+                disabled={starting}
               >
                 <Text style={idle.templateIcon}>🏋️</Text>
                 <Text style={[idle.templateName, { color: c.text }]} numberOfLines={2}>
                   {t.name}
                 </Text>
-                <Text style={[idle.templateAction, { color: c.accent }]}>Start →</Text>
+                <Text style={[idle.templateAction, { color: c.accent }]}>{starting ? 'Starting…' : 'Start →'}</Text>
               </Pressable>
             ))}
           </View>
@@ -249,10 +261,32 @@ export default function LogScreen() {
   const [expandedSlots, setExpandedSlots] = useState<Set<number>>(new Set());
   const [lastTimeBySlot, setLastTimeBySlot] = useState<Record<number, LastTimeData>>({});
 
-  // Timer modal state
-  const [timerVisible, setTimerVisible] = useState(false);
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [timerRunning, setTimerRunning] = useState(false);
+  // Keep screen awake during an active workout
+  useKeepAwake('active-workout', { isEnabled: draft !== null });
+
+  // Prevent accidental back-navigation during an active workout
+  useEffect(() => {
+    if (!draft) return;
+    const unsub = navigation.addListener('beforeRemove', (e: any) => {
+      // Allow programmatic navigation (e.g. after Finish/Discard)
+      if (e.data.action.type === 'RESET' || e.data.action.type === 'REPLACE') return;
+      e.preventDefault();
+      Alert.alert(
+        'Leave workout?',
+        'You have an active workout in progress. Are you sure you want to leave? Your workout will still be here when you come back.',
+        [
+          { text: 'Stay', style: 'cancel' },
+          { text: 'Leave', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
+        ]
+      );
+    });
+    return unsub;
+  }, [navigation, draft]);
+  // Background-safe rest timer (persists across navigation / backgrounding)
+  const timer = useRestTimer();
+
+  // Drop-set segments: set_id → array of { id, segment_index, weight, reps }
+  const [dropsBySet, setDropsBySet] = useState<Record<number, Array<{ id: number; segment_index: number; weight: number; reps: number }>>>({});
 
   // Plate calculator state
   const [plateCalcVisible, setPlateCalcVisible] = useState(false);
@@ -331,6 +365,27 @@ export default function LogScreen() {
     }
     setSetsByChoice(setsMap);
 
+    // Batch-load drop-set segments for all sets in this session
+    const allSetIds = Object.values(setsMap).flat().map(s => s.id);
+    if (allSetIds.length > 0) {
+      const setPlaceholders = allSetIds.map(() => '?').join(',');
+      const dropsRes = await executeSqlAsync(
+        `SELECT id, set_id, segment_index, weight, reps
+         FROM drop_set_segments
+         WHERE set_id IN (${setPlaceholders})
+         ORDER BY set_id, segment_index;`,
+        allSetIds
+      ).catch(() => ({ rows: { _array: [] as any[] } }));
+      const dropsMap: Record<number, Array<{ id: number; segment_index: number; weight: number; reps: number }>> = {};
+      for (const row of dropsRes.rows._array) {
+        if (!dropsMap[row.set_id]) dropsMap[row.set_id] = [];
+        dropsMap[row.set_id].push(row);
+      }
+      setDropsBySet(dropsMap);
+    } else {
+      setDropsBySet({});
+    }
+
     // Auto-expand first incomplete slot on initial load
     if (firstIncomplete !== null) {
       setExpandedSlots(new Set([firstIncomplete]));
@@ -344,24 +399,6 @@ export default function LogScreen() {
     );
     setLastTimeBySlot(Object.fromEntries(lastTimeEntries));
   }, []);
-
-  // Cooldown timer effect
-  useEffect(() => {
-    if (!timerRunning || timerSeconds <= 0) return;
-    const interval = setInterval(() => {
-      setTimerSeconds((prev) => {
-        if (prev <= 1) {
-          setTimerRunning(false);
-          setTimerVisible(false);
-          Vibration.vibrate([0, 300, 100, 300]);
-          haptic('warning');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [timerRunning, timerSeconds]);
 
   // Session elapsed timer
   useEffect(() => {
@@ -389,11 +426,16 @@ export default function LogScreen() {
         if (s.completed) {
           completed++;
           volume += (s.weight || 0) * (s.reps || 0);
+          // Include drop-set segment volume
+          const drops = dropsBySet[s.id] || [];
+          for (const d of drops) {
+            volume += (d.weight || 0) * (d.reps || 0);
+          }
         }
       }
     }
     return { totalSets: total, completedSets: completed, totalVolume: volume };
-  }, [setsByChoice]);
+  }, [setsByChoice, dropsBySet]);
 
   const formatElapsed = (secs: number) => {
     const h = Math.floor(secs / 3600);
@@ -435,6 +477,7 @@ export default function LogScreen() {
   }
 
   return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={[styles.container, { backgroundColor: c.background }]} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Session summary header */}
       <View style={[styles.summaryCard, { backgroundColor: c.card, borderColor: c.border }]}>
@@ -478,6 +521,11 @@ export default function LogScreen() {
                     haptic('success');
                     const sessionId = draft.id;
                     const currentElapsed = elapsed;
+                    // Flush any unsaved session notes before finalizing
+                    await executeSqlAsync(
+                      `UPDATE sessions SET notes=? WHERE id=?;`,
+                      [sessionNotes || null, sessionId]
+                    ).catch(() => {});
                     await finalizeSession(sessionId);
                     await detectAndRecordPRs(sessionId);
                     await load();
@@ -681,6 +729,7 @@ export default function LogScreen() {
                     </View>
 
                     {sets.map((s) => (
+                      <React.Fragment key={s.set_index}>
                       <Swipeable
                         key={s.set_index}
                         friction={2}
@@ -752,9 +801,50 @@ export default function LogScreen() {
                               }
 
                               if (s.rest_seconds && s.rest_seconds > 0) {
-                                setTimerSeconds(s.rest_seconds);
-                                setTimerRunning(true);
-                                setTimerVisible(true);
+                                // Compute next-set context for the rest-timer preview
+                                const currentSets = updatedSets;
+                                const nextSetInExercise = currentSets.find(
+                                  (x) => x.set_index > s.set_index && !x.completed
+                                );
+                                let nextSetInfo: NextSetInfo = null;
+                                let nextExInfo: NextExerciseInfo = null;
+                                let isLastSet = false;
+
+                                if (nextSetInExercise) {
+                                  nextSetInfo = {
+                                    exerciseName: slot.exercise_name || '',
+                                    setNumber: nextSetInExercise.set_index,
+                                    weight: nextSetInExercise.weight,
+                                    reps: nextSetInExercise.reps,
+                                    rpe: nextSetInExercise.rpe,
+                                  };
+                                } else {
+                                  isLastSet = true;
+                                  const currentSlotIndex = slots.findIndex(
+                                    (sl) => sl.session_slot_id === slot.session_slot_id
+                                  );
+                                  for (let i = currentSlotIndex + 1; i < slots.length; i++) {
+                                    const ns = slots[i];
+                                    const nChoiceId = ns.selected_session_slot_choice_id;
+                                    if (!nChoiceId) continue;
+                                    const nSets = setsByChoice[nChoiceId] || [];
+                                    const firstIncompleteSet = nSets.find((x) => !x.completed);
+                                    if (firstIncompleteSet) {
+                                      nextExInfo = {
+                                        exerciseName: ns.exercise_name || '',
+                                        firstSetWeight: firstIncompleteSet.weight,
+                                        firstSetReps: firstIncompleteSet.reps,
+                                      };
+                                      break;
+                                    }
+                                  }
+                                }
+
+                                timer.start(s.rest_seconds, {
+                                  nextSet: nextSetInfo,
+                                  nextExercise: nextExInfo,
+                                  isLastSet,
+                                });
                               }
                             } else {
                               // Unmark completion
@@ -868,6 +958,98 @@ export default function LogScreen() {
                         </Pressable>
                       </View>
                       </Swipeable>
+
+                      {/* Drop-set segments */}
+                      {(dropsBySet[s.id] || []).map((seg) => (
+                        <View key={`drop-${seg.id}`} style={[styles.dropSegmentRow, { borderBottomColor: c.border }]}>
+                          <Text style={[styles.dropArrow, { color: c.textTertiary }]}>↳</Text>
+                          <TextInput
+                            value={String(seg.weight || '')}
+                            onChangeText={(text) => {
+                              const weight = text === '' ? 0 : (parseFloat(text) || 0);
+                              setDropsBySet((prev) => ({
+                                ...prev,
+                                [s.id]: (prev[s.id] || []).map((d) =>
+                                  d.id === seg.id ? { ...d, weight } : d
+                                ),
+                              }));
+                            }}
+                            onEndEditing={() => {
+                              const current = dropsBySet[s.id]?.find((d) => d.id === seg.id);
+                              if (current) {
+                                updateDropSegment(current.id, current.weight, current.reps).catch(() => {});
+                              }
+                            }}
+                            keyboardType="numeric"
+                            placeholder="Wt"
+                            placeholderTextColor={c.textTertiary}
+                            style={[styles.dropInput, { color: c.text, backgroundColor: c.inputBg, borderColor: c.border }]}
+                          />
+                          <Text style={[styles.dropX, { color: c.textTertiary }]}>×</Text>
+                          <TextInput
+                            value={String(seg.reps || '')}
+                            onChangeText={(text) => {
+                              const reps = text === '' ? 0 : (parseInt(text, 10) || 0);
+                              setDropsBySet((prev) => ({
+                                ...prev,
+                                [s.id]: (prev[s.id] || []).map((d) =>
+                                  d.id === seg.id ? { ...d, reps } : d
+                                ),
+                              }));
+                            }}
+                            onEndEditing={() => {
+                              const current = dropsBySet[s.id]?.find((d) => d.id === seg.id);
+                              if (current) {
+                                updateDropSegment(current.id, current.weight, current.reps).catch(() => {});
+                              }
+                            }}
+                            keyboardType="number-pad"
+                            placeholder="Reps"
+                            placeholderTextColor={c.textTertiary}
+                            style={[styles.dropInput, { width: 52, color: c.text, backgroundColor: c.inputBg, borderColor: c.border }]}
+                          />
+                          <Pressable
+                            hitSlop={8}
+                            onPress={async () => {
+                              haptic('light');
+                              await deleteDropSegment(seg.id);
+                              setDropsBySet((prev) => ({
+                                ...prev,
+                                [s.id]: (prev[s.id] || []).filter((d) => d.id !== seg.id),
+                              }));
+                            }}
+                          >
+                            <Text style={[styles.dropDeleteBtn, { color: c.danger }]}>✕</Text>
+                          </Pressable>
+                        </View>
+                      ))}
+
+                      {/* Add drop-set button (shown for sets with weight) */}
+                      {s.weight > 0 && (
+                        <Pressable
+                          onPress={async () => {
+                            haptic('selection');
+                            const existingDrops = dropsBySet[s.id] || [];
+                            const nextIndex = existingDrops.length > 0
+                              ? Math.max(...existingDrops.map((d) => d.segment_index)) + 1
+                              : 1;
+                            // Pre-fill with ~80% of previous weight
+                            const lastWeight = existingDrops.length > 0
+                              ? existingDrops[existingDrops.length - 1].weight
+                              : s.weight;
+                            const roundTo = unit === 'kg' ? 2.5 : 5;
+                            const suggestedWeight = Math.round((lastWeight * 0.8) / roundTo) * roundTo;
+                            await addDropSegment(s.id, nextIndex, suggestedWeight, s.reps);
+                            await load();
+                          }}
+                          style={styles.addDropBtn}
+                        >
+                          <Text style={[styles.addDropBtnText, { color: c.accent }]}>
+                            ↓ Drop Set
+                          </Text>
+                        </Pressable>
+                      )}
+                      </React.Fragment>
                     ))}
                   </>
                 )}
@@ -894,52 +1076,107 @@ export default function LogScreen() {
         );
       })}
 
-      {/* Cooldown Timer Modal */}
-      <Modal visible={timerVisible} transparent animationType="fade">
+      {/* Cooldown Timer Modal — background-safe, shows next-set preview */}
+      <Modal visible={timer.isVisible} transparent animationType="fade">
         <Pressable 
           style={styles.timerBackdrop}
-          onPress={() => {
-            setTimerVisible(false);
-            setTimerRunning(false);
-          }}
+          onPress={() => timer.hide()}
         >
           <View style={[styles.timerModal, { backgroundColor: c.card }]} onStartShouldSetResponder={() => true}>
-            <Text style={[styles.timerTitle, { color: c.text }]}>Rest Timer</Text>
-            <Text style={[styles.timerDisplay, { color: c.success }]}>
-              {Math.floor(timerSeconds / 60)}:{(timerSeconds % 60).toString().padStart(2, '0')}
+            <Text style={[styles.timerTitle, { color: c.text }]}>
+              {timer.remaining <= 0 && !timer.isRunning ? '✅ Rest Complete!' : 'Rest Timer'}
             </Text>
-            <View style={styles.timerControls}>
+            <Text style={[styles.timerDisplay, {
+              color: timer.remaining <= 0 ? c.success
+                : timer.remaining <= 5 ? c.danger
+                : c.success,
+            }]}>
+              {Math.floor(timer.remaining / 60)}:{(timer.remaining % 60).toString().padStart(2, '0')}
+            </Text>
+
+            {/* Progress bar */}
+            {timer.totalDuration > 0 && (
+              <View style={[styles.timerProgressBg, { backgroundColor: c.isDark ? '#333' : '#E8E8E8' }]}>
+                <View
+                  style={[
+                    styles.timerProgressFill,
+                    {
+                      width: `${Math.min(100, Math.max(0, (1 - timer.remaining / timer.totalDuration)) * 100)}%`,
+                      backgroundColor: timer.remaining <= 5 ? c.danger : c.success,
+                    },
+                  ]}
+                />
+              </View>
+            )}
+
+            {/* Next set / next exercise preview */}
+            {(timer.nextSet || (timer.isLastSetOfExercise && timer.nextExercise)) && (
+              <View style={[styles.nextSetPreview, { backgroundColor: c.sectionHeaderBg, borderColor: c.border }]}>
+                {timer.isLastSetOfExercise && timer.nextExercise ? (
+                  <>
+                    <Text style={[styles.nextSetLabel, { color: c.textSecondary }]}>UP NEXT</Text>
+                    <Text style={[styles.nextSetExercise, { color: c.text }]}>
+                      🏋️ {timer.nextExercise.exerciseName}
+                    </Text>
+                    {timer.nextExercise.firstSetWeight != null && (
+                      <Text style={[styles.nextSetDetail, { color: c.textSecondary }]}>
+                        Set #1: {timer.nextExercise.firstSetWeight} {unit} × {timer.nextExercise.firstSetReps}
+                      </Text>
+                    )}
+                  </>
+                ) : timer.nextSet ? (
+                  <>
+                    <Text style={[styles.nextSetLabel, { color: c.textSecondary }]}>COMING UP</Text>
+                    <Text style={[styles.nextSetExercise, { color: c.text }]}>
+                      {timer.nextSet.exerciseName}
+                    </Text>
+                    <Text style={[styles.nextSetDetail, { color: c.textSecondary }]}>
+                      Set #{timer.nextSet.setNumber}: {timer.nextSet.weight} {unit} × {timer.nextSet.reps}
+                      {timer.nextSet.rpe ? ` @${timer.nextSet.rpe}` : ''}
+                    </Text>
+                  </>
+                ) : null}
+              </View>
+            )}
+
+            {timer.remaining > 0 ? (
+              <View style={styles.timerControls}>
+                <Pressable
+                  style={[styles.timerBtn, { backgroundColor: c.inputBg }]}
+                  onPress={() => timer.addTime(-5)}
+                >
+                  <Text style={[styles.timerBtnText, { color: c.text }]}>-5s</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.timerBtn, { backgroundColor: c.success }]}
+                  onPress={() => (timer.isRunning ? timer.pause() : timer.resume())}
+                >
+                  <Text style={[styles.timerBtnText, { color: '#FFF' }]}>
+                    {timer.isRunning ? 'Pause' : 'Resume'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.timerBtn, { backgroundColor: c.inputBg }]}
+                  onPress={() => timer.addTime(5)}
+                >
+                  <Text style={[styles.timerBtnText, { color: c.text }]}>+5s</Text>
+                </Pressable>
+              </View>
+            ) : (
               <Pressable
-                style={[styles.timerBtn, { backgroundColor: c.inputBg }]}
-                onPress={() => setTimerSeconds((prev) => Math.max(0, prev - 5))}
+                style={[styles.timerBtn, { backgroundColor: c.success, paddingHorizontal: 40, marginBottom: 12 }]}
+                onPress={() => timer.skip()}
               >
-                <Text style={[styles.timerBtnText, { color: c.text }]}>-5s</Text>
+                <Text style={[styles.timerBtnText, { color: '#FFF' }]}>Let's Go! 💪</Text>
               </Pressable>
-              <Pressable
-                style={[styles.timerBtn, { backgroundColor: c.success }]}
-                onPress={() => {
-                  setTimerRunning(!timerRunning);
-                }}
-              >
-                <Text style={[styles.timerBtnText, { color: '#FFF' }]}>
-                  {timerRunning ? 'Pause' : 'Start'}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.timerBtn, { backgroundColor: c.inputBg }]}
-                onPress={() => setTimerSeconds((prev) => prev + 5)}
-              >
-                <Text style={[styles.timerBtnText, { color: c.text }]}>+5s</Text>
-              </Pressable>
-            </View>
+            )}
             <Pressable
               style={styles.timerSkipBtn}
-              onPress={() => {
-                setTimerVisible(false);
-                setTimerRunning(false);
-              }}
+              onPress={() => timer.skip()}
             >
-              <Text style={[styles.timerSkipText, { color: c.textSecondary }]}>Skip Rest</Text>
+              <Text style={[styles.timerSkipText, { color: c.textSecondary }]}>
+                {timer.remaining > 0 ? 'Skip Rest' : 'Dismiss'}
+              </Text>
             </Pressable>
           </View>
         </Pressable>
@@ -953,6 +1190,7 @@ export default function LogScreen() {
         unit={unit}
       />
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1269,6 +1507,86 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
     textDecorationLine: 'underline',
+  },
+
+  // Timer progress bar
+  timerProgressBg: {
+    height: 6,
+    borderRadius: 3,
+    width: '100%',
+    marginBottom: 20,
+    overflow: 'hidden' as const,
+  },
+  timerProgressFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+
+  // Next-set preview in timer modal
+  nextSetPreview: {
+    width: '100%',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  nextSetLabel: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  nextSetExercise: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    marginBottom: 2,
+  },
+  nextSetDetail: {
+    fontSize: 14,
+  },
+
+  // Drop-set segments
+  dropSegmentRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    paddingLeft: 36,
+    borderBottomWidth: 1,
+  },
+  dropArrow: {
+    fontSize: 16,
+    marginRight: 2,
+  },
+  dropInput: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    textAlign: 'center' as const,
+    width: 64,
+  },
+  dropX: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  dropDeleteBtn: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  addDropBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingLeft: 36,
+  },
+  addDropBtnText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
   },
 
   // Swipe to delete

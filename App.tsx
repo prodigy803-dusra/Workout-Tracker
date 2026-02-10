@@ -10,6 +10,7 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/
 import { initDb } from './src/db/db';
 import { UnitProvider } from './src/contexts/UnitContext';
 import { ThemeProvider, useColors } from './src/contexts/ThemeContext';
+import ErrorBoundary from './src/components/ErrorBoundary';
 import RootNavigator from './src/navigation';
 
 function AppInner() {
@@ -73,10 +74,12 @@ function AppInner() {
 
   return (
     <>
-      <StatusBar barStyle={c.isDark ? 'light-content' : 'dark-content'} backgroundColor={c.background} />
-      <NavigationContainer theme={navTheme}>
-        <RootNavigator />
-      </NavigationContainer>
+      <StatusBar barStyle={c.isDark ? 'light-content' : 'dark-content'} backgroundColor={c.background} translucent={false} />
+      <ErrorBoundary>
+        <NavigationContainer theme={navTheme}>
+          <RootNavigator />
+        </NavigationContainer>
+      </ErrorBoundary>
     </>
   );
 }

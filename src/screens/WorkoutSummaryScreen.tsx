@@ -3,7 +3,7 @@
  * Displays total volume, duration, exercises, sets, and any PRs hit.
  */
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Share } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Share, ActivityIndicator } from 'react-native';
 import { useColors, ThemeColors } from '../contexts/ThemeContext';
 import { useUnit } from '../contexts/UnitContext';
 import { getSessionDetail } from '../db/repositories/sessionsRepo';
@@ -38,7 +38,11 @@ export default function WorkoutSummaryScreen({ route, navigation }: any) {
     });
   }, [sessionId]);
 
-  if (!detail) return null;
+  if (!detail) return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.background }}>
+      <ActivityIndicator size="large" color={c.accent} />
+    </View>
+  );
 
   const completedSets = detail.sets.filter((s: any) => s.completed);
   const totalVolume = completedSets.reduce(

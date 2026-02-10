@@ -102,6 +102,43 @@ export async function lastTimeForOption(templateSlotOptionId: number): Promise<L
   return { performed_at: row.performed_at, sets: sets.rows._array };
 }
 
+/* ═══════════════════════════════════════════════════════════
+ *  Drop-set segment operations
+ * ═══════════════════════════════════════════════════════════ */
+
+/** Add (or update) a drop-set segment for a given set. */
+export async function addDropSegment(
+  setId: number,
+  segmentIndex: number,
+  weight: number,
+  reps: number,
+) {
+  await executeSqlAsync(
+    `INSERT INTO drop_set_segments(set_id, segment_index, weight, reps, created_at)
+     VALUES (?,?,?,?,?)
+     ON CONFLICT(set_id, segment_index)
+     DO UPDATE SET weight=excluded.weight, reps=excluded.reps;`,
+    [setId, segmentIndex, weight, reps, now()]
+  );
+}
+
+/** Update an existing drop-set segment by its ID. */
+export async function updateDropSegment(
+  segmentId: number,
+  weight: number,
+  reps: number,
+) {
+  await executeSqlAsync(
+    `UPDATE drop_set_segments SET weight=?, reps=? WHERE id=?;`,
+    [weight, reps, segmentId]
+  );
+}
+
+/** Delete a drop-set segment by its ID. */
+export async function deleteDropSegment(segmentId: number) {
+  await executeSqlAsync(`DELETE FROM drop_set_segments WHERE id=?;`, [segmentId]);
+}
+
 /**
  * Generate warm-up sets leading up to the working weight.
  * Inserts warm-up sets at the beginning, reindexing existing sets.

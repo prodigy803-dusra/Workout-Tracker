@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet, SectionList, Alert } from 'react-native';
 import { listExercises, createExercise, deleteExercise } from '../db/repositories/exercisesRepo';
 import { useColors } from '../contexts/ThemeContext';
+import { useDebouncedCallback } from '../utils/debounce';
 import type { Exercise } from '../types';
 
 /* ── Muscle-group display order & labels ──────────────────── */
@@ -61,8 +62,13 @@ const EQUIP_COLORS: Record<string, string> = {
 export default function ExercisesScreen({ navigation }: any) {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [newName, setNewName] = useState('');
   const c = useColors();
+
+  const applySearch = useDebouncedCallback((val: string) => {
+    setDebouncedSearch(val);
+  }, 250);
 
   function load() {
     listExercises().then(setExercises);
@@ -74,8 +80,8 @@ export default function ExercisesScreen({ navigation }: any) {
   }, [navigation]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return exercises;
-    const q = search.trim().toLowerCase();
+    if (!debouncedSearch.trim()) return exercises;
+    const q = debouncedSearch.trim().toLowerCase();
     return exercises.filter(
       (e) =>
         e.name.toLowerCase().includes(q) ||
@@ -83,7 +89,7 @@ export default function ExercisesScreen({ navigation }: any) {
         (e.primary_muscle && e.primary_muscle.toLowerCase().includes(q)) ||
         (e.equipment && e.equipment.toLowerCase().includes(q))
     );
-  }, [exercises, search]);
+  }, [exercises, debouncedSearch]);
 
   const sections = useMemo(() => {
     const grouped: Record<string, any[]> = {};
@@ -153,7 +159,7 @@ export default function ExercisesScreen({ navigation }: any) {
           <View style={s.header}>
             <TextInput
               value={search}
-              onChangeText={setSearch}
+              onChangeText={(val) => { setSearch(val); applySearch(val); }}
               placeholder="Search exercises, muscles, equipment..."
               placeholderTextColor={c.textTertiary}
               style={[s.searchInput, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}

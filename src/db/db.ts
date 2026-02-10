@@ -108,11 +108,16 @@ async function cleanupOrphans() {
   await executeSqlAsync(
     `DELETE FROM template_prescribed_sets WHERE template_slot_id NOT IN (SELECT id FROM template_slots);`
   );
+  // Orphaned drop_set_segments
+  await executeSqlAsync(
+    `DELETE FROM drop_set_segments WHERE set_id NOT IN (SELECT id FROM sets);`
+  ).catch(() => { /* table may not exist yet */ });
 }
 
 /** Drop every table and re-initialise from scratch (migrations + seed). */
 export async function resetDb() {
   const tables = [
+    'drop_set_segments',
     'sets',
     'session_slot_choices',
     'session_slots',

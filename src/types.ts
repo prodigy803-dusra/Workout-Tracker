@@ -219,6 +219,17 @@ export type WorkoutDay = {
   count: number;
 };
 
+/* ── Drop-set segment types ─────────────────────────────── */
+
+export type DropSetSegment = {
+  id: number;
+  set_id: number;
+  segment_index: number;
+  weight: number;
+  reps: number;
+  created_at: string;
+};
+
 /* ── Body weight types ──────────────────────────────────── */
 
 export type BodyWeightEntry = {

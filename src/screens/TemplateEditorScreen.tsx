@@ -186,9 +186,22 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
                   {o.exercise_name}{o.option_name ? ` (${o.option_name})` : ''}
                 </Text>
                 <Pressable
-                  onPress={async () => {
-                    await deleteTemplateSlotOption(o.id);
-                    await load();
+                  onPress={() => {
+                    Alert.alert(
+                      'Remove Exercise',
+                      `Remove "${o.exercise_name}${o.option_name ? ` (${o.option_name})` : ''}" from this slot?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Remove',
+                          style: 'destructive',
+                          onPress: async () => {
+                            await deleteTemplateSlotOption(o.id);
+                            await load();
+                          },
+                        },
+                      ]
+                    );
                   }}
                   style={styles.removeBtn}
                 >
@@ -208,9 +221,22 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
               </Pressable>
               <Pressable
                 style={[styles.actionBtn, { backgroundColor: c.dangerBg }]}
-                onPress={async () => {
-                  await deleteSlot(s.id);
-                  await load();
+                onPress={() => {
+                  Alert.alert(
+                    'Delete Slot',
+                    `Delete "${s.name || `Slot ${s.slot_index}`}" and all its exercises?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: async () => {
+                          await deleteSlot(s.id);
+                          await load();
+                        },
+                      },
+                    ]
+                  );
                 }}
               >
                 <Text style={[styles.actionBtnText, { color: c.danger }]}>Delete Slot</Text>

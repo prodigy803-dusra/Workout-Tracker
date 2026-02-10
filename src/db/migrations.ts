@@ -196,4 +196,17 @@ export const migrations: string[] = [
   `,
   // 32 – warmup flag on sets (prevents warmups accumulating across sessions)
   `ALTER TABLE sets ADD COLUMN is_warmup INT NOT NULL DEFAULT 0;`,
+  // 33 – drop-set segments (weight changes within a single set)
+  `
+  CREATE TABLE IF NOT EXISTS drop_set_segments(
+    id INTEGER PRIMARY KEY,
+    set_id INT NOT NULL,
+    segment_index INT NOT NULL,
+    weight REAL NOT NULL,
+    reps INT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(set_id, segment_index),
+    FOREIGN KEY(set_id) REFERENCES sets(id) ON DELETE CASCADE
+  );
+  `,
 ];

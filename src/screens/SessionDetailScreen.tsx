@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { getSessionDetail } from '../db/repositories/sessionsRepo';
 import { getSessionPRs } from '../db/repositories/statsRepo';
 import { useColors } from '../contexts/ThemeContext';
@@ -25,7 +25,11 @@ export default function SessionDetailScreen({ route }: any) {
     getSessionPRs(sessionId).then(setPrs);
   }, [sessionId]);
 
-  if (!detail) return null;
+  if (!detail) return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.background }}>
+      <ActivityIndicator size="large" color={c.accent} />
+    </View>
+  );
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: c.background }]}>
