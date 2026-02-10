@@ -20,13 +20,25 @@ export default function HistoryScreen({ navigation }: any) {
   const { unit } = useUnit();
   const c = useColors();
 
-  const loadData = useCallback(() => {
-    listHistory().then(setItems);
-    overallStats().then(setStats);
-    weeklyVolumeByMuscle().then(setVolumeData);
-    workoutDaysMap().then(setHeatmapDays);
-    currentStreak().then(setStreak);
-    prCountsBySession().then(setPrCounts);
+  const loadData = useCallback(async () => {
+    try {
+      const [hist, ov, vol, days, str, prc] = await Promise.all([
+        listHistory(),
+        overallStats(),
+        weeklyVolumeByMuscle(),
+        workoutDaysMap(),
+        currentStreak(),
+        prCountsBySession(),
+      ]);
+      setItems(hist);
+      setStats(ov);
+      setVolumeData(vol);
+      setHeatmapDays(days);
+      setStreak(str);
+      setPrCounts(prc);
+    } catch (err) {
+      console.error('Failed to load history data:', err);
+    }
   }, []);
 
   useEffect(() => {
@@ -36,9 +48,8 @@ export default function HistoryScreen({ navigation }: any) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    loadData();
-    // Give it a brief minimum so the spinner is visible
-    setTimeout(() => setRefreshing(false), 400);
+    await loadData();
+    setRefreshing(false);
   }, [loadData]);
 
   const formatDuration = (start: string, end: string) => {

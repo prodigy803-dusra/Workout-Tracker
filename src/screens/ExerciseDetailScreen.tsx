@@ -30,8 +30,8 @@ export default function ExerciseDetailScreen({ route }: any) {
     const res = await executeSqlAsync(
       `
       SELECT
-        MAX(CASE WHEN se.reps BETWEEN 1 AND 12 THEN se.weight * (1 + se.reps / 30.0) END) as best_e1rm,
-        MAX(se.weight * se.reps) as best_volume,
+        MAX(CASE WHEN se.reps BETWEEN 1 AND 12 AND (se.is_warmup = 0 OR se.is_warmup IS NULL) THEN se.weight * (1 + se.reps / 30.0) END) as best_e1rm,
+        MAX(CASE WHEN (se.is_warmup = 0 OR se.is_warmup IS NULL) THEN se.weight * se.reps END) as best_volume,
         MAX(s.performed_at) as last_performed
       FROM sets se
       JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id

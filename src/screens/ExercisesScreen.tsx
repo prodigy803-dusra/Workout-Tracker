@@ -114,9 +114,13 @@ export default function ExercisesScreen({ navigation }: any) {
   async function handleCreate() {
     const name = newName.trim();
     if (!name) return;
-    await createExercise(name);
-    setNewName('');
-    load();
+    try {
+      await createExercise(name);
+      setNewName('');
+      load();
+    } catch {
+      Alert.alert('Duplicate', 'An exercise with that name already exists.');
+    }
   }
 
   async function handleDelete(exercise: Exercise) {

@@ -5,7 +5,7 @@
  *   Template → Slots (exercise positions) → Options (exercise variants per slot)
  *   Each slot can also have prescribed sets (default weight/reps/rest).
  */
-import { executeSqlAsync } from '../db';
+import { executeSqlAsync, db } from '../db';
 import { normalizeName } from '../../utils/normalize';
 import type { Template } from '../../types';
 
@@ -150,19 +150,21 @@ export async function replacePrescribedSets(
   templateSlotId: number,
   sets: Array<{ set_index: number; weight: number | null; reps: number | null; rpe: number | null; rest_seconds: number | null }>
 ) {
-  await executeSqlAsync(
-    `DELETE FROM template_prescribed_sets WHERE template_slot_id=?;`,
-    [templateSlotId]
-  );
-  for (const set of sets) {
-    await upsertPrescribedSet(
-      templateSlotId,
-      set.set_index,
-      set.weight,
-      set.reps,
-      set.rpe,
-      null,
-      set.rest_seconds
+  await db.withTransactionAsync(async () => {
+    await executeSqlAsync(
+      `DELETE FROM template_prescribed_sets WHERE template_slot_id=?;`,
+      [templateSlotId]
     );
-  }
+    for (const set of sets) {
+      await upsertPrescribedSet(
+        templateSlotId,
+        set.set_index,
+        set.weight,
+        set.reps,
+        set.rpe,
+        null,
+        set.rest_seconds
+      );
+    }
+  });
 }

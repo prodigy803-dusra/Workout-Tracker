@@ -26,7 +26,6 @@ const BACKUP_TABLES = [
   'personal_records',
   'body_weight',
   'app_settings',
-  'schema_migrations',
 ] as const;
 
 export default function SettingsScreen() {

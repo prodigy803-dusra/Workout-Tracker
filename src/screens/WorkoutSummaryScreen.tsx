@@ -44,7 +44,7 @@ export default function WorkoutSummaryScreen({ route, navigation }: any) {
     </View>
   );
 
-  const completedSets = detail.sets.filter((s: any) => s.completed);
+  const completedSets = detail.sets.filter((s: any) => s.completed && !s.is_warmup);
   const totalVolume = completedSets.reduce(
     (sum: number, s: any) => sum + (s.weight || 0) * (s.reps || 0),
     0

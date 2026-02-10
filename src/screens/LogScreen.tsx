@@ -687,7 +687,8 @@ export default function LogScreen() {
                     (max, s) => (s.weight > max.weight ? s : max),
                     lt.sets[0]
                   );
-                  const suggestedWeight = heaviest.weight + 2.5;
+                  const increment = unit === 'lb' ? 5 : 2.5;
+                  const suggestedWeight = heaviest.weight + increment;
                   return (
                     <View style={[styles.suggestionBanner, { backgroundColor: c.warningBg, borderColor: c.isDark ? '#665A00' : '#F5D76E' }]}>
                       <Text style={styles.suggestionIcon}>📈</Text>

@@ -15,6 +15,7 @@ export default function TemplatesScreen({ navigation }: any) {
   const [templates, setTemplates] = useState<Pick<Template, 'id' | 'name'>[]>([]);
   const [newName, setNewName] = useState('');
   const [activeDraft, setActiveDraft] = useState<Session | null>(null);
+  const [starting, setStarting] = useState(false);
   const c = useColors();
 
   const load = useCallback(async () => {
@@ -46,9 +47,13 @@ export default function TemplatesScreen({ navigation }: any) {
             onPress={async () => {
               const name = newName.trim();
               if (!name) return;
-              await createTemplate(name);
-              setNewName('');
-              await load();
+              try {
+                await createTemplate(name);
+                setNewName('');
+                await load();
+              } catch {
+                Alert.alert('Duplicate', 'A template with that name already exists.');
+              }
             }}
           >
             <Text style={[styles.primaryText, { color: c.primaryText }]}>Create</Text>
@@ -59,6 +64,8 @@ export default function TemplatesScreen({ navigation }: any) {
   }, [newName, c]);
 
   async function handleStart(templateId: number) {
+    if (starting) return;
+    setStarting(true);
     try {
       if (activeDraft && activeDraft.template_id === templateId) {
         // Same template — just resume
@@ -113,6 +120,8 @@ export default function TemplatesScreen({ navigation }: any) {
     } catch (err) {
       console.error('Error starting session:', err);
       Alert.alert('Error', 'Failed to start session: ' + (err as Error).message);
+    } finally {
+      setStarting(false);
     }
   }
 

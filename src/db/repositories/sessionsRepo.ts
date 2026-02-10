@@ -106,13 +106,14 @@ export async function finalizeSession(sessionId: number) {
  * (what the user lifted last time) or the template's prescribed sets.
  */
 export async function createDraftFromTemplate(templateId: number) {
-  return await db.withTransactionAsync(async () => {
+  let sessionId = 0;
+  await db.withTransactionAsync(async () => {
     await executeSqlAsync(
       `INSERT INTO sessions(performed_at, notes, status, template_id, created_at)
        VALUES (?,?,?,?,?);`,
       [now(), null, 'draft', templateId, now()]
     );
-    const sessionId = await lastInsertRowId();
+    sessionId = await lastInsertRowId();
 
     const slotsRes = await executeSqlAsync(
       `SELECT id, slot_index, name FROM template_slots
@@ -179,7 +180,7 @@ export async function createDraftFromTemplate(templateId: number) {
     );
 
     // Get historical working sets (warmups excluded) and prescribed sets
-    const historicalSets = await getLastPerformedSets(defaultOptionId);
+    const historicalSets = defaultOptionId ? await getLastPerformedSets(defaultOptionId) : [];
     const prescribedRes = await executeSqlAsync(
       `SELECT set_index, weight, reps, rpe, notes, rest_seconds FROM template_prescribed_sets
        WHERE template_slot_id=? ORDER BY set_index;`,
@@ -237,8 +238,8 @@ export async function createDraftFromTemplate(templateId: number) {
     }
     }
 
-    return sessionId;
   });
+  return sessionId;
 }
 
 export async function listDraftSlots(sessionId: number): Promise<DraftSlot[]> {

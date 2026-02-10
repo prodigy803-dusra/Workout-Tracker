@@ -60,8 +60,8 @@ export async function perTemplateStats() {
     `
     SELECT t.id, t.name,
            COUNT(DISTINCT s.id) as sessionsCount,
-           COUNT(se.id) as totalSets,
-           COALESCE(SUM(se.weight * se.reps),0) as totalVolume
+           COUNT(CASE WHEN (se.is_warmup = 0 OR se.is_warmup IS NULL) THEN se.id END) as totalSets,
+           COALESCE(SUM(CASE WHEN (se.is_warmup = 0 OR se.is_warmup IS NULL) AND se.completed = 1 THEN se.weight * se.reps ELSE 0 END),0) as totalVolume
     FROM templates t
     LEFT JOIN sessions s ON s.template_id = t.id AND s.status='final'
     LEFT JOIN session_slots ss ON ss.session_id = s.id
