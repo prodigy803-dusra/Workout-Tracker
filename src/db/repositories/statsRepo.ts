@@ -21,6 +21,7 @@ export async function e1rmHistory(exerciseId: number): Promise<DataPoint[]> {
     JOIN sessions s ON s.id = ss.session_id
     WHERE tco.exercise_id = ? AND s.status='final'
       AND se.reps BETWEEN 1 AND 12 AND se.weight > 0 AND se.completed = 1
+      AND se.is_warmup = 0
     GROUP BY s.id
     ORDER BY s.performed_at ASC;
     `,
@@ -38,8 +39,8 @@ export async function overallStats(): Promise<OverallStats> {
     `
     SELECT
       COUNT(DISTINCT s.id) as sessionsCount,
-      COUNT(se.id) as setsCount,
-      COALESCE(SUM(se.weight * se.reps),0) as totalVolume
+      COUNT(CASE WHEN se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL) THEN se.id END) as setsCount,
+      COALESCE(SUM(CASE WHEN se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL) THEN se.weight * se.reps ELSE 0 END),0) as totalVolume
     FROM sessions s
     LEFT JOIN session_slots ss ON ss.session_id = s.id
     LEFT JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
@@ -110,7 +111,8 @@ export async function detectAndRecordPRs(sessionId: number) {
       JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
       JOIN session_slots ss ON ss.id = ssc.session_slot_id
       WHERE ss.session_id = ? AND tco.exercise_id = ?
-        AND se.completed = 1 AND se.reps BETWEEN 1 AND 12 AND se.weight > 0;
+        AND se.completed = 1 AND se.reps BETWEEN 1 AND 12 AND se.weight > 0
+        AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
       `,
       [sessionId, ex.exercise_id]
     );
@@ -126,7 +128,8 @@ export async function detectAndRecordPRs(sessionId: number) {
       JOIN session_slots ss ON ss.id = ssc.session_slot_id
       JOIN sessions s ON s.id = ss.session_id
       WHERE s.status = 'final' AND s.id != ? AND tco.exercise_id = ?
-        AND se.completed = 1 AND se.reps BETWEEN 1 AND 12 AND se.weight > 0;
+        AND se.completed = 1 AND se.reps BETWEEN 1 AND 12 AND se.weight > 0
+        AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
       `,
       [sessionId, ex.exercise_id]
     );
@@ -155,7 +158,8 @@ export async function detectAndRecordPRs(sessionId: number) {
       JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
       JOIN session_slots ss ON ss.id = ssc.session_slot_id
       WHERE ss.session_id = ? AND tco.exercise_id = ?
-        AND se.completed = 1 AND se.weight > 0;
+        AND se.completed = 1 AND se.weight > 0
+        AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
       `,
       [sessionId, ex.exercise_id]
     );
@@ -170,7 +174,8 @@ export async function detectAndRecordPRs(sessionId: number) {
       JOIN session_slots ss ON ss.id = ssc.session_slot_id
       JOIN sessions s ON s.id = ss.session_id
       WHERE s.status = 'final' AND s.id != ? AND tco.exercise_id = ?
-        AND se.completed = 1 AND se.weight > 0;
+        AND se.completed = 1 AND se.weight > 0
+        AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
       `,
       [sessionId, ex.exercise_id]
     );
@@ -250,6 +255,7 @@ export async function weeklyVolumeByMuscle(): Promise<MuscleVolumeRow[]> {
     WHERE s.status = 'final'
       AND s.performed_at >= datetime('now', '-7 days')
       AND se.completed = 1
+      AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
       AND e.primary_muscle IS NOT NULL
     GROUP BY e.primary_muscle
     ORDER BY sets DESC;

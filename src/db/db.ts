@@ -15,6 +15,8 @@ const db = openDatabaseSync(DB_NAME);
 
 // Enable foreign key enforcement — required for ON DELETE CASCADE to work
 db.execSync('PRAGMA foreign_keys = ON;');
+// Enable WAL mode for better concurrent read/write performance on mobile
+db.execSync('PRAGMA journal_mode = WAL;');
 
 type RowsWrapper<T = any> = {
   length: number;
@@ -51,6 +53,15 @@ export async function executeSqlAsync(
   }
   await db.runAsync(sql, params);
   return { rows: wrapRows([]) };
+}
+
+/**
+ * Get the rowid of the last INSERT.  Must be called immediately after the
+ * INSERT on the same connection — safe inside transactions.
+ */
+export async function lastInsertRowId(): Promise<number> {
+  const res = await db.getAllAsync('SELECT last_insert_rowid() as id;');
+  return (res[0] as any).id;
 }
 
 /** Initialise the database: run pending migrations then seed default data. */

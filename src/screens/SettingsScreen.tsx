@@ -22,9 +22,11 @@ const BACKUP_TABLES = [
   'session_slots',
   'session_slot_choices',
   'sets',
+  'drop_set_segments',
   'personal_records',
   'body_weight',
   'app_settings',
+  'schema_migrations',
 ] as const;
 
 export default function SettingsScreen() {

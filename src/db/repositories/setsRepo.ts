@@ -4,7 +4,7 @@
  * Each set belongs to a session_slot_choice and records weight, reps, RPE,
  * rest duration, and completion status.
  */
-import { executeSqlAsync } from '../db';
+import { executeSqlAsync, db } from '../db';
 import type { SetRow, LastTimeData } from '../../types';
 
 function now() {
@@ -54,16 +54,18 @@ export async function replaceSetsForChoice(
   choiceId: number,
   rows: Array<{ set_index: number; weight: string; reps: string; rpe: string }>
 ) {
-  await executeSqlAsync(`DELETE FROM sets WHERE session_slot_choice_id=?;`, [choiceId]);
-  for (const row of rows) {
-    const weight = Number.parseFloat(row.weight);
-    const reps = Number.parseInt(row.reps, 10);
-    const rpe = row.rpe ? Number.parseFloat(row.rpe) : null;
-    if (!Number.isFinite(weight) || weight <= 0) continue;
-    if (!Number.isInteger(reps) || reps < 1 || reps > 200) continue;
-    if (rpe !== null && (rpe < 1 || rpe > 10 || (rpe * 2) % 1 !== 0)) continue;
-    await upsertSet(choiceId, row.set_index, weight, reps, rpe, null);
-  }
+  await db.withTransactionAsync(async () => {
+    await executeSqlAsync(`DELETE FROM sets WHERE session_slot_choice_id=?;`, [choiceId]);
+    for (const row of rows) {
+      const weight = Number.parseFloat(row.weight);
+      const reps = Number.parseInt(row.reps, 10);
+      const rpe = row.rpe ? Number.parseFloat(row.rpe) : null;
+      if (!Number.isFinite(weight) || weight <= 0) continue;
+      if (!Number.isInteger(reps) || reps < 1 || reps > 200) continue;
+      if (rpe !== null && (rpe < 1 || rpe > 10 || (rpe * 2) % 1 !== 0)) continue;
+      await upsertSet(choiceId, row.set_index, weight, reps, rpe, null);
+    }
+  });
 }
 
 /** Mark a set as completed or uncompleted. */
@@ -175,24 +177,26 @@ export async function generateWarmupSets(
   );
   const existingSets = existingRes.rows._array;
 
-  // Delete all and re-insert with warm-ups prepended
-  await executeSqlAsync(`DELETE FROM sets WHERE session_slot_choice_id=?;`, [choiceId]);
+  // Wrap delete + re-insert in a transaction so a crash can't lose data
+  await db.withTransactionAsync(async () => {
+    await executeSqlAsync(`DELETE FROM sets WHERE session_slot_choice_id=?;`, [choiceId]);
 
-  const ts = new Date().toISOString();
-  for (let i = 0; i < warmups.length; i++) {
-    await executeSqlAsync(
-      `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, is_warmup, created_at)
-       VALUES (?,?,?,?,NULL,NULL,60,0,1,?);`,
-      [choiceId, i + 1, warmups[i].weight, warmups[i].reps, ts]
-    );
-  }
+    const ts = new Date().toISOString();
+    for (let i = 0; i < warmups.length; i++) {
+      await executeSqlAsync(
+        `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, is_warmup, created_at)
+         VALUES (?,?,?,?,NULL,NULL,60,0,1,?);`,
+        [choiceId, i + 1, warmups[i].weight, warmups[i].reps, ts]
+      );
+    }
 
-  const offset = warmups.length;
-  for (const s of existingSets) {
-    await executeSqlAsync(
-      `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, is_warmup, created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?);`,
-      [choiceId, s.set_index + offset, s.weight, s.reps, s.rpe, s.notes, s.rest_seconds, s.completed, s.is_warmup ?? 0, ts]
-    );
-  }
+    const offset = warmups.length;
+    for (const s of existingSets) {
+      await executeSqlAsync(
+        `INSERT INTO sets(session_slot_choice_id, set_index, weight, reps, rpe, notes, rest_seconds, completed, is_warmup, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?);`,
+        [choiceId, s.set_index + offset, s.weight, s.reps, s.rpe, s.notes, s.rest_seconds, s.completed, s.is_warmup ?? 0, ts]
+      );
+    }
+  });
 }

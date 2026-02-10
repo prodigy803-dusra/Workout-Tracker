@@ -7,7 +7,7 @@
  * Session structure:
  *   Session → SessionSlots → SessionSlotChoices → Sets
  */
-import { executeSqlAsync, db } from '../db';
+import { executeSqlAsync, db, lastInsertRowId } from '../db';
 import type { Session, DraftSlot, SlotOption, HistoryItem, SessionDetail } from '../../types';
 
 function now() {
@@ -61,6 +61,16 @@ export async function getActiveDraft(): Promise<Session | null> {
 /** Delete a draft session and all its associated data. */
 export async function discardDraft(sessionId: number) {
   // Manually delete children first (in case foreign_keys wasn't always on)
+  // Delete drop-set segments before sets (they reference sets)
+  await executeSqlAsync(
+    `DELETE FROM drop_set_segments WHERE set_id IN (
+      SELECT se.id FROM sets se
+      JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+      JOIN session_slots ss ON ss.id = ssc.session_slot_id
+      WHERE ss.session_id = ?
+    );`,
+    [sessionId]
+  ).catch(() => { /* table may not exist on older versions */ });
   await executeSqlAsync(
     `DELETE FROM sets WHERE session_slot_choice_id IN (
       SELECT ssc.id FROM session_slot_choices ssc
@@ -102,10 +112,7 @@ export async function createDraftFromTemplate(templateId: number) {
        VALUES (?,?,?,?,?);`,
       [now(), null, 'draft', templateId, now()]
     );
-    const sRes = await executeSqlAsync(
-      `SELECT id FROM sessions ORDER BY id DESC LIMIT 1;`
-    );
-    const sessionId = sRes.rows.item(0).id;
+    const sessionId = await lastInsertRowId();
 
     const slotsRes = await executeSqlAsync(
       `SELECT id, slot_index, name FROM template_slots
@@ -120,10 +127,7 @@ export async function createDraftFromTemplate(templateId: number) {
        VALUES (?,?,?,?,?);`,
       [sessionId, slot.id, slot.slot_index, slot.name, now()]
     );
-    const ssRes = await executeSqlAsync(
-      `SELECT id FROM session_slots ORDER BY id DESC LIMIT 1;`
-    );
-    const sessionSlotId = ssRes.rows.item(0).id;
+    const sessionSlotId = await lastInsertRowId();
 
     const lastSelected = await executeSqlAsync(
       `
@@ -167,10 +171,7 @@ export async function createDraftFromTemplate(templateId: number) {
        VALUES (?,?,?);`,
       [sessionSlotId, defaultOptionId, now()]
     );
-    const sscRes = await executeSqlAsync(
-      `SELECT id FROM session_slot_choices ORDER BY id DESC LIMIT 1;`
-    );
-    const sscId = sscRes.rows.item(0).id;
+    const sscId = await lastInsertRowId();
 
     await executeSqlAsync(
       `UPDATE session_slots SET selected_session_slot_choice_id=? WHERE id=?;`,
@@ -294,10 +295,7 @@ export async function selectSlotChoice(
        VALUES (?,?,?);`,
       [sessionSlotId, templateSlotOptionId, now()]
     );
-    const res = await executeSqlAsync(
-      `SELECT id FROM session_slot_choices ORDER BY id DESC LIMIT 1;`
-    );
-    choiceId = res.rows.item(0).id;
+    choiceId = await lastInsertRowId();
 
     // Get historical working sets (warmups excluded) and prescribed sets
     const historicalSets = await getLastPerformedSets(templateSlotOptionId);
@@ -375,15 +373,15 @@ export async function listHistory(): Promise<HistoryItem[]> {
            (SELECT COUNT(*) FROM sets se
             JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
             JOIN session_slots ss ON ss.id = ssc.session_slot_id
-            WHERE ss.session_id = s.id AND se.completed = 1) as completed_sets_count,
+            WHERE ss.session_id = s.id AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL)) as completed_sets_count,
            (SELECT COUNT(*) FROM sets se
             JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
             JOIN session_slots ss ON ss.id = ssc.session_slot_id
-            WHERE ss.session_id = s.id) as sets_count,
+            WHERE ss.session_id = s.id AND (se.is_warmup = 0 OR se.is_warmup IS NULL)) as sets_count,
            (SELECT COALESCE(SUM(se.weight * se.reps),0) FROM sets se
             JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
             JOIN session_slots ss ON ss.id = ssc.session_slot_id
-            WHERE ss.session_id = s.id AND se.completed = 1) as total_volume,
+            WHERE ss.session_id = s.id AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL)) as total_volume,
            (SELECT GROUP_CONCAT(DISTINCT e.name, ', ')
             FROM session_slots ss
             JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id AND ss.selected_session_slot_choice_id = ssc.id
