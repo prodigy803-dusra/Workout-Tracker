@@ -63,8 +63,9 @@ export function useRestTimer() {
   const notifIdRef = useRef<string | null>(null);
   const appStateRef = useRef(AppState.currentState);
 
-  /* ── Request notification permission once ── */
+  /* ── Request notification permission & cancel stale notifications on mount ── */
   useEffect(() => {
+    Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
     Notifications.requestPermissionsAsync().catch(() => {});
   }, []);
 

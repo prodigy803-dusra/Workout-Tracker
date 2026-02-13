@@ -3,7 +3,10 @@ import { View, Text, Pressable, TextInput, StyleSheet, SectionList, Alert } from
 import { listExercises, createExercise, deleteExercise } from '../db/repositories/exercisesRepo';
 import { useColors } from '../contexts/ThemeContext';
 import { useDebouncedCallback } from '../utils/debounce';
-import type { Exercise } from '../types';
+import type { Exercise, ExercisesStackParamList } from '../types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+
+type Props = NativeStackScreenProps<ExercisesStackParamList, 'ExercisesHome'>;
 
 /* ── Muscle-group display order & labels ──────────────────── */
 const GROUP_ORDER = [
@@ -59,7 +62,7 @@ const EQUIP_COLORS: Record<string, string> = {
   'db/trap': '#636E72',
 };
 
-export default function ExercisesScreen({ navigation }: any) {
+export default function ExercisesScreen({ navigation }: Props) {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -223,6 +226,9 @@ export default function ExercisesScreen({ navigation }: any) {
             <Text style={[s.emptyText, { color: c.textSecondary }]}>No exercises found</Text>
           </View>
         }
+        ListFooterComponent={
+          <Text style={[s.hintText, { color: c.textTertiary }]}>Long-press an exercise to delete it</Text>
+        }
       />
     </View>
   );
@@ -303,4 +309,5 @@ const s = StyleSheet.create({
   chevron: { fontSize: 22, color: '#BBB', marginLeft: 4 },
   empty: { padding: 32, alignItems: 'center' },
   emptyText: { color: '#999', fontSize: 15 },
+  hintText: { textAlign: 'center', fontSize: 12, paddingVertical: 16, fontStyle: 'italic' },
 });

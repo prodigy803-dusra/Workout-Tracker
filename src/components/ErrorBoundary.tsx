@@ -1,12 +1,16 @@
 /**
  * ErrorBoundary — catches unhandled JS errors in the component tree
  * and shows a recovery screen instead of a white screen crash.
+ *
+ * Uses a functional wrapper so the inner class component can access theme colors.
  */
 import React, { Component, type ReactNode } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { useColors, type ThemeColors } from '../contexts/ThemeContext';
 
 interface Props {
   children: ReactNode;
+  colors: ThemeColors;
 }
 
 interface State {
@@ -14,7 +18,7 @@ interface State {
   error: Error | null;
 }
 
-export default class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundaryInner extends Component<Props, State> {
   state: State = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): State {
@@ -31,21 +35,22 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const c = this.props.colors;
       return (
-        <View style={s.container}>
+        <View style={[s.container, { backgroundColor: c.background }]}>
           <ScrollView contentContainerStyle={s.content}>
             <Text style={s.icon}>⚠️</Text>
-            <Text style={s.title}>Something went wrong</Text>
-            <Text style={s.message}>
+            <Text style={[s.title, { color: c.text }]}>Something went wrong</Text>
+            <Text style={[s.message, { color: c.textSecondary }]}>
               The app ran into an unexpected error. You can try again — your workout data is safely saved.
             </Text>
             {__DEV__ && this.state.error && (
-              <View style={s.errorBox}>
-                <Text style={s.errorText}>{this.state.error.message}</Text>
+              <View style={[s.errorBox, { backgroundColor: c.dangerBg }]}>
+                <Text style={[s.errorText, { color: c.danger }]}>{this.state.error.message}</Text>
               </View>
             )}
-            <Pressable style={s.retryBtn} onPress={this.handleReset}>
-              <Text style={s.retryBtnText}>Try Again</Text>
+            <Pressable style={[s.retryBtn, { backgroundColor: c.primary }]} onPress={this.handleReset}>
+              <Text style={[s.retryBtnText, { color: c.primaryText }]}>Try Again</Text>
             </Pressable>
           </ScrollView>
         </View>
@@ -55,10 +60,15 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 }
 
+/** Functional wrapper that provides theme colors to the class ErrorBoundary. */
+export default function ErrorBoundary({ children }: { children: ReactNode }) {
+  const colors = useColors();
+  return <ErrorBoundaryInner colors={colors}>{children}</ErrorBoundaryInner>;
+}
+
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F4F1',
   },
   content: {
     flex: 1,
@@ -73,19 +83,16 @@ const s = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#1A1A1A',
     marginBottom: 8,
     textAlign: 'center',
   },
   message: {
     fontSize: 15,
-    color: '#666',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
   },
   errorBox: {
-    backgroundColor: '#FEE',
     borderRadius: 8,
     padding: 12,
     marginBottom: 24,
@@ -93,17 +100,14 @@ const s = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: '#C00',
     fontFamily: 'monospace',
   },
   retryBtn: {
-    backgroundColor: '#111',
     paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
   },
   retryBtnText: {
-    color: '#FFF',
     fontSize: 16,
     fontWeight: '700',
   },

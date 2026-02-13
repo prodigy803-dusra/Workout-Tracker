@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, Pressable, StyleSheet, RefreshControl, Alert } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { listHistory } from '../db/repositories/sessionsRepo';
 import { overallStats, weeklyVolumeByMuscle, workoutDaysMap, currentStreak, prCountsBySession } from '../db/repositories/statsRepo';
@@ -7,9 +7,12 @@ import { useUnit } from '../contexts/UnitContext';
 import { useColors } from '../contexts/ThemeContext';
 import CalendarHeatmap from '../components/CalendarHeatmap';
 import VolumeChart from '../components/VolumeChart';
-import type { HistoryItem, OverallStats, MuscleVolumeRow } from '../types';
+import type { HistoryItem, OverallStats, MuscleVolumeRow, HistoryStackParamList } from '../types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-export default function HistoryScreen({ navigation }: any) {
+type Props = NativeStackScreenProps<HistoryStackParamList, 'HistoryHome'>;
+
+export default function HistoryScreen({ navigation }: Props) {
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [stats, setStats] = useState<OverallStats | null>(null);
   const [volumeData, setVolumeData] = useState<MuscleVolumeRow[]>([]);
@@ -22,14 +25,13 @@ export default function HistoryScreen({ navigation }: any) {
 
   const loadData = useCallback(async () => {
     try {
-      const [hist, ov, vol, days, str, prc] = await Promise.all([
-        listHistory(),
-        overallStats(),
-        weeklyVolumeByMuscle(),
-        workoutDaysMap(),
-        currentStreak(),
-        prCountsBySession(),
-      ]);
+      // Run queries sequentially to avoid concurrent prepareAsync issues in expo-sqlite
+      const hist = await listHistory();
+      const ov = await overallStats();
+      const vol = await weeklyVolumeByMuscle();
+      const days = await workoutDaysMap();
+      const str = await currentStreak();
+      const prc = await prCountsBySession();
       setItems(hist);
       setStats(ov);
       setVolumeData(vol);
@@ -38,6 +40,7 @@ export default function HistoryScreen({ navigation }: any) {
       setPrCounts(prc);
     } catch (err) {
       console.error('Failed to load history data:', err);
+      Alert.alert('Error', 'Could not load workout history. Pull down to retry.');
     }
   }, []);
 
@@ -168,15 +171,15 @@ export default function HistoryScreen({ navigation }: any) {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={[styles.sessionTitle, { color: c.text }]}>{item.template_name || 'Workout'}</Text>
                   {prCounts[item.id] > 0 && (
-                    <View style={styles.prBadge}>
-                      <Text style={styles.prBadgeText}>🏆 {prCounts[item.id]}</Text>
+                    <View style={[styles.prBadge, { backgroundColor: c.warningBg, borderColor: c.warning }]}>
+                      <Text style={[styles.prBadgeText, { color: c.warningText }]}>🏆 {prCounts[item.id]}</Text>
                     </View>
                   )}
                 </View>
                 <Text style={[styles.sessionDate, { color: c.textSecondary }]}>{formatDate(item.performed_at)}</Text>
               </View>
-              <View style={styles.durationBadge}>
-                <Text style={styles.durationText}>
+              <View style={[styles.durationBadge, { backgroundColor: c.success }]}>
+                <Text style={[styles.durationText, { color: '#FFF' }]}>
                   {formatDuration(item.created_at, item.performed_at)}
                 </Text>
               </View>

@@ -114,7 +114,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         if (res.rows.length) {
           setModeState(res.rows.item(0).value as ThemeMode);
         }
-      } catch {}
+      } catch (e) {
+        console.warn('Failed to load theme preference:', e);
+      }
     })();
   }, []);
 
@@ -125,11 +127,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setMode = useCallback(async (m: ThemeMode) => {
     setModeState(m);
-    await executeSqlAsync(
-      `INSERT INTO app_settings(key, value) VALUES ('theme', ?)
-       ON CONFLICT(key) DO UPDATE SET value=excluded.value;`,
-      [m]
-    );
+    try {
+      await executeSqlAsync(
+        `INSERT INTO app_settings(key, value) VALUES ('theme', ?)
+         ON CONFLICT(key) DO UPDATE SET value=excluded.value;`,
+        [m]
+      );
+    } catch (e) {
+      console.warn('Failed to persist theme preference:', e);
+    }
   }, []);
 
   return (

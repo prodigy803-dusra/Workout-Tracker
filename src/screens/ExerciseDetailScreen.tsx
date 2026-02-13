@@ -1,15 +1,17 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Linking } from 'react-native';
-import { executeSqlAsync } from '../db/db';
-import { listExerciseOptions, createExerciseOption } from '../db/repositories/exercisesRepo';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Linking, ActivityIndicator, Alert } from 'react-native';
+import { listExerciseOptions, createExerciseOption, getExerciseGuide, getExerciseStats } from '../db/repositories/exercisesRepo';
 import { e1rmHistory } from '../db/repositories/statsRepo';
 import MuscleMap from '../components/MuscleMap';
 import TrendChart, { DataPoint } from '../components/TrendChart';
 import { getMuscleInfo, ALL_MUSCLE_IDS } from '../data/muscleExerciseMap';
 import { useColors } from '../contexts/ThemeContext';
-import type { ExerciseStats, ExerciseGuideData, ExerciseOption } from '../types';
+import type { ExerciseStats, ExerciseGuideData, ExerciseOption, ExercisesStackParamList } from '../types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-export default function ExerciseDetailScreen({ route }: any) {
+type Props = NativeStackScreenProps<ExercisesStackParamList, 'ExerciseDetail'>;
+
+export default function ExerciseDetailScreen({ route }: Props) {
   const { exerciseId, name } = route.params;
   const [stats, setStats] = useState<ExerciseStats | null>(null);
   const [options, setOptions] = useState<Pick<ExerciseOption, 'id' | 'name' | 'order_index'>[]>([]);
@@ -17,31 +19,16 @@ export default function ExerciseDetailScreen({ route }: any) {
   const [guide, setGuide] = useState<ExerciseGuideData>({ video_url: null, instructions: null, tips: null });
   const [trendData, setTrendData] = useState<DataPoint[]>([]);
   const c = useColors();
+  const [loading, setLoading] = useState(true);
 
   async function loadGuide() {
-    const res = await executeSqlAsync(
-      `SELECT video_url, instructions, tips FROM exercises WHERE id=?;`,
-      [exerciseId]
-    );
-    if (res.rows.length) setGuide(res.rows.item(0));
+    const data = await getExerciseGuide(exerciseId);
+    setGuide(data);
   }
 
   async function loadStats() {
-    const res = await executeSqlAsync(
-      `
-      SELECT
-        MAX(CASE WHEN se.reps BETWEEN 1 AND 12 AND (se.is_warmup = 0 OR se.is_warmup IS NULL) THEN se.weight * (1 + se.reps / 30.0) END) as best_e1rm,
-        MAX(CASE WHEN (se.is_warmup = 0 OR se.is_warmup IS NULL) THEN se.weight * se.reps END) as best_volume,
-        MAX(s.performed_at) as last_performed
-      FROM sets se
-      JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
-      JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
-      JOIN sessions s ON s.id = (SELECT session_id FROM session_slots WHERE id = ssc.session_slot_id)
-      WHERE tco.exercise_id = ? AND s.status='final';
-      `,
-      [exerciseId]
-    );
-    setStats(res.rows.item(0));
+    const data = await getExerciseStats(exerciseId);
+    setStats(data);
   }
 
   async function loadOptions() {
@@ -63,10 +50,19 @@ export default function ExerciseDetailScreen({ route }: any) {
   }, [muscleInfo]);
 
   useEffect(() => {
-    loadStats();
-    loadOptions();
-    loadGuide();
-    e1rmHistory(exerciseId).then(setTrendData);
+    (async () => {
+      try {
+        await loadStats();
+        await loadOptions();
+        await loadGuide();
+        const trend = await e1rmHistory(exerciseId);
+        setTrendData(trend);
+      } catch (e) {
+        Alert.alert('Error', 'Failed to load exercise details.');
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [exerciseId]);
 
   async function handleAddOption() {
@@ -80,6 +76,12 @@ export default function ExerciseDetailScreen({ route }: any) {
   return (
     <ScrollView style={[styles.container, { backgroundColor: c.background }]} contentContainerStyle={{ paddingBottom: 32 }}>
       <Text style={[styles.title, { color: c.text }]}>{name}</Text>
+
+      {loading && (
+        <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={c.accent} />
+        </View>
+      )}
 
       {muscleInfo && (
         <View style={[styles.muscleCard, { backgroundColor: c.card, borderColor: c.border }]}>

@@ -28,17 +28,23 @@ export function UnitProvider({ children }: { children: React.ReactNode }) {
         if (res.rows.length) {
           setUnitState(res.rows.item(0).value as Unit);
         }
-      } catch {}
+      } catch (e) {
+        console.warn('Failed to load unit preference:', e);
+      }
     })();
   }, []);
 
   const setUnit = useCallback(async (u: Unit) => {
     setUnitState(u);
-    await executeSqlAsync(
-      `INSERT INTO app_settings(key, value) VALUES ('unit', ?)
-       ON CONFLICT(key) DO UPDATE SET value=excluded.value;`,
-      [u]
-    );
+    try {
+      await executeSqlAsync(
+        `INSERT INTO app_settings(key, value) VALUES ('unit', ?)
+         ON CONFLICT(key) DO UPDATE SET value=excluded.value;`,
+        [u]
+      );
+    } catch (e) {
+      console.warn('Failed to persist unit preference:', e);
+    }
   }, []);
 
   return (

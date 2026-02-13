@@ -1993,7 +1993,7 @@ describe('Next-set preview in timer', () => {
     const fs = require('fs');
     const path = require('path');
     const source = fs.readFileSync(
-      path.join(__dirname, '..', 'screens', 'LogScreen.tsx'),
+      path.join(__dirname, '..', 'components', 'RestTimerModal.tsx'),
       'utf8'
     );
     expect(source).toMatch(/COMING UP/);
@@ -2009,9 +2009,8 @@ describe('Next-set preview in timer', () => {
       path.join(__dirname, '..', 'screens', 'LogScreen.tsx'),
       'utf8'
     );
-    expect(source).toMatch(/timer\.start\(s\.rest_seconds/);
-    expect(source).toMatch(/nextSet:\s*nextSetInfo/);
-    expect(source).toMatch(/nextExercise:\s*nextExInfo/);
+    expect(source).toMatch(/timer\.start\(set\.rest_seconds/);
+    expect(source).toMatch(/computeTimerContext/);
     expect(source).toMatch(/isLastSet/);
   });
 
@@ -2023,7 +2022,7 @@ describe('Next-set preview in timer', () => {
       'utf8'
     );
     expect(source).toMatch(/nextSetInExercise/);
-    expect(source).toMatch(/set_index > s\.set_index/);
+    expect(source).toMatch(/set_index > set\.set_index/);
   });
 
   test('last-set-of-exercise finds next exercise slot', () => {
@@ -2041,7 +2040,7 @@ describe('Next-set preview in timer', () => {
     const fs = require('fs');
     const path = require('path');
     const source = fs.readFileSync(
-      path.join(__dirname, '..', 'screens', 'LogScreen.tsx'),
+      path.join(__dirname, '..', 'components', 'RestTimerModal.tsx'),
       'utf8'
     );
     expect(source).toMatch(/timerProgressBg/);
@@ -2052,7 +2051,7 @@ describe('Next-set preview in timer', () => {
     const fs = require('fs');
     const path = require('path');
     const source = fs.readFileSync(
-      path.join(__dirname, '..', 'screens', 'LogScreen.tsx'),
+      path.join(__dirname, '..', 'components', 'RestTimerModal.tsx'),
       'utf8'
     );
     expect(source).toMatch(/Rest Complete!/);

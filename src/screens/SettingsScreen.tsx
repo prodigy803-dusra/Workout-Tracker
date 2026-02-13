@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, TextInput, Alert, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, Pressable, TextInput, Alert, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Sharing from 'expo-sharing';
 import { Paths, File } from 'expo-file-system';
+import * as DocumentPicker from 'expo-document-picker';
 import { resetDb, executeSqlAsync, db } from '../db/db';
 import { importExercises } from '../db/repositories/exercisesRepo';
-import { logBodyWeight, bodyWeightTrend, latestBodyWeight } from '../db/repositories/bodyWeightRepo';
+import { logBodyWeight, bodyWeightTrend, latestBodyWeight, deleteBodyWeight } from '../db/repositories/bodyWeightRepo';
 import { useUnit } from '../contexts/UnitContext';
 import { useTheme, useColors, ThemeMode } from '../contexts/ThemeContext';
 import TrendChart from '../components/TrendChart';
 import { haptic } from '../utils/haptics';
+import Constants from 'expo-constants';
 
 const BACKUP_TABLES = [
   'exercises',
@@ -32,6 +34,8 @@ export default function SettingsScreen() {
   const [json, setJson] = useState('');
   const [resetting, setResetting] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [pickedFileName, setPickedFileName] = useState<string | null>(null);
+  const [showPasteArea, setShowPasteArea] = useState(false);
   const { unit, setUnit } = useUnit();
   const { mode, setMode } = useTheme();
   const c = useColors();
@@ -39,7 +43,7 @@ export default function SettingsScreen() {
   // Body weight tracker state
   const [bwInput, setBwInput] = useState('');
   const [bwTrend, setBwTrend] = useState<Array<{ date: string; value: number }>>([]);
-  const [bwLatest, setBwLatest] = useState<{ weight: number; measured_at: string } | null>(null);
+  const [bwLatest, setBwLatest] = useState<{ id: number; weight: number; measured_at: string } | null>(null);
 
   const loadBodyWeight = useCallback(async () => {
     const trend = await bodyWeightTrend();
@@ -74,7 +78,29 @@ export default function SettingsScreen() {
     }
   }
 
+  async function pickBackupFile() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      const file = new File(asset.uri);
+      const content = file.text();
+      setJson(content);
+      setPickedFileName(asset.name ?? 'backup file');
+      setShowPasteArea(false);
+    } catch (e) {
+      Alert.alert('Error', 'Could not read the selected file.');
+    }
+  }
+
   async function restoreBackup() {
+    if (!json.trim()) {
+      Alert.alert('No Data', 'Pick a backup file or paste JSON first.');
+      return;
+    }
     try {
       const parsed = JSON.parse(json);
       if (!parsed.version || parsed.version < 2) {
@@ -83,6 +109,15 @@ export default function SettingsScreen() {
         setJson('');
         Alert.alert('Success', 'Exercises imported (legacy format).');
         return;
+      }
+
+      // Validate that backup contains expected tables with correct columns
+      const REQUIRED_TABLES = ['exercises', 'sessions', 'sets'];
+      for (const table of REQUIRED_TABLES) {
+        if (!Array.isArray(parsed[table])) {
+          Alert.alert('Invalid Backup', `Missing or invalid table: ${table}. Backup may be corrupted.`);
+          return;
+        }
       }
 
       Alert.alert(
@@ -107,6 +142,10 @@ export default function SettingsScreen() {
                     const rows = parsed[table];
                     if (!Array.isArray(rows) || rows.length === 0) continue;
                     const cols = Object.keys(rows[0]);
+                    // Safety: only allow known column names (alphanumeric + underscore)
+                    if (cols.some(col => !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col))) {
+                      throw new Error(`Invalid column name in table ${table}`);
+                    }
                     const placeholders = cols.map(() => '?').join(',');
                     const sql = `INSERT INTO ${table}(${cols.join(',')}) VALUES (${placeholders});`;
                     for (const row of rows) {
@@ -156,7 +195,8 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: c.background }]} contentContainerStyle={{ paddingBottom: 40 }}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}>
+    <ScrollView style={[styles.container, { backgroundColor: c.background }]} contentContainerStyle={{ paddingBottom: 80 }} keyboardShouldPersistTaps="handled">
       <Text style={[styles.sectionTitle, { color: c.text }]}>Theme</Text>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
         {(['light', 'dark', 'system'] as ThemeMode[]).map((m) => (
@@ -202,14 +242,31 @@ export default function SettingsScreen() {
       <Text style={[styles.sectionTitle, { color: c.text }]}>Body Weight</Text>
       <View style={[styles.bwCard, { backgroundColor: c.card, borderColor: c.border }]}>
         {bwLatest && (
-          <View style={{ marginBottom: 12 }}>
-            <Text style={[styles.bwCurrent, { color: c.text }]}>
-              {bwLatest.weight} {unit}
-            </Text>
-            <Text style={[styles.bwDate, { color: c.textSecondary }]}>
-              Last logged: {new Date(bwLatest.measured_at).toLocaleDateString()}
-            </Text>
-          </View>
+          <Pressable
+            onLongPress={() => {
+              Alert.alert('Delete Entry', `Remove ${bwLatest.weight} ${unit} entry?`, [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: async () => {
+                    await deleteBodyWeight(bwLatest.id);
+                    haptic('light');
+                    await loadBodyWeight();
+                  },
+                },
+              ]);
+            }}
+          >
+            <View style={{ marginBottom: 12 }}>
+              <Text style={[styles.bwCurrent, { color: c.text }]}>
+                {bwLatest.weight} {unit}
+              </Text>
+              <Text style={[styles.bwDate, { color: c.textSecondary }]}>
+                Last logged: {new Date(bwLatest.measured_at).toLocaleDateString()}  •  Hold to delete
+              </Text>
+            </View>
+          </Pressable>
         )}
         <View style={styles.bwInputRow}>
           <TextInput
@@ -255,20 +312,43 @@ export default function SettingsScreen() {
 
       <Text style={[styles.sectionTitle, { marginTop: 24, color: c.text }]}>Restore Backup</Text>
       <Text style={[styles.hint, { color: c.textSecondary }]}>
-        Paste a previously exported JSON backup below to restore all data.
+        Select a previously exported JSON backup file, or paste its contents manually.
       </Text>
-      <TextInput
-        value={json}
-        onChangeText={setJson}
-        placeholder='Paste backup JSON here...'
-        placeholderTextColor={c.textTertiary}
-        multiline
-        style={[styles.textArea, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
-      />
+
+      <Pressable onPress={pickBackupFile} style={[styles.button, { backgroundColor: c.card, borderWidth: 1, borderColor: c.border }]}>
+        <Text style={[styles.buttonText, { color: c.text }]}>📂  Pick Backup File</Text>
+      </Pressable>
+
+      {pickedFileName && (
+        <View style={[styles.pickedFileRow, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Text style={[styles.pickedFileName, { color: c.text }]} numberOfLines={1}>✅  {pickedFileName}</Text>
+          <Pressable onPress={() => { setJson(''); setPickedFileName(null); }}>
+            <Text style={{ color: c.danger, fontWeight: '600', fontSize: 14 }}>Remove</Text>
+          </Pressable>
+        </View>
+      )}
+
+      <Pressable onPress={() => setShowPasteArea(!showPasteArea)} style={{ marginTop: 4, marginBottom: 8, paddingHorizontal: 2 }}>
+        <Text style={{ color: c.primary, fontSize: 13, fontWeight: '600' }}>
+          {showPasteArea ? '▲  Hide paste area' : '▼  Or paste JSON manually'}
+        </Text>
+      </Pressable>
+
+      {showPasteArea && (
+        <TextInput
+          value={json}
+          onChangeText={(t) => { setJson(t); setPickedFileName(null); }}
+          placeholder='Paste backup JSON here...'
+          placeholderTextColor={c.textTertiary}
+          multiline
+          style={[styles.textArea, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
+        />
+      )}
+
       <Pressable
         onPress={restoreBackup}
-        style={[styles.button, { backgroundColor: c.primary }, restoring && { opacity: 0.5 }]}
-        disabled={restoring}
+        style={[styles.button, { backgroundColor: c.primary }, (restoring || !json.trim()) && { opacity: 0.5 }]}
+        disabled={restoring || !json.trim()}
       >
         <Text style={[styles.buttonText, { color: c.primaryText }]}>
           {restoring ? 'Restoring...' : 'Restore Backup'}
@@ -285,7 +365,12 @@ export default function SettingsScreen() {
           {resetting ? 'Resetting...' : 'Reset Database'}
         </Text>
       </Pressable>
+
+      <Text style={[styles.versionText, { color: c.textTertiary }]}>
+        v{Constants.expoConfig?.version ?? '?'}
+      </Text>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -313,6 +398,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     marginBottom: 8,
     textAlignVertical: 'top',
+  },
+  pickedFileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 4,
+  },
+  pickedFileName: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 12,
   },
 
   // Body weight tracker
@@ -353,5 +454,10 @@ const styles = StyleSheet.create({
   bwLogBtnText: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  versionText: {
+    textAlign: 'center',
+    fontSize: 12,
+    paddingVertical: 24,
   },
 });

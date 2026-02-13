@@ -9,9 +9,17 @@ import {
   getActiveDraft,
 } from '../db/repositories/sessionsRepo';
 import { useColors } from '../contexts/ThemeContext';
-import type { Template, Session } from '../types';
+import type { Template, Session, TemplatesStackParamList, RootTabParamList } from '../types';
+import type { CompositeScreenProps } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
-export default function TemplatesScreen({ navigation }: any) {
+type Props = CompositeScreenProps<
+  NativeStackScreenProps<TemplatesStackParamList, 'TemplatesHome'>,
+  BottomTabScreenProps<RootTabParamList>
+>;
+
+export default function TemplatesScreen({ navigation }: Props) {
   const [templates, setTemplates] = useState<Pick<Template, 'id' | 'name'>[]>([]);
   const [newName, setNewName] = useState('');
   const [activeDraft, setActiveDraft] = useState<Session | null>(null);
@@ -19,7 +27,8 @@ export default function TemplatesScreen({ navigation }: any) {
   const c = useColors();
 
   const load = useCallback(async () => {
-    const [tpls, draft] = await Promise.all([listTemplates(), getActiveDraft()]);
+    const tpls = await listTemplates();
+    const draft = await getActiveDraft();
     setTemplates(tpls);
     setActiveDraft(draft);
   }, []);

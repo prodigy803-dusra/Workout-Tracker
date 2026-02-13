@@ -171,6 +171,7 @@ export type SessionDetail = {
     option_name: string | null;
   }>;
   sets: SetRow[];
+  drops?: DropSetSegment[];
 };
 
 export type OverallStats = {

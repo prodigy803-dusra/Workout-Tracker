@@ -3,15 +3,18 @@
  * then renders the root navigator wrapped in gesture + navigation providers.
  */
 import 'react-native-gesture-handler';
-import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StatusBar } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import * as SplashScreen from 'expo-splash-screen';
 import { initDb } from './src/db/db';
 import { UnitProvider } from './src/contexts/UnitContext';
 import { ThemeProvider, useColors } from './src/contexts/ThemeContext';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import RootNavigator from './src/navigation';
+
+SplashScreen.preventAutoHideAsync();
 
 function AppInner() {
   const [ready, setReady] = useState(false);
@@ -25,6 +28,9 @@ function AppInner() {
       .catch((err) => {
         console.error('DB init failed', err);
         if (mounted) setInitError(String(err));
+      })
+      .finally(() => {
+        SplashScreen.hideAsync();
       });
     return () => {
       mounted = false;
@@ -64,13 +70,7 @@ function AppInner() {
     );
   }
 
-  if (!ready) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.background }}>
-        <ActivityIndicator color={c.accent} />
-      </View>
-    );
-  }
+  if (!ready) return null;
 
   return (
     <>

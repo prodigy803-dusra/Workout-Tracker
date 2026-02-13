@@ -383,12 +383,14 @@ export async function listHistory(): Promise<HistoryItem[]> {
             JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
             JOIN session_slots ss ON ss.id = ssc.session_slot_id
             WHERE ss.session_id = s.id AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL)) as total_volume,
-           (SELECT GROUP_CONCAT(DISTINCT e.name, ', ')
-            FROM session_slots ss
-            JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id AND ss.selected_session_slot_choice_id = ssc.id
-            JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
-            JOIN exercises e ON e.id = tso.exercise_id
-            WHERE ss.session_id = s.id) as exercises
+           (SELECT GROUP_CONCAT(name, ', ') FROM (
+              SELECT DISTINCT e.name
+              FROM session_slots ss
+              JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id AND ss.selected_session_slot_choice_id = ssc.id
+              JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+              JOIN exercises e ON e.id = tso.exercise_id
+              WHERE ss.session_id = s.id
+            )) as exercises
     FROM sessions s
     LEFT JOIN templates t ON t.id = s.template_id
     WHERE s.status='final'
@@ -432,9 +434,23 @@ export async function getSessionDetail(sessionId: number): Promise<SessionDetail
     [sessionId]
   );
 
+  const dropsRes = await executeSqlAsync(
+    `
+    SELECT ds.*
+    FROM drop_set_segments ds
+    JOIN sets se ON se.id = ds.set_id
+    JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    WHERE ss.session_id=?
+    ORDER BY ds.set_id, ds.segment_index;
+    `,
+    [sessionId]
+  );
+
   return {
     session: sRes.rows.item(0),
     slots: slotsRes.rows._array,
     sets: setsRes.rows._array,
+    drops: dropsRes.rows._array,
   };
 }

@@ -9,6 +9,9 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import {
   getTemplate,
@@ -22,9 +25,12 @@ import {
 } from '../db/repositories/templatesRepo';
 import { listExercises, listExerciseOptions } from '../db/repositories/exercisesRepo';
 import { useColors } from '../contexts/ThemeContext';
-import type { Exercise, ExerciseOption } from '../types';
+import type { Exercise, ExerciseOption, TemplatesStackParamList } from '../types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-export default function TemplateEditorScreen({ route, navigation }: any) {
+type Props = NativeStackScreenProps<TemplatesStackParamList, 'TemplateEditor'>;
+
+export default function TemplateEditorScreen({ route, navigation }: Props) {
   const { templateId } = route.params;
   const [tpl, setTpl] = useState<{ id: number; name: string } | null>(null);
   const [slots, setSlots] = useState<Array<{ id: number; slot_index: number; name: string | null }>>([]);
@@ -156,10 +162,15 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
     closePrescribedSetsEditor();
   }
 
-  if (!tpl) return null;
+  if (!tpl) return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.background }}>
+      <ActivityIndicator size="large" color={c.accent} />
+    </View>
+  );
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: c.background }]}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}>
+    <ScrollView style={[styles.container, { backgroundColor: c.background }]} contentContainerStyle={{ paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
       <Text style={[styles.templateName, { color: c.text }]}>{tpl.name}</Text>
 
       {slots.length > 0 && (
@@ -410,6 +421,7 @@ export default function TemplateEditorScreen({ route, navigation }: any) {
         </View>
       </Modal>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

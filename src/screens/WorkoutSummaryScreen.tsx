@@ -10,7 +10,8 @@ import { getSessionDetail } from '../db/repositories/sessionsRepo';
 import { getSessionPRs } from '../db/repositories/statsRepo';
 import ConfettiCannon from '../components/ConfettiCannon';
 import { haptic } from '../utils/haptics';
-import type { SessionDetail } from '../types';
+import type { SessionDetail, LogStackParamList } from '../types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type PRRecord = {
   exercise_name: string;
@@ -19,7 +20,9 @@ type PRRecord = {
   previous_value: number | null;
 };
 
-export default function WorkoutSummaryScreen({ route, navigation }: any) {
+type Props = NativeStackScreenProps<LogStackParamList, 'WorkoutSummary'>;
+
+export default function WorkoutSummaryScreen({ route, navigation }: Props) {
   const { sessionId, duration } = route.params;
   const c = useColors();
   const { unit } = useUnit();
