@@ -90,6 +90,38 @@ Outcome:
 
 ---
 
+## App Use Tutorial
+
+### Getting Started
+1. **Install the app** via Expo or your device's app store.
+2. **Open the app** and follow the onboarding prompts.
+3. **Set your preferred units** (kg/lb) in Settings.
+
+### Logging a Workout
+1. Tap the **Log** tab to start a new session.
+2. Add exercises, sets, and weights as you perform them.
+3. Use the **Rest Timer** for interval tracking.
+4. Save your session when finished.
+
+### Reviewing Progress
+1. Visit the **History** tab for past sessions.
+2. Use the **Calendar** and **Charts** to visualize streaks, volume, and trends.
+3. Check **Personal Records** and **Body Weight** for milestones.
+
+### Templates & Customization
+1. Create workout templates in the **Templates** tab for quick session setup.
+2. Edit or duplicate templates as your routine evolves.
+
+### Backup & Restore
+1. Use the **Settings** screen to export or import your workout data.
+2. Share backups via file picker or cloud storage.
+
+### Troubleshooting
+1. If you encounter issues, use the **Error Reporting** feature in Settings.
+2. For app crashes or data loss, restart the app and check for updates.
+
+---
+
 ## Separate Orchestration from UI
 When a screen coordinates multiple repositories:
 
