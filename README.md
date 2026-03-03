@@ -1,105 +1,112 @@
 # 🏋️ WorkoutApp
 
-**Your gym notebook, supercharged.**
+> **Own You.**
+
+Your weights. Your reps. Your progress.
+Tracked by you. Stored on your device. Owned by you and only you.
+
+No cloud. No accounts. No subscriptions. Just iron and honest numbers.
 
 Most workout apps either drown you in features you'll never use or oversimplify until they're just a glorified checklist. WorkoutApp sits in the sweet spot: it remembers your weights, nudges you to lift heavier, warns you when an injury might affect today's session, and stays out of your way for the rest.
 
 ### Why it's different
 
-- **Zero accounts, zero cloud, zero subscriptions.** Everything lives on your device in a local SQLite database. Your data is yours — export a full JSON backup anytime and you own every byte.
-- **Actually smart pre-fill.** Tap a template and your last session's weights are already loaded. Did you finish every set last time? The app suggests a progressive overload bump before you even touch a plate.
-- **Injury-aware training.** Log an injury once and the app automatically reduces pre-filled weights, flags affected exercises with visual banners, and labels intentional deload as "Recovery" instead of "Regressed" — so you can train around an injury without second-guessing every set.
-- **Pre-workout check-in.** Every session starts with a quick "How are you feeling?" moment. Note an injury on the spot or just acknowledge you're a bit sore — it takes two seconds and keeps you honest.
-- **Warm-up generation.** One button produces ramping warm-up sets based on your working weight. Edit or clear them if you prefer your own routine.
-- **Mid-workout flexibility.** Add exercises, reorder slots, toss in extra sets, remove what you don't need — all without leaving the session.
-- **Workout review that's actually useful.** Post-session breakdown with per-exercise progression badges, volume deltas, rest-time stats, effort density, and personal record confetti.
-- **Built for lifters, not influencers.** No social feed, no AI coach upsell, no "motivational" push notifications begging you to open the app. Just your numbers, your progress, your schedule.
+- **Your data lives on your device.** Zero accounts, zero cloud, zero subscriptions. Export a full JSON backup anytime — you own every byte, every rep, every PR.
+- **Your last session, remembered.** Tap a template and your weights are already loaded. Finished every set last time? The app nudges you to go heavier. Your history drives your future.
+- **Your body, respected.** Log an injury once and the app adjusts — lighter weights, warning banners, "Recovery" labels instead of "Regressed." Training around pain shouldn't feel like failing.
+- **Your honest moment.** Every session starts with a check-in. How are you feeling? Note an injury on the spot or just acknowledge you're sore. Two seconds of honesty before your first rep.
+- **Your warm-up, generated.** One button. Ramping sets based on your working weight. Edit them, clear them, or do your own thing.
+- **Your session, your rules.** Add exercises, reorder slots, toss in extra sets, drop what you don't need — mid-workout, no restrictions.
+- **Your review, earned.** Post-session breakdown with progression badges, volume deltas, rest-time stats, effort density, and confetti when you hit a PR. Because the numbers should feel like yours.
+- **Built for lifters, not influencers.** No social feed, no AI coach upsell, no push notifications begging you to open the app. Just your iron, your numbers, your schedule.
 
 ---
 
 ## Features
 
-### 🏋️ Workout Logging
-- Start a workout from any template with one tap
-- Auto-fills last session's weights and reps so you pick up where you left off
-- **Weights persist across templates** — exercise history is global, not template-isolated
-- Mark sets complete, edit weight/reps/RPE inline
-- **Undo set completion** — uncheck a set to modify it
-- Auto-advances to the next exercise when a slot is fully done
-- Session timer tracks total workout duration
-- Progress bar shows sets completed
+> *Every feature exists for one reason: to make the next rep yours.*
 
-### ✏️ Edit During Workout
-- **Add exercises** mid-workout via searchable exercise picker
-- **Remove exercises** — one-time (this session only) or permanent (hides from template)
-- **Reorder exercises** — move up / move down buttons
+### 🏋️ Own Your Workout
+- Start a session from any template with one tap
+- Auto-fills last session's weights and reps — your history follows you
+- **Weights persist across templates** — your exercise numbers are global, not locked to one program
+- Mark sets complete, edit weight/reps/RPE inline
+- **Undo set completion** — changed your mind? Uncheck and adjust
+- Auto-advances to the next exercise when a slot is fully done
+- Session timer tracks total duration
+- Progress bar shows how far you've come
+
+### ✏️ Own Your Session
+- **Add exercises** mid-workout — searchable picker, no planning required
+- **Remove exercises** — drop one for today or hide it permanently
+- **Reorder exercises** — move up / move down, your flow your call
 - **Add extra sets** to any exercise on the fly
-- **Warmup controls** — regenerate warmups, clear all warmups, or edit individual warmup sets
+- **Warmup controls** — regenerate, clear all, or fine-tune individual warmup sets
 - **Visual warmup badge** — warmup sets show "W" prefix with blue tint
 
-### 📊 Workout Review
-- Post-workout **progression analysis** vs. last session with the same template
+### 📊 Own Your Review
+- Post-workout **progression analysis** — your numbers vs. last time, no guessing
 - Per-exercise trend badges: 📈 progressed, 📉 regressed, ➡️ maintained, 🆕 new
 - Volume comparison (kg delta + percentage)
 - Duration comparison (minutes delta)
 - **⚡ Effort & Rest** — total rest time, average rest per set, sets/min density, volume/min density
-- Personal record detection (e1RM + heaviest weight)
+- Personal record detection (e1RM + heaviest weight) — your milestones, celebrated
 
-### ⏱️ Rest Timer
-- Automatically starts after completing a set (uses the prescribed rest time)
+### ⏱️ Own Your Rest
+- Automatically starts after completing a set — your prescribed rest, your pace
 - Pause, adjust (+/-5 s), or skip
 - **Vibrates** when rest is over so you don't have to watch the screen
 - **Auto-dismisses** 3 seconds after expiry with a progress bar countdown
-- **Next set preview** — shows upcoming exercise/weight/reps during rest
+- **Next set preview** — see what's coming during rest so you're ready
 - **Ad-hoc timer** — manual "⏱ Rest" button with preset durations (30s / 60s / 90s / 2min / 3min)
 - Uses absolute timestamps + expo-notifications for **background accuracy**
 
-### 📈 Progressive Overload
-- When you completed all sets last session, a **suggestion banner** appears:
+### 📈 Own Your Progress
+- Completed every set last time? A **suggestion banner** nudges you forward:
   *"Try 87.5 kg x 6"* (+2.5 on your heaviest set)
-- Estimated 1RM **trend chart** on each exercise detail page (Epley formula)
+- Estimated 1RM **trend chart** on each exercise detail page — watch your strength curve rise over weeks and months
 
-### 📑 Templates
-- Create custom workout templates
+### 📑 Own Your Program
+- Create custom workout templates — your split, your way
 - Each template has **slots** (exercise positions) with one or more **exercise options**
 - Prescribe default sets (weight / reps / RPE / rest) per slot
-- 11 built-in program templates from real training programs
-- **⏰ Workout Reminders** — schedule recurring weekly push notifications per template per day of week with custom time
+- 11 built-in program templates from real training programs to get you started
+- **⏰ Workout Reminders** — schedule recurring weekly push notifications, your days, your time
 
-### 📊 Weekly Volume Dashboard
-- **Muscle group volume bars** on the idle screen showing working sets per group for the last 7 days
-- Color-coded: 🟢 10+ sets (on target), 🟡 5–9 (getting there), 🔴 <5 (undertrained)
-- Uses the existing exercise → muscle group mappings (15 muscle groups)
+### 📊 Own Your Balance
+- **Muscle group volume bars** on the idle screen — see where you stand for the last 7 days
+- Color-coded: 🟢 10+ sets (on target), 🟡 5–9 (getting there), 🔴 <5 (needs work)
+- 15 muscle groups tracked automatically from your exercises
 
-### 💪 Exercise Library
-- 136+ exercises pre-loaded with:
+### 💪 Own Your Knowledge
+- 136+ exercises pre-loaded — each one yours to explore:
   - Primary and secondary muscle groups
   - Interactive **muscle map** (SVG front & back body diagrams)
   - Step-by-step **how-to instructions**
   - **Tips** for better form
   - **Video tutorial** links
-- Add your own exercises and variants
+- Add your own exercises and variants — your library grows with you
 - Search by name
 
-### 📋 History
-- Full session history with date, template name, exercises, volume
-- Tap any session for a detailed breakdown of every set
+### 📋 Own Your History
+- Full session history — every workout you've ever done, searchable
+- Tap any session for a detailed breakdown of every set you logged
 
-### 🩹 Injury Awareness
-- Log injuries with **body region** (10 regions), **severity** (mild / moderate / severe), **injury type**, and notes
-- **Automatic weight reduction** — mild = 70%, moderate = 50%, severe = exercises skipped entirely
-- **Warning banners** on affected exercises during a workout
-- **Recovery labels** — intentional deload shows "🛡️ Recovery" instead of "📉 Regressed" in post-workout review
-- **Pre-workout check-in** — log a new injury on the spot before starting any session
-- Manage, heal, reactivate, or delete injuries from Settings
+### 🩹 Own Your Recovery
+- Log injuries with **body region** (10 regions), **severity** (mild / moderate / severe), **type**, and notes
+- **Automatic weight reduction** — mild = 70%, moderate = 50%, severe = skipped entirely. Your limits, respected.
+- **Warning banners** on affected exercises — so you're never caught off guard
+- **Recovery labels** — intentional deload shows "🛡️ Recovery" instead of "📉 Regressed." Backing off smart is still moving forward.
+- **Pre-workout check-in** — log a new injury on the spot before any session. Your honesty, your safety.
+- Full injury lifecycle: log, heal, reactivate, delete — all from Settings
 
-### ⚙️ Settings
-- Toggle between **kg** and **lb**
+### ⚙️ Own Your Setup
+- Toggle between **kg** and **lb** — your units, your preference
 - **Dark mode** — light / dark / system theme
 - **Injury management** — full lifecycle (log, edit, heal, reactivate, delete)
-- **Full JSON backup** — exports all 15 database tables
-- **Restore from backup** — pick a file or paste JSON to restore everything
-- **Reset database** — wipe and re-seed from scratch
+- **Full JSON backup** — every table, every row, exportable. Your data leaves with you.
+- **Restore from backup** — pick a file or paste JSON to bring everything back
+- **Reset database** — start fresh whenever you want
 
 ---
 
@@ -273,19 +280,21 @@ The backup includes all 16 tables and can fully restore the app's state.
 
 ## How It Works
 
+> *Open the app. Check in with yourself. Pick up where you left off. Get stronger.*
+
 ### Starting a Workout
 
 1. Open the **Log** tab
-2. Tap a template from the quick-start grid
-3. A draft session is created with slots pre-filled:
-   - If you've done this exercise before, it uses your **last session's weights**
-   - If it's your first time, it uses the **template's prescribed sets**
-4. Log your sets, mark them complete
-5. Tap **Finish** to save the session
+2. Tap a template — a quick check-in asks how you're feeling
+3. A draft session is created with your slots pre-filled:
+   - Done this exercise before? Your **last session's weights** are already there
+   - First time? The **template's prescribed sets** get you started
+4. Log your sets, mark them complete — the progress bar tracks every rep
+5. Tap **Finish** — your review screen breaks down everything you just did
 
 ### Progressive Overload
 
-When you completed all prescribed sets in your last session for a given exercise, the app shows a yellow banner suggesting you increase the weight by 2.5 on your heaviest set.
+Completed every prescribed set last time? A yellow banner suggests you go heavier — +2.5 on your heaviest set. Your past pushes your present.
 
 ### e1RM Tracking
 
@@ -293,13 +302,13 @@ The Exercise Detail screen shows a trend chart of your estimated 1-rep max over 
 
 $$e1RM = weight \times \left(1 + \frac{reps}{30}\right)$$
 
-Only completed sets with 1-12 reps are included.
+Only completed sets with 1-12 reps are included. Your strength curve, visualized.
 
 ---
 
 ## License
 
-This project is for personal use.
+This project is for personal use. Your app. Your code. **Own You.**
 
 ---
 
