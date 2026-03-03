@@ -6,6 +6,93 @@ import type { OverallStats, MuscleVolumeRow, WorkoutDay } from '../../types';
 import type { DataPoint } from '../../components/TrendChart';
 
 /**
+ * Effort / rest-time stats for a session, computed from completed_at timestamps.
+ */
+export type SessionEffortStats = {
+  /** Total rest time in seconds (sum of gaps between consecutive completed sets). */
+  totalRestSecs: number;
+  /** Average rest time per inter-set gap in seconds. */
+  avgRestSecs: number;
+  /** Number of inter-set gaps used for calculation. */
+  gapCount: number;
+  /** Workout density: completed working sets per minute of total workout time. */
+  setsPerMinute: number;
+  /** Workout density: volume (kg) per minute of total workout time. */
+  volumePerMinute: number;
+  /** True if enough completed_at data exists (≥2 sets with timestamps). */
+  hasData: boolean;
+};
+
+/**
+ * Compute effort/rest-time stats from completed_at timestamps on sets.
+ * Only considers working sets (is_warmup=0) with non-null completed_at.
+ * Returns hasData=false if fewer than 2 sets have timestamps.
+ */
+export async function sessionEffortStats(
+  sessionId: number,
+  durationSecs?: number
+): Promise<SessionEffortStats> {
+  const empty: SessionEffortStats = {
+    totalRestSecs: 0, avgRestSecs: 0, gapCount: 0,
+    setsPerMinute: 0, volumePerMinute: 0, hasData: false,
+  };
+
+  // Get all completed working sets with timestamps, ordered chronologically
+  const res = await executeSqlAsync(
+    `
+    SELECT se.completed_at, se.weight, se.reps
+    FROM sets se
+    JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    WHERE ss.session_id = ?
+      AND se.completed = 1
+      AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+      AND se.completed_at IS NOT NULL
+    ORDER BY se.completed_at ASC;
+    `,
+    [sessionId]
+  );
+
+  const rows = res.rows._array;
+  if (rows.length < 2) return empty;
+
+  // Calculate inter-set gaps
+  let totalRestMs = 0;
+  let gapCount = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const prev = new Date(rows[i - 1].completed_at).getTime();
+    const curr = new Date(rows[i].completed_at).getTime();
+    if (!isNaN(prev) && !isNaN(curr) && curr > prev) {
+      totalRestMs += curr - prev;
+      gapCount++;
+    }
+  }
+
+  if (gapCount === 0) return empty;
+
+  const totalRestSecs = Math.round(totalRestMs / 1000);
+  const avgRestSecs = Math.round(totalRestSecs / gapCount);
+
+  // Density: use provided duration if available, otherwise span of timestamps
+  const totalVolume = rows.reduce((sum: number, r: any) => sum + (r.weight || 0) * (r.reps || 0), 0);
+  const spanSecs = durationSecs
+    || Math.max(1, Math.round(
+        (new Date(rows[rows.length - 1].completed_at).getTime() -
+         new Date(rows[0].completed_at).getTime()) / 1000
+      ));
+  const minutes = spanSecs / 60;
+
+  return {
+    totalRestSecs,
+    avgRestSecs,
+    gapCount,
+    setsPerMinute: Math.round((rows.length / minutes) * 10) / 10,
+    volumePerMinute: Math.round(totalVolume / minutes),
+    hasData: true,
+  };
+}
+
+/**
  * Get the estimated 1RM (Epley formula) for an exercise across all sessions.
  * Used to render the trend chart on the Exercise Detail screen.
  */
@@ -328,4 +415,209 @@ export async function currentStreak(): Promise<number> {
   }
 
   return streak;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ *  Workout Review — per-exercise comparison vs last session
+ * ═══════════════════════════════════════════════════════════ */
+
+export type ExerciseDelta = {
+  exercise_name: string;
+  // This session
+  top_weight: number;
+  total_volume: number;
+  total_reps: number;
+  completed_sets: number;
+  // Last session
+  prev_top_weight: number | null;
+  prev_total_volume: number | null;
+  prev_total_reps: number | null;
+  prev_completed_sets: number | null;
+  // Computed
+  status: 'progressed' | 'regressed' | 'maintained' | 'new' | 'skipped';
+};
+
+/**
+ * Compare each exercise in sessionId to the last time it was performed.
+ * Returns per-exercise deltas with progression/regression status.
+ */
+export async function sessionExerciseDeltas(sessionId: number): Promise<ExerciseDelta[]> {
+  // Get exercises in this session
+  const exercisesRes = await executeSqlAsync(
+    `
+    SELECT DISTINCT tco.exercise_id, e.name as exercise_name
+    FROM session_slots ss
+    JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
+    JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+    JOIN exercises e ON e.id = tco.exercise_id
+    WHERE ss.session_id = ?;
+    `,
+    [sessionId]
+  );
+
+  const deltas: ExerciseDelta[] = [];
+
+  for (const ex of exercisesRes.rows._array) {
+    // This session stats
+    const thisRes = await executeSqlAsync(
+      `
+      SELECT MAX(se.weight) as top_weight,
+             COALESCE(SUM(se.weight * se.reps), 0) as total_volume,
+             COALESCE(SUM(se.reps), 0) as total_reps,
+             COUNT(*) as completed_sets
+      FROM sets se
+      JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+      JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+      JOIN session_slots ss ON ss.id = ssc.session_slot_id
+      WHERE ss.session_id = ? AND tco.exercise_id = ?
+        AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
+      `,
+      [sessionId, ex.exercise_id]
+    );
+    const cur = thisRes.rows.item(0);
+
+    // Skip exercises with no completed working sets — the user didn't
+    // actually perform this exercise, so it's not a regression.
+    if (!cur.completed_sets || cur.completed_sets === 0) {
+      deltas.push({
+        exercise_name: ex.exercise_name,
+        top_weight: 0,
+        total_volume: 0,
+        total_reps: 0,
+        completed_sets: 0,
+        prev_top_weight: null,
+        prev_total_volume: null,
+        prev_total_reps: null,
+        prev_completed_sets: null,
+        status: 'skipped',
+      });
+      continue;
+    }
+
+    // Find previous session containing this exercise WITH completed working sets.
+    // Skip sessions where the exercise existed but wasn't actually performed.
+    const prevSessionRes = await executeSqlAsync(
+      `
+      SELECT s.id
+      FROM sessions s
+      JOIN session_slots ss ON ss.session_id = s.id
+      JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
+      JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+      JOIN sets se ON se.session_slot_choice_id = ssc.id
+                  AND se.completed = 1
+                  AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+      WHERE s.status = 'final' AND s.id != ? AND tco.exercise_id = ?
+      GROUP BY s.id
+      HAVING COUNT(se.id) > 0
+      ORDER BY s.performed_at DESC, s.id DESC
+      LIMIT 1;
+      `,
+      [sessionId, ex.exercise_id]
+    );
+
+    let prev: any = null;
+    if (prevSessionRes.rows.length) {
+      const prevId = prevSessionRes.rows.item(0).id;
+      const prevRes = await executeSqlAsync(
+        `
+        SELECT MAX(se.weight) as top_weight,
+               COALESCE(SUM(se.weight * se.reps), 0) as total_volume,
+               COALESCE(SUM(se.reps), 0) as total_reps,
+               COUNT(*) as completed_sets
+        FROM sets se
+        JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+        JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+        JOIN session_slots ss ON ss.id = ssc.session_slot_id
+        WHERE ss.session_id = ? AND tco.exercise_id = ?
+          AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
+        `,
+        [prevId, ex.exercise_id]
+      );
+      prev = prevRes.rows.item(0);
+    }
+
+    // Determine status
+    let status: ExerciseDelta['status'] = 'new';
+    if (prev && prev.top_weight != null) {
+      const volumeDiff = cur.total_volume - prev.total_volume;
+      const weightDiff = (cur.top_weight || 0) - (prev.top_weight || 0);
+      if (weightDiff > 0 || volumeDiff > 0) {
+        status = 'progressed';
+      } else if (weightDiff < 0 || volumeDiff < 0) {
+        status = 'regressed';
+      } else {
+        status = 'maintained';
+      }
+    }
+
+    deltas.push({
+      exercise_name: ex.exercise_name,
+      top_weight: cur.top_weight || 0,
+      total_volume: cur.total_volume || 0,
+      total_reps: cur.total_reps || 0,
+      completed_sets: cur.completed_sets || 0,
+      prev_top_weight: prev?.top_weight ?? null,
+      prev_total_volume: prev?.total_volume ?? null,
+      prev_total_reps: prev?.total_reps ?? null,
+      prev_completed_sets: prev?.completed_sets ?? null,
+      status,
+    });
+  }
+
+  return deltas;
+}
+
+/**
+ * Get the volume and duration of the last finalized session with the same template.
+ * Used for volume/duration comparison on the summary screen.
+ */
+export async function previousSessionComparison(sessionId: number): Promise<{
+  prevVolume: number | null;
+  prevDurationSecs: number | null;
+} | null> {
+  // Get this session's template_id
+  const sRes = await executeSqlAsync(
+    `SELECT template_id FROM sessions WHERE id = ?;`,
+    [sessionId]
+  );
+  if (!sRes.rows.length) return null;
+  const templateId = sRes.rows.item(0).template_id;
+  if (!templateId) return null;
+
+  // Find the previous session with the same template
+  const prevRes = await executeSqlAsync(
+    `
+    SELECT id, performed_at, created_at
+    FROM sessions
+    WHERE status = 'final' AND template_id = ? AND id != ?
+    ORDER BY performed_at DESC, id DESC
+    LIMIT 1;
+    `,
+    [templateId, sessionId]
+  );
+  if (!prevRes.rows.length) return null;
+  const prev = prevRes.rows.item(0);
+
+  // Volume
+  const volRes = await executeSqlAsync(
+    `
+    SELECT COALESCE(SUM(se.weight * se.reps), 0) as vol
+    FROM sets se
+    JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    WHERE ss.session_id = ? AND se.completed = 1
+      AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
+    `,
+    [prev.id]
+  );
+
+  // Duration (performed_at - created_at)
+  const created = new Date(prev.created_at).getTime();
+  const performed = new Date(prev.performed_at).getTime();
+  const durationSecs = Math.max(0, Math.floor((performed - created) / 1000));
+
+  return {
+    prevVolume: volRes.rows.item(0).vol,
+    prevDurationSecs: durationSecs > 0 ? durationSecs : null,
+  };
 }

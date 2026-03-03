@@ -1,16 +1,57 @@
-# Pre-Release Hardening & Architecture Roadmap
+# Workout Tracker — Roadmap & Feature Plan
 
-This document defines the priorities before exposing the app to real users.
-Focus is reliability, predictability, and keeping future change cheap.
-
-The objective is NOT elegance.
-The objective is removing friction and preventing expensive mistakes later.
+> **Last updated:** 2026-03-20
 
 ---
 
-# Phase 1 — Hardening (must pass before external testing)
+# Completed
 
-## Migration Safety
+### Batch 1 (2026-03-01)
+- ~~1.1 Warmup nav bug~~ — fixed via `suppressAutoExpandRef`
+- ~~1.2 Rest timer auto-dismiss~~ — 3s auto-hide + progress bar
+- ~~1.3 Ad-hoc rest timer button~~ — "⏱ Rest" in action row with preset picker
+- ~~2.1 Weights persist across templates~~ — global exercise fallback in repos + hydrate
+
+### Batch 2 (2026-03-15)
+- ~~3.1 Edit During Workout~~ — add/remove/reorder exercises mid-session, add sets, one-time vs permanent prompt. Migration 34 (`is_hidden` on `template_slots`). `ExercisePickerModal`, `addExerciseToSession`, `removeExerciseFromSession`, `addSetToChoice`, `reorderSessionSlots`.
+- ~~3.2 Modify Warmup Sets~~ — `clearWarmupSets` in setsRepo, regenerate/clear buttons in SlotCard, visual warmup badge ("W" + blue tint) in SetRowEditor.
+- ~~3.3 Workout Review Dashboard~~ — `sessionExerciseDeltas` + `previousSessionComparison` in statsRepo. Progression badges (📈/📉/➡️/🆕), volume/duration comparison in WorkoutSummaryScreen.
+- ~~3.4 Interaction Tests~~ — 27 new tests in `midWorkoutEditing.test.ts`. **368 total tests across 5 suites**, all passing.
+
+### Batch 3 (2026-03-01)
+- ~~4.1 Effort / Rest-time tracking~~ — Migration 35 (`completed_at TEXT` on `sets`). `toggleSetCompleted` records timestamp. New `sessionEffortStats()` in statsRepo computes total rest, avg rest, sets/min, volume/min. "⚡ Effort & Rest" section in WorkoutSummaryScreen. **375 total tests**, all passing.
+
+### Batch 4 (2026-03-20)
+- ~~5.1 Workout Reminders~~ — Migration 36 (`template_schedule` table). `scheduleRepo.ts` CRUD. `workoutReminders.ts` syncs expo-notifications WEEKLY triggers. `ScheduleModal.tsx` bottom-sheet UI with day toggles + time picker. ⏰ button on TemplatesScreen. 8 new tests.
+- ~~5.2 Weekly Volume Dashboard~~ — `WeeklyVolumeCard.tsx` with colored progress bars per muscle group (green 10+/yellow 5–9/red <5 sets). Integrated into IdleScreen between THIS WEEK stats and all-time card. Uses existing `weeklyVolumeByMuscle()`. **383 total tests**, all passing.
+
+---
+
+# Not Yet Implemented
+
+## Music Player Integration
+**User request:** Now playing, next, previous, pause controls within the app.
+- Would need `expo-av` or a native module for media session access.
+- Effort: Medium-Large. Research needed on cross-platform media control APIs.
+
+## Cardio Recording
+**User request:** Track cardio sessions (distance, time, pace, heart rate).
+- Requires new schema: `cardio_sessions` table with duration, distance, type (run/bike/row), optional heart rate.
+- UI: new screen or tab, possibly integrated into existing session flow.
+- Effort: Large (new data model + UI).
+
+## Pixel Watch / Wear OS Integration
+- **Cheapest path:** Add action buttons to `expo-notifications` ("Skip rest", "Complete set") — works on any watch that mirrors notifications.
+- **Full path:** Standalone Kotlin Wear OS companion app communicating via `MessageClient`.
+- Effort: Notifications: 1-2 days. Full Wear OS: weeks.
+
+---
+
+# Previous Hardening Plan (completed/ongoing)
+
+## Phase 1 — Hardening (must pass before external testing)
+
+### Migration Safety
 Simulate:
 1. Install old version
 2. Create realistic data
@@ -26,7 +67,7 @@ If this fails, nothing else matters.
 
 ---
 
-## Destructive Action Protection
+### Destructive Action Protection
 For deletes or resets, require at least one:
 - confirmation dialog
 - undo
@@ -36,7 +77,7 @@ Accidental data loss destroys trust immediately.
 
 ---
 
-## Empty & Edge States
+### Empty & Edge States
 Force scenarios:
 - first launch ever
 - no workouts
@@ -48,7 +89,7 @@ Every screen should render something intentional.
 
 ---
 
-## Crash Resistance / Interruption Handling
+### Crash Resistance / Interruption Handling
 Test:
 - kill app mid session
 - background during save
@@ -58,7 +99,7 @@ State should be consistent and recoverable.
 
 ---
 
-## Deterministic Navigation
+### Deterministic Navigation
 Android back behavior:
 - always predictable
 - no loops
@@ -70,11 +111,11 @@ If Phase 1 is solid → real people can use it.
 
 ---
 
-# Phase 2 — Complexity Control (future-proofing)
+## Phase 2 — Complexity Control (future-proofing)
 
 Only do this when repetition or confusion appears.
 
-## Extract Repeated Logic
+### Extract Repeated Logic
 Common candidates:
 - stats calculations
 - personal record detection
@@ -122,6 +163,6 @@ Outcome:
 
 ---
 
-## Separate Orchestration from UI
+### Separate Orchestration from UI
 When a screen coordinates multiple repositories:
 

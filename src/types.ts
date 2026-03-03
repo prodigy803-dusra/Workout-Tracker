@@ -134,6 +134,7 @@ export type SetData = {
   rpe: number | null;
   rest_seconds: number | null;
   completed: boolean;
+  is_warmup?: boolean;
 };
 
 export type LastTimeData = {
@@ -238,6 +239,19 @@ export type BodyWeightEntry = {
   weight: number;
   unit: string;
   measured_at: string;
+};
+
+/* ── Injury types ───────────────────────────────────────── */
+
+export type ActiveInjury = {
+  id: number;
+  body_region: string;
+  injury_type: string;
+  severity: 'mild' | 'moderate' | 'severe';
+  notes: string | null;
+  started_at: string;
+  resolved_at: string | null;
+  created_at: string;
 };
 
 /* ── Navigation types ───────────────────────────────────── */

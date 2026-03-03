@@ -8,11 +8,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { listTemplates } from '../db/repositories/templatesRepo';
-import { overallStats } from '../db/repositories/statsRepo';
+import { overallStats, weeklyVolumeByMuscle } from '../db/repositories/statsRepo';
 import { createDraftFromTemplate } from '../db/repositories/sessionsRepo';
 import { useUnit } from '../contexts/UnitContext';
 import { useColors } from '../contexts/ThemeContext';
-import type { OverallStats, Template } from '../types';
+import WeeklyVolumeCard from './WeeklyVolumeCard';
+import type { OverallStats, Template, MuscleVolumeRow } from '../types';
 import { idle } from '../screens/LogScreen.styles';
 
 type Props = {
@@ -25,6 +26,7 @@ function IdleScreen({ onSessionStarted }: Props) {
   const c = useColors();
   const [templates, setTemplates] = useState<Pick<Template, 'id' | 'name'>[]>([]);
   const [stats, setStats] = useState<OverallStats | null>(null);
+  const [muscleVolume, setMuscleVolume] = useState<MuscleVolumeRow[]>([]);
   const [greeting, setGreeting] = useState('');
   const [starting, setStarting] = useState(false);
 
@@ -39,6 +41,7 @@ function IdleScreen({ onSessionStarted }: Props) {
     useCallback(() => {
       listTemplates().then(setTemplates);
       overallStats().then(setStats);
+      weeklyVolumeByMuscle().then(setMuscleVolume);
     }, []),
   );
 
@@ -111,6 +114,13 @@ function IdleScreen({ onSessionStarted }: Props) {
               <Text style={[idle.statLabel, { color: c.textSecondary }]}>Vol ({unit})</Text>
             </View>
           </View>
+        </View>
+      )}
+
+      {/* Weekly muscle volume dashboard */}
+      {muscleVolume.length > 0 && (
+        <View style={idle.section}>
+          <WeeklyVolumeCard data={muscleVolume} />
         </View>
       )}
 

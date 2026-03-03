@@ -9,6 +9,7 @@ import {
   getActiveDraft,
 } from '../db/repositories/sessionsRepo';
 import { useColors } from '../contexts/ThemeContext';
+import ScheduleModal from '../components/ScheduleModal';
 import type { Template, Session, TemplatesStackParamList, RootTabParamList } from '../types';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -24,6 +25,7 @@ export default function TemplatesScreen({ navigation }: Props) {
   const [newName, setNewName] = useState('');
   const [activeDraft, setActiveDraft] = useState<Session | null>(null);
   const [starting, setStarting] = useState(false);
+  const [scheduleTarget, setScheduleTarget] = useState<{ id: number; name: string } | null>(null);
   const c = useColors();
 
   const load = useCallback(async () => {
@@ -214,6 +216,12 @@ export default function TemplatesScreen({ navigation }: Props) {
                     <Text style={[styles.secondaryText, { color: c.text }]}>Edit</Text>
                   </Pressable>
                   <Pressable
+                    style={[styles.secondaryButton, { backgroundColor: c.card, borderColor: c.border }]}
+                    onPress={() => setScheduleTarget({ id: item.id, name: item.name })}
+                  >
+                    <Text style={[styles.secondaryText, { color: c.text }]}>⏰</Text>
+                  </Pressable>
+                  <Pressable
                     style={[styles.secondaryButton, { backgroundColor: c.card, borderColor: c.danger }]}
                     onPress={() =>
                       Alert.alert('Delete Template', `Delete "${item.name}"?`, [
@@ -237,6 +245,14 @@ export default function TemplatesScreen({ navigation }: Props) {
           );
         }}
       />
+      {scheduleTarget && (
+        <ScheduleModal
+          visible
+          templateId={scheduleTarget.id}
+          templateName={scheduleTarget.name}
+          onClose={() => setScheduleTarget(null)}
+        />
+      )}
     </View>
   );
 }

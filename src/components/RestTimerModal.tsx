@@ -3,8 +3,8 @@
  *
  * Pure presentational component (§4). Receives timer state as props.
  */
-import React from 'react';
-import { View, Text, Pressable, Modal } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Pressable, Modal, Animated } from 'react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { styles } from '../screens/LogScreen.styles';
 
@@ -40,6 +40,25 @@ type Props = {
 
 function RestTimerModal({ timer, unit }: Props) {
   const c = useColors();
+
+  /* Auto-dismiss progress bar (3s countdown when timer expires) */
+  const dismissAnim = useRef(new Animated.Value(0)).current;
+  const [showDismissBar, setShowDismissBar] = useState(false);
+
+  useEffect(() => {
+    if (timer.remaining <= 0 && !timer.isRunning && timer.isVisible) {
+      setShowDismissBar(true);
+      dismissAnim.setValue(0);
+      Animated.timing(dismissAnim, {
+        toValue: 1,
+        duration: 3000,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      setShowDismissBar(false);
+      dismissAnim.setValue(0);
+    }
+  }, [timer.remaining <= 0 && !timer.isRunning && timer.isVisible]);
 
   return (
     <Modal visible={timer.isVisible} transparent animationType="fade">
@@ -128,12 +147,19 @@ function RestTimerModal({ timer, unit }: Props) {
               </Pressable>
             </View>
           ) : (
-            <Pressable
-              style={[styles.timerBtn, { backgroundColor: c.success, paddingHorizontal: 40, marginBottom: 12 }]}
-              onPress={() => timer.skip()}
-            >
-              <Text style={[styles.timerBtnText, { color: '#FFF' }]}>Let's Go! 💪</Text>
-            </Pressable>
+            <>
+              <Pressable
+                style={[styles.timerBtn, { backgroundColor: c.success, paddingHorizontal: 40, marginBottom: 8 }]}
+                onPress={() => timer.skip()}
+              >
+                <Text style={[styles.timerBtnText, { color: '#FFF' }]}>Let's Go! 💪</Text>
+              </Pressable>
+              {showDismissBar && (
+                <View style={{ width: '60%', height: 3, backgroundColor: c.isDark ? '#444' : '#DDD', borderRadius: 2, marginBottom: 8, overflow: 'hidden' }}>
+                  <Animated.View style={{ height: 3, borderRadius: 2, backgroundColor: c.textSecondary, width: dismissAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }} />
+                </View>
+              )}
+            </>
           )}
           <Pressable style={styles.timerSkipBtn} onPress={() => timer.skip()}>
             <Text style={[styles.timerSkipText, { color: c.textSecondary }]}>

@@ -77,7 +77,8 @@ state transitions, not from ad-hoc code inside component handlers.**
   `COMPLETE_SET`, `UNCOMPLETE_SET`, `UPDATE_WEIGHT`, `UPDATE_REPS`,
   `CYCLE_RPE`, `ADD_SET`, `DELETE_SET`, `ADD_DROP_SEGMENT`,
   `DELETE_DROP_SEGMENT`, `SELECT_SLOT_CHOICE`, `SAVE_NOTES`,
-  `FINISH_SESSION`, `DISCARD_SESSION`, `GENERATE_WARMUPS`.
+  `FINISH_SESSION`, `DISCARD_SESSION`, `GENERATE_WARMUPS`,
+  `ADD_EXERCISE`, `REMOVE_EXERCISE`, `REORDER_SLOTS`, `CLEAR_WARMUPS`.
 - The reducer returns new state. A **separate effect layer** (a
   `useEffect` or middleware function) watches for transitions and
   triggers side effects:
@@ -148,6 +149,8 @@ src/
     SessionSummaryHeader.tsx ← duration / sets / volume bar
     ProgressiveOverloadBanner.tsx
     WarmupGeneratorButton.tsx
+    ScheduleModal.tsx        ← weekly reminder day/time picker
+    WeeklyVolumeCard.tsx     ← muscle group volume progress bars
 ```
 
 ### Reducer shape (sketch)
@@ -177,6 +180,11 @@ type SessionAction =
   | { type: 'DELETE_DROP_SEGMENT'; setId: number; segmentId: number }
   | { type: 'SELECT_CHOICE'; slotId: number; templateOptionId: number }
   | { type: 'SAVE_NOTES'; text: string }
+  | { type: 'ADD_EXERCISE'; slot: DraftSlot; options: SlotOption[]; sets: SetData[] }
+  | { type: 'REMOVE_EXERCISE'; slotId: number }
+  | { type: 'ADD_SET'; choiceId: number; set: SetData }
+  | { type: 'REORDER_SLOTS'; slotIds: number[] }
+  | { type: 'CLEAR_WARMUPS'; choiceId: number }
   | { type: 'FINISH' }
   | { type: 'DISCARD' }
   | { type: 'RESET' };
@@ -210,9 +218,9 @@ These tactical rules prevent the "refactor broke everything" scenario:
 
 | Rule | Where | Violation |
 |---|---|---|
-| §1 State Authority | `LogScreen.tsx` L260 | 7 `useState` copies of DB data |
-| §1 State Authority | `LogScreen.tsx` L340, L370 | Raw SQL bypassing repos |
-| §2 Editing Contract | `LogScreen.tsx` L867–873 | `parseFloat` inside `onChangeText` |
-| §3 Transitions | `LogScreen.tsx` L778–860 | 80-line `onPress` with interleaved DB writes, timer, nav |
-| §4 Rendering | `LogScreen.tsx` L693, L702 | IIFEs in JSX for suggestions/warmups |
-| §6 Structure | `LogScreen.tsx` | 1605 lines, 5+ components + 407 lines of styles in one file |
+| §1 State Authority | `LogScreen.tsx` | ~~7 `useState` copies of DB data~~ **Resolved** — single `useSessionStore` reducer |
+| §1 State Authority | `LogScreen.tsx` | ~~Raw SQL bypassing repos~~ **Resolved** — uses repos |
+| §2 Editing Contract | `SetRowEditor.tsx` | ~~`parseFloat` inside `onChangeText`~~ **Resolved** — raw string until blur |
+| §3 Transitions | `LogScreen.tsx` | ~~80-line `onPress` with interleaved DB writes~~ **Resolved** — dispatch + effects |
+| §4 Rendering | `LogScreen.tsx` | ~~IIFEs in JSX~~ **Resolved** — extracted components |
+| §6 Structure | `LogScreen.tsx` | ~~1605 lines~~ **Resolved** — ~300 line orchestrator + 10 sub-components |

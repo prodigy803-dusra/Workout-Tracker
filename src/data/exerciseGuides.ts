@@ -20,7 +20,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Keep your chest up and eyes forward throughout.\n' +
       '• Don\'t let your knees cave inward — push them out over your toes.\n' +
-      '• Inhale and brace before descending; exhale at the top.',
+      '• Inhale and brace before descending; exhale at the top.\n' +
+      '\n💡 Cue: "Spread the floor apart" with your feet — this activates your glutes and prevents knee cave.',
   },
   'barbell front squat': {
     url: 'https://www.muscleandstrength.com/exercises/front-squat.html',
@@ -130,7 +131,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Don\'t let your lower back lift off the pad at the bottom.\n' +
       '• Higher foot placement shifts emphasis to glutes/hamstrings.\n' +
-      '• Use a controlled tempo — don\'t bounce at the bottom.',
+      '• Use a controlled tempo — don\'t bounce at the bottom.\n' +
+      '\n💡 Cue: Push through your midfoot for quad emphasis, or through your heels for more glute/hamstring.',
   },
   'horizontal leg press': {
     url: 'https://www.muscleandstrength.com/exercises/leg-press.html',
@@ -168,7 +170,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Squeeze and hold at the top for 1 second for maximum contraction.\n' +
       '• Don\'t use momentum to swing the weight up.\n' +
-      '• Point your toes up (dorsiflexion) to increase quad activation.',
+      '• Point your toes up (dorsiflexion) to increase quad activation.\n' +
+      '\n💡 Cue: Push your knees slightly outward against the pad — this engages the VMO (inner quad) more effectively.',
   },
 
   /* ═══════ HAMSTRINGS — HINGE ═══════ */
@@ -182,7 +185,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Keep a slight bend in your knees — this isn\'t a stiff-leg deadlift.\n' +
       '• The bar should stay close to your body the entire time.\n' +
-      '• Think "hips back" not "bending over."',
+      '• Think "hips back" not "bending over."\n' +
+      '\n💡 Cue: Imagine closing a car door with your butt — that\'s the hip hinge. Drag the bar along your thighs like you\'re painting them.',
   },
   'stiff leg deadlift': {
     url: 'https://www.muscleandstrength.com/exercises/stiff-leg-deadlift.html',
@@ -206,7 +210,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• The bar should travel in a straight vertical line.\n' +
       '• Don\'t round your lower back — keep it neutral.\n' +
-      '• Think of pushing the floor away rather than pulling the bar up.',
+      '• Think of pushing the floor away rather than pulling the bar up.\n' +
+      '\n💡 Cue: "Squeeze oranges in your armpits" — this engages your lats to keep the bar tight to your body and protects your back.',
   },
   'sumo deadlift': {
     url: 'https://www.muscleandstrength.com/exercises/sumo-deadlift.html',
@@ -256,7 +261,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Don\'t lift your hips off the pad — keep them pressed down.\n' +
       '• Squeeze for a full second at the top.\n' +
-      '• Avoid using momentum to swing the weight.',
+      '• Avoid using momentum to swing the weight.\n' +
+      '\n💡 Cue: Point your toes away from you (plantar flex) — this reduces calf involvement and forces your hamstrings to do more work.',
   },
   'seated leg curl': {
     url: 'https://www.muscleandstrength.com/exercises/seated-leg-curl.html',
@@ -294,7 +300,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Chin should be slightly tucked — look forward, not at the ceiling.\n' +
       '• Your shins should be vertical at the top.\n' +
-      '• Use a thick barbell pad to avoid hip bruising.',
+      '• Use a thick barbell pad to avoid hip bruising.\n' +
+      '\n💡 Cue: Finish each rep with a posterior pelvic tilt (tuck your tailbone under) — this maximizes glute contraction at the top.',
   },
   'machine hip thrust': {
     url: 'https://www.muscleandstrength.com/exercises/machine-hip-thrust.html',
@@ -380,7 +387,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Full range of motion is key — stretch at the bottom, squeeze at the top.\n' +
       '• Use a 2-second pause at both the top and bottom.\n' +
-      '• Keep your legs straight to emphasize the gastrocnemius.',
+      '• Keep your legs straight to emphasize the gastrocnemius.\n' +
+      '\n💡 Cue: At the bottom, let your heels sink as low as possible for a 2-sec stretch — calves grow best from full-range, slow reps.',
   },
   'seated calf raise': {
     url: 'https://www.muscleandstrength.com/exercises/seated-calf-raise.html',
@@ -430,7 +438,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Retract and depress your shoulder blades — squeeze them together.\n' +
       '• Keep a slight arch in your lower back.\n' +
-      '• Drive your feet into the floor for leg drive.',
+      '• Drive your feet into the floor for leg drive.\n' +
+      '\n💡 Cue: Try to "bend the bar apart" (pull hands outward) as you press — this activates your chest more than just pushing up.',
   },
   'incline barbell bench': {
     url: 'https://www.muscleandstrength.com/exercises/incline-bench-press.html',
@@ -466,7 +475,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Dumbbells allow a greater range of motion than barbell.\n' +
       '• Rotate your wrists slightly so pinkies come together at the top.\n' +
-      '• Control the descent — don\'t let gravity pull the weights down.',
+      '• Control the descent — don\'t let gravity pull the weights down.\n' +
+      '\n💡 Cue: At the top of each rep, imagine squeezing a pencil between your pecs — this ensures full chest contraction instead of just locking out arms.',
   },
   'incline dumbbell press': {
     url: 'https://www.muscleandstrength.com/exercises/incline-dumbbell-bench-press.html',
@@ -514,7 +524,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Leaning forward emphasizes chest; staying upright targets triceps.\n' +
       '• Add weight with a dip belt once bodyweight becomes easy.\n' +
-      '• Don\'t go so deep that your shoulders hurt.',
+      '• Don\'t go so deep that your shoulders hurt.\n' +
+      '\n💡 Cue: Think about "pushing the bars together" (not just pushing down) — this activates your inner chest like a fly at the top of each rep.',
   },
   'diamond pushup': {
     url: 'https://www.muscleandstrength.com/exercises/diamond-push-ups.html',
@@ -540,7 +551,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Focus on the squeeze at the front for maximum contraction.\n' +
       '• Don\'t let the weight stack slam — control the eccentric.\n' +
-      '• Keep a slight bend in your elbows.',
+      '• Keep a slight bend in your elbows.\n' +
+      '\n💡 Cue: At the squeeze position, try to push your hands together even harder for 1 second — this extra isometric hold maxes out chest fiber recruitment.',
   },
   'dumbbell fly': {
     url: 'https://www.muscleandstrength.com/exercises/dumbbell-flys.html',
@@ -552,7 +564,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Think of hugging a large tree — the arc motion is key.\n' +
       '• Don\'t go too heavy — this is a stretch/squeeze exercise.\n' +
-      '• Keep the slight elbow bend constant throughout.',
+      '• Keep the slight elbow bend constant throughout.\n' +
+      '\n💡 Cue: Focus on driving the motion from your elbows, not your hands — this keeps tension on the chest and off the front delts.',
   },
   'cable fly mid': {
     url: 'https://www.muscleandstrength.com/exercises/standing-cable-crossover.html',
@@ -564,7 +577,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Constant cable tension throughout the entire range of motion.\n' +
       '• Cross your hands slightly at the front for a better squeeze.\n' +
-      '• Great finisher exercise for the chest.',
+      '• Great finisher exercise for the chest.\n' +
+      '\n💡 Cue: Let your hands cross past each other at the midpoint — the chest continues contracting past midline.',
   },
   'cable fly low to high': {
     url: 'https://www.muscleandstrength.com/exercises/low-cable-crossover.html',
@@ -602,7 +616,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Initiate the pull by depressing your shoulder blades, not bending your arms.\n' +
       '• Avoid kipping or swinging.\n' +
-      '• Use an assisted machine or band if you can\'t do bodyweight yet.',
+      '• Use an assisted machine or band if you can\'t do bodyweight yet.\n' +
+      '\n💡 Cue: "Drive your elbows into your back pockets" — this mental image activates lats instead of just using your biceps.',
   },
   'chin up': {
     url: 'https://www.muscleandstrength.com/exercises/chin-up.html',
@@ -626,7 +641,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Drive your elbows down and back, not just pulling with your arms.\n' +
       '• Don\'t lean too far back — it turns into a row.\n' +
-      '• Full stretch at the top is important for lat development.',
+      '• Full stretch at the top is important for lat development.\n' +
+      '\n💡 Cue: Grip the bar with your ring and pinky fingers tighter than the others — this shifts the pull into your lats and away from your biceps.',
   },
   'neutral pulldown': {
     url: 'https://www.muscleandstrength.com/exercises/close-grip-lat-pull-down.html',
@@ -664,7 +680,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Keep your back flat — don\'t round your spine.\n' +
       '• A little body English is fine on heavy sets, but don\'t make it a habit.\n' +
-      '• Squeeze your shoulder blades together at the top.',
+      '• Squeeze your shoulder blades together at the top.\n' +
+      '\n💡 Cue: Think about "rowing to your hip pocket" not to your chest — this keeps your elbows back and engages your lats more.',
   },
   'one arm dumbbell row': {
     url: 'https://www.muscleandstrength.com/exercises/one-arm-dumbbell-row.html',
@@ -676,7 +693,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Don\'t rotate your torso — keep your shoulders square.\n' +
       '• Drive your elbow past your torso for full contraction.\n' +
-      '• Can also be done with one hand on a rack for support.',
+      '• Can also be done with one hand on a rack for support.\n' +
+      '\n💡 Cue: Row to your hip pocket, not your chest — and at the top, think about "putting your elbow in your back pocket" for maximum lat engagement.',
   },
   'seated cable row': {
     url: 'https://www.muscleandstrength.com/exercises/seated-row.html',
@@ -688,7 +706,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Keep upright — don\'t swing your torso back and forth.\n' +
       '• Full stretch at the front, full squeeze at the back.\n' +
-      '• Try different attachments for variety (V-bar, wide bar, rope).',
+      '• Try different attachments for variety (V-bar, wide bar, rope).\n' +
+      '\n💡 Cue: At the stretched position, let your shoulder blades fully protract (spread apart) — this extra range of motion adds significant lat stimulus.',
   },
   'chest supported row': {
     url: 'https://www.muscleandstrength.com/exercises/chest-supported-dumbbell-row.html',
@@ -726,7 +745,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• A must-do for shoulder health and posture.\n' +
       '• Think of pulling to your ears, not your chin.\n' +
-      '• Keep elbows high — at or above shoulder height.',
+      '• Keep elbows high — at or above shoulder height.\n' +
+      '\n💡 Cue: Finish each rep in a "double bicep pose" — externally rotate so your fists point to the ceiling. This trains the rotator cuff, not just rear delts.',
   },
   'reverse pec deck': {
     url: 'https://www.muscleandstrength.com/exercises/reverse-pec-deck-fly.html',
@@ -738,7 +758,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Keep a slight bend in your elbows throughout.\n' +
       '• Don\'t use too much weight — focus on the squeeze.\n' +
-      '• Great for rear delt development and shoulder balance.',
+      '• Great for rear delt development and shoulder balance.\n' +
+      '\n💡 Cue: Lead the motion with the back of your hands (imagine showing someone your knuckles) — this keeps the work in the rear delts instead of the traps.',
   },
   'straight arm pulldown': {
     url: 'https://www.muscleandstrength.com/exercises/straight-arm-pulldown.html',
@@ -788,7 +809,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Move your head back slightly as the bar passes your face, then push it through.\n' +
       '• Squeeze your glutes to keep your lower back from arching.\n' +
-      '• Full lockout overhead for maximum shoulder development.',
+      '• Full lockout overhead for maximum shoulder development.\n' +
+      '\n💡 Cue: "Push your head through the window" once the bar passes your face — getting under the bar activates your shoulders more and creates a stronger lockout.',
   },
   'dumbbell shoulder press': {
     url: 'https://www.muscleandstrength.com/exercises/seated-dumbbell-press.html',
@@ -824,7 +846,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Lead with your elbows, not your hands.\n' +
       '• Don\'t shrug — keep your traps relaxed.\n' +
-      '• A slight forward lean can help isolate the side delts more.',
+      '• A slight forward lean can help isolate the side delts more.\n' +
+      '\n💡 Cue: Grip the dumbbell with extra pressure on your pinky finger — this tilts the dumbbell like pouring water from a jug and forces your side delt to do the lifting instead of your front delt.',
   },
   'cable lateral raise': {
     url: 'https://www.muscleandstrength.com/exercises/one-arm-cable-lateral-raise.html',
@@ -836,7 +859,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Cable provides constant tension throughout the range.\n' +
       '• Stand upright — don\'t lean away to cheat the weight.\n' +
-      '• Great for mind-muscle connection with the side delts.',
+      '• Great for mind-muscle connection with the side delts.\n' +
+      '\n💡 Cue: Same as dumbbell version — "pour the water" by leading with your pinky side. With cables, you can also start the rep with slight tension to eliminate momentum.',
   },
   'rear delt fly': {
     url: 'https://www.muscleandstrength.com/exercises/bent-over-dumbbell-reverse-fly.html',
@@ -888,7 +912,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Don\'t swing your body — keep it strict.\n' +
       '• Slight wrist supination at the top can improve the peak contraction.\n' +
-      '• The straight bar hits both bicep heads well.',
+      '• The straight bar hits both bicep heads well.\n' +
+      '\n💡 Cue: At the top of each rep, try to rotate your pinkies outward (supinate harder) — the biceps are both a flexor and supinator, so this extra twist maximizes the squeeze.',
   },
   'ez bar curl': {
     url: 'https://www.muscleandstrength.com/exercises/ez-bar-curl.html',
@@ -974,7 +999,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Letting the bar go behind your head increases the stretch on the long head.\n' +
       '• Don\'t flare elbows — keep them pointing at the ceiling.\n' +
-      '• Start light to protect your elbows.',
+      '• Start light to protect your elbows.\n' +
+      '\n💡 Cue: Lower the bar slightly behind your head (not to your forehead) — the extra stretch position loads the long head much more effectively.',
   },
   'tricep pushdown': {
     url: 'https://www.muscleandstrength.com/exercises/tricep-pushdown.html',
@@ -986,7 +1012,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Keep your elbows pinned to your sides — don\'t let them flare.\n' +
       '• A rope lets you spread at the bottom for extra contraction.\n' +
-      '• Great for targeting the lateral head of the triceps.',
+      '• Great for targeting the lateral head of the triceps.\n' +
+      '\n💡 Cue: At the bottom of each rep, actively "twist" the rope outward (spread it apart) and hold for a beat — this extra range hits the lateral head harder.',
   },
   'overhead tricep extension': {
     url: 'https://www.muscleandstrength.com/exercises/overhead-tricep-extension.html',
@@ -998,7 +1025,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Overhead position stretches the long head of the triceps.\n' +
       '• Keep elbows pointing forward, not flaring out.\n' +
-      '• Cable version provides more constant tension.',
+      '• Cable version provides more constant tension.\n' +
+      '\n💡 Cue: Control the eccentric with a 2-3 sec stretch behind your head — the long head of the triceps responds strongly to loaded stretches.',
   },
 
   /* ═══════ CORE ═══════ */
@@ -1012,7 +1040,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• Don\'t pull with your arms — the motion should come from your abs.\n' +
       '• Think of curling your ribcage toward your pelvis.\n' +
-      '• Keep your hips stationary.',
+      '• Keep your hips stationary.\n' +
+      '\n💡 Cue: Breathe out HARD as you crunch — forceful exhaling automatically contracts your deep abs (transverse abdominis) for a stronger squeeze.',
   },
   'hanging leg raise': {
     url: 'https://www.muscleandstrength.com/exercises/hanging-leg-raise.html',
@@ -1061,6 +1090,99 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '• Your core is working to resist rotation — anti-rotation exercise.\n' +
       '• Keep your hips and shoulders square to the front.\n' +
       '• Great for building functional core stability.',
+  },
+
+  /* ═══════ NEW EXERCISES ═══════ */
+  'ab crunch machine': {
+    url: 'https://www.muscleandstrength.com/exercises/ab-crunch-machine.html',
+    steps:
+      '1. Sit in the machine with your back against the pad and grab the handles.\n' +
+      '2. Select your weight and place your feet under the foot pads.\n' +
+      '3. Crunch forward by contracting your abs, bringing your chest toward your knees.\n' +
+      '4. Return slowly to the starting position.',
+    tips:
+      '• Don\'t pull with your arms — the motion comes from your abs.\n' +
+      '• Exhale forcefully as you crunch for a harder contraction.\n' +
+      '• Use a controlled 2-sec eccentric — don\'t let the weight stack slam.\n' +
+      '\n💡 Cue: Think of \"curling your ribcage toward your belly button\" — not just bending forward. The spine should round, not just hinge at the hips.',
+  },
+  'cable bicep curl': {
+    url: 'https://www.muscleandstrength.com/exercises/cable-bicep-curl.html',
+    steps:
+      '1. Attach a straight bar or EZ bar to a low cable.\n' +
+      '2. Stand facing the machine, grab the handle with an underhand grip.\n' +
+      '3. Curl the handle up toward your shoulders, keeping elbows pinned.\n' +
+      '4. Lower under control.',
+    tips:
+      '• Cable provides constant tension — no rest at the top or bottom.\n' +
+      '• Keep your elbows at your sides, not drifting forward.\n' +
+      '• Try a rope attachment for a neutral grip variation.\n' +
+      '\n💡 Cue: Squeeze your pinkies inward at the top (supinate harder) — this engages the bicep peak more than just bending your elbows.',
+  },
+  'cable tricep kickback': {
+    url: 'https://www.muscleandstrength.com/exercises/cable-tricep-kickback.html',
+    steps:
+      '1. Set a cable to knee height, grab the handle with one hand.\n' +
+      '2. Hinge forward and pin your upper arm to your side.\n' +
+      '3. Extend your arm straight back, squeezing your tricep.\n' +
+      '4. Return slowly. Switch arms.',
+    tips:
+      '• Cable version is superior to dumbbells because tension is constant throughout.\n' +
+      '• Keep your upper arm completely still — only the forearm moves.\n' +
+      '• Use a light weight and really squeeze for 1 second at full extension.\n' +
+      '\n💡 Cue: At the top, try to turn your pinky outward slightly — this extra twist hits the lateral head of the tricep harder.',
+  },
+  'cable woodchop': {
+    url: 'https://www.muscleandstrength.com/exercises/cable-woodchop.html',
+    steps:
+      '1. Set a cable to the highest position. Stand sideways to the machine.\n' +
+      '2. Grip the handle with both hands, arms extended.\n' +
+      '3. Rotate your torso and pull the handle diagonally down across your body.\n' +
+      '4. Return under control. Do all reps, then switch sides.',
+    tips:
+      '• Power comes from your core rotation, not your arms.\n' +
+      '• Keep your arms relatively straight — they\'re just connecting you to the cable.\n' +
+      '• Can also be done low-to-high for a different angle.\n' +
+      '\n💡 Cue: Pivot through your hips and feet — your whole body should rotate as a unit. If only your arms are moving, the weight is too heavy.',
+  },
+  'cable pull through': {
+    url: 'https://www.muscleandstrength.com/exercises/cable-pull-through.html',
+    steps:
+      '1. Set a cable to the lowest position with a rope attachment.\n' +
+      '2. Face away from the machine, straddle the cable, grab the rope between your legs.\n' +
+      '3. Hinge forward at the hips, letting the cable pull you back.\n' +
+      '4. Drive your hips forward to stand tall, squeezing your glutes.',
+    tips:
+      '• This is a hip hinge — not a squat. Push your hips back.\n' +
+      '• Great for learning the deadlift/RDL hip hinge pattern.\n' +
+      '• Keep your back flat and core braced throughout.\n' +
+      '\n💡 Cue: At the top, finish with a strong glute squeeze and a posterior pelvic tilt (tuck tailbone) — same cue as hip thrusts.',
+  },
+  'hip adduction machine': {
+    url: 'https://www.muscleandstrength.com/exercises/hip-adduction-machine.html',
+    steps:
+      '1. Sit in the machine with your back against the pad.\n' +
+      '2. Place your legs against the outer pads, spread apart.\n' +
+      '3. Squeeze your legs together against resistance.\n' +
+      '4. Return slowly to the starting position.',
+    tips:
+      '• The opposite of hip abduction — this targets your inner thighs.\n' +
+      '• Use a controlled tempo — don\'t let the weight stack slam.\n' +
+      '• Leaning forward slightly can change which part of the adductors is emphasized.\n' +
+      '\n💡 Cue: At the squeezed position, hold for 1-2 seconds — adductors respond very well to time under tension and isometric holds.',
+  },
+  'glute kickback machine': {
+    url: 'https://www.muscleandstrength.com/exercises/glute-kickback-machine.html',
+    steps:
+      '1. Stand on the platform and place one foot against the push pad.\n' +
+      '2. Hold the handles for balance.\n' +
+      '3. Push the pad back by extending your hip, squeezing your glute.\n' +
+      '4. Return slowly. Complete reps and switch legs.',
+    tips:
+      '• Keep your back neutral — don\'t arch to push the weight.\n' +
+      '• Squeeze your glute hard at full extension and hold briefly.\n' +
+      '• Great for glute isolation without loading the spine.\n' +
+      '\n💡 Cue: Push through your heel, not the ball of your foot — this shifts the work from your hamstring into your glute.',
   },
 
   /* ═══════ CONDITIONING ═══════ */

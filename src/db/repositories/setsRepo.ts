@@ -68,11 +68,11 @@ export async function replaceSetsForChoice(
   });
 }
 
-/** Mark a set as completed or uncompleted. */
+/** Mark a set as completed or uncompleted. Records completed_at timestamp for effort tracking. */
 export async function toggleSetCompleted(setId: number, completed: boolean) {
   await executeSqlAsync(
-    `UPDATE sets SET completed=? WHERE id=?;`,
-    [completed ? 1 : 0, setId]
+    `UPDATE sets SET completed=?, completed_at=? WHERE id=?;`,
+    [completed ? 1 : 0, completed ? new Date().toISOString() : null, setId]
   );
 }
 
@@ -93,6 +93,35 @@ export async function lastTimeForOption(templateSlotOptionId: number): Promise<L
     LIMIT 1;
     `,
     [templateSlotOptionId]
+  );
+  if (!res.rows.length) return null;
+
+  const row = res.rows.item(0);
+  const sets = await executeSqlAsync(
+    `SELECT * FROM sets WHERE session_slot_choice_id=? AND is_warmup=0 ORDER BY set_index;`,
+    [row.session_slot_choice_id]
+  );
+  return { performed_at: row.performed_at, sets: sets.rows._array };
+}
+
+/**
+ * Fetch what the user lifted last time for a given exercise across ALL
+ * templates. This is the global fallback when no template-specific history
+ * exists (e.g. the exercise appears in a new template for the first time).
+ */
+export async function lastTimeForExercise(exerciseId: number): Promise<LastTimeData> {
+  const res = await executeSqlAsync(
+    `
+    SELECT s.performed_at, ssc.id as session_slot_choice_id
+    FROM session_slot_choices ssc
+    JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    JOIN sessions s ON s.id = ss.session_id
+    WHERE s.status='final' AND tso.exercise_id=?
+    ORDER BY s.performed_at DESC, s.id DESC
+    LIMIT 1;
+    `,
+    [exerciseId]
   );
   if (!res.rows.length) return null;
 
@@ -139,6 +168,32 @@ export async function updateDropSegment(
 /** Delete a drop-set segment by its ID. */
 export async function deleteDropSegment(segmentId: number) {
   await executeSqlAsync(`DELETE FROM drop_set_segments WHERE id=?;`, [segmentId]);
+}
+
+/**
+ * Clear all warmup sets for a choice, reindexing remaining working sets.
+ */
+export async function clearWarmupSets(choiceId: number): Promise<void> {
+  const workingRes = await executeSqlAsync(
+    `SELECT * FROM sets WHERE session_slot_choice_id = ? AND is_warmup = 0 ORDER BY set_index;`,
+    [choiceId]
+  );
+  const workingSets = workingRes.rows._array;
+
+  await db.withTransactionAsync(async () => {
+    // Delete all warmup sets
+    await executeSqlAsync(
+      `DELETE FROM sets WHERE session_slot_choice_id = ? AND is_warmup = 1;`,
+      [choiceId]
+    );
+    // Reindex working sets to start from 1
+    for (let i = 0; i < workingSets.length; i++) {
+      await executeSqlAsync(
+        `UPDATE sets SET set_index = ? WHERE id = ?;`,
+        [i + 1, workingSets[i].id]
+      );
+    }
+  });
 }
 
 /**

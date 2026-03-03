@@ -36,6 +36,7 @@ const EXERCISE_LIBRARY: ExEntry[] = [
   ['Barbell Hip Thrust', 'glutes', 'hamstrings', 'hip thrust|bb thrust', 'barbell', 'bridge'],
   ['Machine Hip Thrust', 'glutes', 'hamstrings', 'hip thrust machine|plate hip thrust', 'machine', 'bridge'],
   ['Cable Kickback', 'glutes', null, 'glute kickback', 'cable', 'isolation'],
+  ['Cable Pull Through', 'glutes', 'hamstrings', 'pull through|cable pull-through', 'cable', 'hinge'],
   ['Bulgarian Split Squat', 'glutes', 'quads', 'bss|rear foot elevated split squat', 'db/bb', 'unilateral'],
   ['Walking Lunge', 'glutes', 'quads', 'lunges|forward lunge|dumbbell lunge', 'db/bb/bw', 'unilateral'],
   ['Step Up', 'glutes', 'quads', 'box step up', 'db/bb', 'unilateral'],
@@ -43,6 +44,8 @@ const EXERCISE_LIBRARY: ExEntry[] = [
   ['Seated Calf Raise', 'calves', null, '', 'machine', 'isolation'],
   ['Donkey Calf Raise', 'calves', null, '', 'machine', 'isolation'],
   ['Hip Abduction Machine', 'glutes', 'core', 'hip abduction|abductor machine|seated abduction', 'machine', 'isolation'],
+  ['Hip Adduction Machine', 'adductors', null, 'hip adduction|adductor machine|seated adduction|inner thigh', 'machine', 'isolation'],
+  ['Glute Kickback Machine', 'glutes', 'hamstrings', 'booty machine|glute machine|butt blaster|kickback machine', 'machine', 'isolation'],
   ['Tibialis Raise', 'tibialis', null, 'tib raise', 'machine/band', 'isolation'],
   ['Barbell Bench Press', 'chest', 'triceps', 'bench press|flat bench|bb bench', 'barbell', 'press'],
   ['Incline Barbell Bench', 'chest', 'triceps', 'incline bench|incline press|barbell incline benchpress', 'barbell', 'press'],
@@ -88,18 +91,75 @@ const EXERCISE_LIBRARY: ExEntry[] = [
   ['Concentration Curl', 'biceps', null, 'concetration curl|seated concentration curl', 'dumbbell', 'isolation'],
   ['Preacher Curl', 'biceps', null, 'preacher curl bench|scott curl', 'ez bar/db', 'isolation'],
   ['Preacher Curl Machine', 'biceps', null, '', 'machine', 'isolation'],
+  ['Cable Bicep Curl', 'biceps', null, 'cable curl|single arm cable curl|rope curl', 'cable', 'isolation'],
   ['Skullcrusher', 'triceps', null, 'lying tricep extension|skull crusher', 'ez/bb/db', 'isolation'],
   ['Tricep Pushdown', 'triceps', null, 'pressdown|rope pushdown|triceps pushdown', 'cable', 'isolation'],
+  ['Cable Tricep Kickback', 'triceps', null, 'cable kickback triceps|single arm tricep', 'cable', 'isolation'],
   ['Overhead Tricep Extension', 'triceps', null, 'french press|overhead triceps extension', 'cable/db', 'isolation'],
   ['Cable Crunch', 'core', null, 'kneeling crunch', 'cable', 'flexion'],
+  ['Ab Crunch Machine', 'core', null, 'crunch machine|seated crunch|ab machine', 'machine', 'flexion'],
   ['Hanging Leg Raise', 'core', null, 'hlr|toes to bar (strict)', 'bodyweight', 'flexion'],
   ['Ab Wheel Rollout', 'core', null, 'wheel rollout', 'wheel', 'anti-extension'],
   ['Plank', 'core', null, 'front plank', 'bodyweight', 'stability'],
   ['Pallof Press', 'core', null, 'anti rotation press', 'cable/band', 'anti-rotation'],
+  ['Cable Woodchop', 'core', 'obliques', 'wood chop|cable rotation|cable chop', 'cable', 'rotation'],
   ['Sled Push', 'conditioning', 'full body', 'prowler push', 'sled', 'drive'],
   ['Sled Pull', 'conditioning', 'full body', 'backward drag', 'sled', 'pull'],
   ['Farmer Carry', 'conditioning', 'full body', 'farmers walk', 'db/trap', 'carry'],
   ['Battle Rope', 'conditioning', 'full body', 'ropes', 'rope', 'conditioning'],
+
+  // ── Additional ab / core exercises ────────────────────────
+  ['Crunch', 'core', null, 'floor crunch|basic crunch|ab crunch', 'bodyweight', 'flexion'],
+  ['Decline Crunch', 'core', null, 'decline sit up|decline ab crunch', 'bodyweight', 'flexion'],
+  ['Reverse Crunch', 'core', null, 'reverse ab crunch', 'bodyweight', 'flexion'],
+  ['Lying Leg Raise', 'core', null, 'flat leg raise|floor leg raise', 'bodyweight', 'flexion'],
+  ['Captain Chair Leg Raise', 'core', null, 'vertical leg raise|roman chair leg raise', 'bodyweight', 'flexion'],
+  ['Bicycle Crunch', 'core', 'obliques', 'bicycle|cross body crunch', 'bodyweight', 'rotation'],
+  ['Dead Bug', 'core', null, 'dead bugs', 'bodyweight', 'stability'],
+  ['V Up', 'core', null, 'v-up|v sit up|jackknife', 'bodyweight', 'flexion'],
+  ['Russian Twist', 'core', 'obliques', 'seated twist|russian twists', 'dumbbell/plate', 'rotation'],
+  ['Dragon Flag', 'core', null, 'bruce lee', 'bodyweight', 'anti-extension'],
+  ['Decline Situp', 'core', null, 'weighted decline situp|weighted situp', 'bodyweight', 'flexion'],
+  ['Mountain Climber', 'core', null, 'mountain climbers', 'bodyweight', 'stability'],
+
+  // ── Additional cable exercises ────────────────────────────
+  ['Cable Upright Row', 'shoulders side', 'traps', 'cable upright|rope upright row', 'cable', 'pull'],
+  ['Cable Reverse Fly', 'rear delt', null, 'cable rear delt fly|reverse cable fly', 'cable', 'isolation'],
+  ['Cable Front Raise', 'shoulders front', null, 'cable front delt raise', 'cable', 'isolation'],
+  ['Cable Overhead Curl', 'biceps', null, 'high cable curl|overhead cable curl', 'cable', 'isolation'],
+  ['Cable Hammer Curl', 'biceps', null, 'rope hammer curl|rope curl neutral', 'cable', 'isolation'],
+  ['Single Arm Cable Row', 'mid back', 'biceps', 'one arm cable row|unilateral cable row', 'cable', 'row'],
+  ['Cable Shrug', 'traps', null, 'cable shrugs', 'cable', 'isolation'],
+  ['Cable External Rotation', 'rotator cuff', null, 'shoulder external rotation|cable er', 'cable', 'isolation'],
+  ['Cable Internal Rotation', 'rotator cuff', null, 'shoulder internal rotation|cable ir', 'cable', 'isolation'],
+  ['Cable Ab Crunch (Standing)', 'core', null, 'standing cable crunch|stand crunch', 'cable', 'flexion'],
+
+  // ── Additional dip variations ─────────────────────────────
+  ['Weighted Dip', 'chest', 'triceps', 'belt dip|dip belt|weighted dips', 'bodyweight/belt', 'press'],
+  ['Tricep Dip', 'triceps', 'chest', 'bench dip|chair dip|tricep dips', 'bodyweight', 'press'],
+  ['Machine Dip', 'chest', 'triceps', 'assisted dip|lever dip|dip machine', 'machine', 'press'],
+  ['Ring Dip', 'chest', 'triceps', 'gymnastic dip|ring dips', 'rings', 'press'],
+
+  // ── More popular / commonly requested exercises ───────────
+  ['Close Grip Bench Press', 'triceps', 'chest', 'cgbp|close grip bb bench', 'barbell', 'press'],
+  ['Incline Cable Fly', 'chest', null, 'incline cable crossover', 'cable', 'fly'],
+  ['Machine Chest Press', 'chest', 'triceps', 'chest press machine|seated chest press', 'machine', 'press'],
+  ['Machine Shoulder Press', 'shoulders front', 'triceps', 'shoulder press machine|seated machine press', 'machine', 'press'],
+  ['Machine Lat Pulldown', 'lats', 'biceps', 'plate loaded pulldown', 'machine', 'pull'],
+  ['Machine Row', 'mid back', 'biceps', 'seated machine row|plate loaded row', 'machine', 'row'],
+  ['Machine Preacher Curl', 'biceps', null, 'machine curl|seated curl machine', 'machine', 'isolation'],
+  ['Dumbbell RDL', 'hamstrings', 'glutes', 'db rdl|dumbbell romanian deadlift', 'dumbbell', 'hinge'],
+  ['Reverse Lunge', 'glutes', 'quads', 'reverse walking lunge|step back lunge', 'db/bb/bw', 'unilateral'],
+  ['Lateral Lunge', 'glutes', 'adductors', 'side lunge|cossack squat', 'db/bw', 'unilateral'],
+  ['Sissy Squat', 'quads', null, 'sissy squat machine', 'bodyweight/machine', 'squat'],
+  ['Land Mine Press', 'shoulders front', 'chest', 'landmine press|angled barbell press', 'barbell', 'press'],
+  ['Incline Hammer Curl', 'biceps', null, 'incline db curl|incline dumbbell curl', 'dumbbell', 'isolation'],
+  ['Spider Curl', 'biceps', null, 'incline spider curl|prone curl', 'dumbbell/ez', 'isolation'],
+  ['Wrist Curl', 'forearms', null, 'barbell wrist curl|dumbbell wrist curl|forearm curl', 'barbell/db', 'isolation'],
+  ['Reverse Wrist Curl', 'forearms', null, 'wrist extension|reverse forearm curl', 'barbell/db', 'isolation'],
+  ['Seated Row Machine', 'mid back', 'biceps', 'low row machine|horizontal row machine', 'machine', 'row'],
+  ['Smith Machine Bench Press', 'chest', 'triceps', 'smith bench', 'machine', 'press'],
+  ['Smith Machine Incline Bench', 'chest', 'triceps', 'smith incline bench|smith incline press', 'machine', 'press'],
 ];
 
 /**
@@ -107,7 +167,7 @@ const EXERCISE_LIBRARY: ExEntry[] = [
  * On subsequent launches, only updates metadata (muscle groups, equipment, guides)
  * for exercises that already exist — never re-inserts exercises the user deleted.
  */
-const LIBRARY_VERSION = 5; // bump when EXERCISE_LIBRARY changes
+const LIBRARY_VERSION = 7; // bump when EXERCISE_LIBRARY changes
 
 export async function ensureExerciseLibrary() {
   const vRes = await executeSqlAsync(

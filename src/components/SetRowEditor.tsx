@@ -110,17 +110,22 @@ function SetRowEditor({
             styles.setRow,
             { borderBottomColor: c.border },
             s.completed && { backgroundColor: c.completedBg },
+            s.is_warmup && { backgroundColor: c.isDark ? '#1A2A35' : '#E8F4FD' },
           ]}
         >
           {/* Completion radio */}
           <Pressable style={[styles.radio, { borderColor: c.border }]} onPress={handleToggle}>
-            {s.completed && <View style={[styles.radioFill, { backgroundColor: c.success }]} />}
+            {s.completed && <View style={[styles.radioFill, { backgroundColor: s.is_warmup ? c.accent : c.success }]} />}
           </Pressable>
 
-          {/* Set index */}
-          <Text style={[styles.setIndex, { color: c.textSecondary }, s.completed && styles.completedText]}>
-            #{s.set_index}
-          </Text>
+          {/* Warmup badge or Set index */}
+          {s.is_warmup ? (
+            <Text style={[styles.setIndex, { color: c.accent, fontWeight: '700' }]}>W</Text>
+          ) : (
+            <Text style={[styles.setIndex, { color: c.textSecondary }, s.completed && styles.completedText]}>
+              #{s.set_index}
+            </Text>
+          )}
 
           {/* Weight input — §2: raw string, commit on blur */}
           <TextInput

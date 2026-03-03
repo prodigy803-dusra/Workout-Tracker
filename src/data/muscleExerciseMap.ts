@@ -21,6 +21,9 @@ const MUSCLE_ALIAS: Record<string, string> = {
   'upper back': 'mid_back',
   'full body': 'full_body',
   conditioning: 'full_body',
+  'rotator cuff': 'rotator_cuff',
+  forearms: 'forearms',
+  adductors: 'adductors',
 };
 
 function norm(m: string | null): string | null {
@@ -154,6 +157,59 @@ const RAW: Array<[string, string, string | null]> = [
   ['sled pull', 'full_body', 'full_body'],
   ['farmer carry', 'full_body', 'full_body'],
   ['battle rope', 'full_body', 'full_body'],
+
+  // ── Additional core / abs ──────────────────────────────
+  ['crunch', 'core', null],
+  ['decline crunch', 'core', null],
+  ['reverse crunch', 'core', null],
+  ['lying leg raise', 'core', null],
+  ['captain chair leg raise', 'core', null],
+  ['bicycle crunch', 'core', 'core'],
+  ['dead bug', 'core', null],
+  ['v up', 'core', null],
+  ['russian twist', 'core', 'core'],
+  ['dragon flag', 'core', null],
+  ['decline situp', 'core', null],
+  ['mountain climber', 'core', null],
+
+  // ── Additional cable exercises ─────────────────────────
+  ['cable upright row', 'shoulders_side', 'traps'],
+  ['cable reverse fly', 'rear_delt', null],
+  ['cable front raise', 'shoulders_front', null],
+  ['cable overhead curl', 'biceps', null],
+  ['cable hammer curl', 'biceps', null],
+  ['single arm cable row', 'mid_back', 'biceps'],
+  ['cable shrug', 'traps', null],
+  ['cable external rotation', 'shoulders_front', null],
+  ['cable internal rotation', 'shoulders_front', null],
+  ['cable ab crunch (standing)', 'core', null],
+
+  // ── Additional dip variations ──────────────────────────
+  ['weighted dip', 'chest', 'triceps'],
+  ['tricep dip', 'triceps', 'chest'],
+  ['machine dip', 'chest', 'triceps'],
+  ['ring dip', 'chest', 'triceps'],
+
+  // ── Other popular exercises ────────────────────────────
+  ['close grip bench press', 'triceps', 'chest'],
+  ['incline cable fly', 'chest', null],
+  ['machine chest press', 'chest', 'triceps'],
+  ['machine shoulder press', 'shoulders_front', 'triceps'],
+  ['machine lat pulldown', 'lats', 'biceps'],
+  ['machine row', 'mid_back', 'biceps'],
+  ['machine preacher curl', 'biceps', null],
+  ['dumbbell rdl', 'hamstrings', 'glutes'],
+  ['reverse lunge', 'glutes', 'quads'],
+  ['lateral lunge', 'glutes', 'adductors'],
+  ['sissy squat', 'quads', null],
+  ['land mine press', 'shoulders_front', 'chest'],
+  ['incline hammer curl', 'biceps', null],
+  ['spider curl', 'biceps', null],
+  ['wrist curl', 'forearms', null],
+  ['reverse wrist curl', 'forearms', null],
+  ['seated row machine', 'mid_back', 'biceps'],
+  ['smith machine bench press', 'chest', 'triceps'],
+  ['smith machine incline bench', 'chest', 'triceps'],
 ];
 
 export const exerciseMuscleMap: Record<string, MuscleInfo> = {};
@@ -202,4 +258,7 @@ export const ALL_MUSCLE_IDS = [
   'glutes',
   'hamstrings',
   'calves',
+  'forearms',
+  'adductors',
+  'rotator_cuff',
 ];

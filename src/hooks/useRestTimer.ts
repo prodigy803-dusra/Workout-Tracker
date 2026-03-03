@@ -62,6 +62,7 @@ export function useRestTimer() {
 
   const notifIdRef = useRef<string | null>(null);
   const appStateRef = useRef(AppState.currentState);
+  const autoDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ── Request notification permission & cancel stale notifications on mount ── */
   useEffect(() => {
@@ -106,7 +107,12 @@ export function useRestTimer() {
     setIsRunning(false);
     Vibration.vibrate([0, 300, 100, 300]);
     haptic('warning');
-    // Keep modal visible so the user sees "0:00" + next-set info
+    // Auto-dismiss after 3 seconds so the modal doesn't block the workout
+    if (autoDismissRef.current) clearTimeout(autoDismissRef.current);
+    autoDismissRef.current = setTimeout(() => {
+      setIsVisible(false);
+      autoDismissRef.current = null;
+    }, 3000);
   }, []);
 
   /* ── Tick effect: recompute remaining from endTime ── */
@@ -149,6 +155,8 @@ export function useRestTimer() {
 
   const start = useCallback(
     (seconds: number, ctx?: TimerContext) => {
+      // Clear any pending auto-dismiss from a previous timer
+      if (autoDismissRef.current) { clearTimeout(autoDismissRef.current); autoDismissRef.current = null; }
       const end = Date.now() + seconds * 1000;
       endTimeRef.current = end;
       setRemaining(seconds);
@@ -185,6 +193,7 @@ export function useRestTimer() {
     setRemaining(0);
     setIsRunning(false);
     setIsVisible(false);
+    if (autoDismissRef.current) { clearTimeout(autoDismissRef.current); autoDismissRef.current = null; }
     cancelNotif();
   }, [cancelNotif]);
 

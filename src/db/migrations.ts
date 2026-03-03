@@ -209,4 +209,35 @@ export const migrations: string[] = [
     FOREIGN KEY(set_id) REFERENCES sets(id) ON DELETE CASCADE
   );
   `,
+  // 34 – hidden flag on template slots (for one-time mid-workout additions)
+  `ALTER TABLE template_slots ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0;`,
+  // 35 – timestamp when a set was completed (for actual rest-time / effort tracking)
+  `ALTER TABLE sets ADD COLUMN completed_at TEXT;`,
+  // 36 – workout reminders: schedule notifications per template per day of week
+  `
+  CREATE TABLE IF NOT EXISTS template_schedule(
+    id INTEGER PRIMARY KEY,
+    template_id INT NOT NULL,
+    day_of_week INT NOT NULL CHECK(day_of_week BETWEEN 0 AND 6),
+    hour INT NOT NULL DEFAULT 18 CHECK(hour BETWEEN 0 AND 23),
+    minute INT NOT NULL DEFAULT 0 CHECK(minute BETWEEN 0 AND 59),
+    enabled INT NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    UNIQUE(template_id, day_of_week),
+    FOREIGN KEY(template_id) REFERENCES templates(id) ON DELETE CASCADE
+  );
+  `,
+  // Migration 37: active_injuries table for injury awareness feature
+  `
+  CREATE TABLE IF NOT EXISTS active_injuries(
+    id INTEGER PRIMARY KEY,
+    body_region TEXT NOT NULL,
+    injury_type TEXT NOT NULL DEFAULT 'general_pain',
+    severity TEXT NOT NULL DEFAULT 'mild' CHECK(severity IN ('mild','moderate','severe')),
+    notes TEXT,
+    started_at TEXT NOT NULL,
+    resolved_at TEXT,
+    created_at TEXT NOT NULL
+  );
+  `,
 ];

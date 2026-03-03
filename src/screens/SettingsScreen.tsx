@@ -2,17 +2,31 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, TextInput, Alert, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Sharing from 'expo-sharing';
-import { Paths, File } from 'expo-file-system';
+import { Paths, File as ExpoFile } from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
+import JSZip from 'jszip';
 import { resetDb, executeSqlAsync, db } from '../db/db';
 import { importExercises } from '../db/repositories/exercisesRepo';
 import { logBodyWeight, bodyWeightTrend, latestBodyWeight, deleteBodyWeight } from '../db/repositories/bodyWeightRepo';
+import {
+  listAllInjuries,
+  addInjury,
+  updateInjury,
+  resolveInjury,
+  reactivateInjury,
+  deleteInjury,
+} from '../db/repositories/injuryRepo';
+import type { Injury } from '../db/repositories/injuryRepo';
+import { INJURY_REGIONS, SEVERITIES } from '../data/injuryRegionMap';
+import type { Severity, InjuryType } from '../data/injuryRegionMap';
 import { useUnit } from '../contexts/UnitContext';
 import { useTheme, useColors, ThemeMode } from '../contexts/ThemeContext';
 import TrendChart from '../components/TrendChart';
+import InjuryModal from '../components/InjuryModal';
 import { haptic } from '../utils/haptics';
 import Constants from 'expo-constants';
 
+/** Tables exported/restored in dependency order. */
 const BACKUP_TABLES = [
   'exercises',
   'exercise_options',
@@ -28,7 +42,17 @@ const BACKUP_TABLES = [
   'personal_records',
   'body_weight',
   'app_settings',
+  'active_injuries',
 ] as const;
+
+/**
+ * Columns to SKIP when exporting exercises — these are all seed/reference data
+ * that gets re-populated from seed.ts on any fresh install.
+ */
+const EXERCISE_SKIP_COLS = new Set([
+  'instructions', 'tips', 'video_url', 'aliases',
+  'equipment', 'movement_pattern', 'secondary_muscle',
+]);
 
 export default function SettingsScreen() {
   const [json, setJson] = useState('');
@@ -45,6 +69,12 @@ export default function SettingsScreen() {
   const [bwTrend, setBwTrend] = useState<Array<{ date: string; value: number }>>([]);
   const [bwLatest, setBwLatest] = useState<{ id: number; weight: number; measured_at: string } | null>(null);
 
+  // Injury tracker state
+  const [injuries, setInjuries] = useState<Injury[]>([]);
+  const [injuryModalVisible, setInjuryModalVisible] = useState(false);
+  const [editingInjury, setEditingInjury] = useState<Injury | null>(null);
+  const [showResolved, setShowResolved] = useState(false);
+
   const loadBodyWeight = useCallback(async () => {
     const trend = await bodyWeightTrend();
     setBwTrend(trend);
@@ -52,47 +82,96 @@ export default function SettingsScreen() {
     setBwLatest(latest);
   }, []);
 
+  const loadInjuries = useCallback(async () => {
+    const all = await listAllInjuries();
+    setInjuries(all);
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       loadBodyWeight();
-    }, [loadBodyWeight])
+      loadInjuries();
+    }, [loadBodyWeight, loadInjuries])
   );
 
-  async function exportJson() {
+  async function exportZip() {
     try {
-      const payload: Record<string, unknown> = { exportedAt: new Date().toISOString(), version: 2 };
+      const zip = new JSZip();
+      const meta = { exportedAt: new Date().toISOString(), version: 3, tables: [...BACKUP_TABLES] };
+      zip.file('meta.json', JSON.stringify(meta));
+
       for (const table of BACKUP_TABLES) {
         const res = await executeSqlAsync(`SELECT * FROM ${table};`);
-        payload[table] = res.rows._array;
+        let rows = res.rows._array;
+
+        // Strip seed bloat from exercises — keep only ID-linkage + user-relevant cols
+        if (table === 'exercises') {
+          rows = rows.map((r: Record<string, unknown>) => {
+            const slim: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(r)) {
+              if (!EXERCISE_SKIP_COLS.has(k)) slim[k] = v;
+            }
+            return slim;
+          });
+        }
+
+        zip.file(`${table}.json`, JSON.stringify(rows));
       }
-      const jsonStr = JSON.stringify(payload, null, 2);
+
+      const base64 = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE' });
+      const zipFile = new ExpoFile(Paths.cache, 'workout_backup.zip');
+      zipFile.write(base64, { encoding: 'base64' });
+
       if (await Sharing.isAvailableAsync()) {
-        const file = new File(Paths.cache, 'workout_backup.json');
-        file.write(jsonStr);
-        await Sharing.shareAsync(file.uri);
+        await Sharing.shareAsync(zipFile.uri, { mimeType: 'application/zip', dialogTitle: 'Export Workout Backup' });
       } else {
         Alert.alert('Sharing not available', 'Your device does not support file sharing.');
       }
     } catch (e) {
-      Alert.alert('Export Error', 'Could not export data.');
+      Alert.alert('Export Error', 'Could not export data: ' + (e as Error).message);
     }
   }
 
   async function pickBackupFile() {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/json',
+        type: ['application/json', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
         copyToCacheDirectory: true,
       });
       if (result.canceled) return;
       const asset = result.assets[0];
-      const file = new File(asset.uri);
-      const content = file.text();
-      setJson(content);
-      setPickedFileName(asset.name ?? 'backup file');
+      const name = asset.name ?? 'backup file';
+
+      if (name.endsWith('.zip')) {
+        // Read zip as base64 and extract table JSONs
+        const zipFile = new ExpoFile(asset.uri);
+        const base64 = await zipFile.base64();
+        const zip = await JSZip.loadAsync(base64, { base64: true });
+
+        // Build a v3 payload object from individual table files
+        const metaFile = zip.file('meta.json');
+        const meta = metaFile ? JSON.parse(await metaFile.async('text')) : { version: 3 };
+        const payload: Record<string, unknown> = { ...meta };
+
+        for (const table of BACKUP_TABLES) {
+          const f = zip.file(`${table}.json`);
+          if (f) {
+            payload[table] = JSON.parse(await f.async('text'));
+          }
+        }
+
+        setJson(JSON.stringify(payload));
+      } else {
+        // Legacy JSON backup
+        const file = new ExpoFile(asset.uri);
+        const content = await file.text();
+        setJson(content);
+      }
+
+      setPickedFileName(name);
       setShowPasteArea(false);
     } catch (e) {
-      Alert.alert('Error', 'Could not read the selected file.');
+      Alert.alert('Error', 'Could not read the selected file: ' + (e as Error).message);
     }
   }
 
@@ -120,9 +199,21 @@ export default function SettingsScreen() {
         }
       }
 
+      // Build a summary so the user knows what they're restoring
+      const sessionCount = parsed.sessions?.length ?? 0;
+      const templateCount = parsed.templates?.length ?? 0;
+      const setCount = parsed.sets?.length ?? 0;
+      const summaryLines = [
+        `${sessionCount} workout sessions`,
+        `${templateCount} templates`,
+        `${setCount} sets`,
+      ];
+      if (parsed.personal_records?.length) summaryLines.push(`${parsed.personal_records.length} PRs`);
+      if (parsed.body_weight?.length) summaryLines.push(`${parsed.body_weight.length} weigh-ins`);
+
       Alert.alert(
         'Restore Backup',
-        'This will REPLACE all current data with the backup. Continue?',
+        `This will REPLACE all current data.\n\n${summaryLines.join('\n')}\n\nContinue?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -141,6 +232,10 @@ export default function SettingsScreen() {
                   for (const table of BACKUP_TABLES) {
                     const rows = parsed[table];
                     if (!Array.isArray(rows) || rows.length === 0) continue;
+
+                    // For exercises from v3 (slim) backups: the backup only has
+                    // id/name/name_norm/created_at/primary_muscle. Insert those
+                    // columns and let the seed data fill the rest on next launch.
                     const cols = Object.keys(rows[0]);
                     // Safety: only allow known column names (alphanumeric + underscore)
                     if (cols.some(col => !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col))) {
@@ -154,6 +249,7 @@ export default function SettingsScreen() {
                   }
                 });
                 setJson('');
+                setPickedFileName(null);
                 Alert.alert('Success', 'Backup restored successfully. Restart the app for full effect.');
               } catch (e) {
                 Alert.alert('Restore Error', 'Failed to restore: ' + (e as Error).message);
@@ -301,18 +397,179 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      {/* ── Active Injuries ────────────────────────────────── */}
+      <Text style={[styles.sectionTitle, { color: c.text }]}>Active Injuries</Text>
+      <Text style={[styles.hint, { color: c.textSecondary, marginBottom: 10 }]}>
+        Log injuries to get adjusted workout suggestions and lighter weight prefills.
+      </Text>
+
+      {injuries.filter((inj) => !inj.resolved_at).length === 0 ? (
+        <View style={[styles.bwCard, { backgroundColor: c.card, borderColor: c.border, paddingVertical: 20, alignItems: 'center' as const }]}>
+          <Text style={{ fontSize: 28, marginBottom: 6 }}>✅</Text>
+          <Text style={[{ color: c.textSecondary, fontSize: 14 }]}>No active injuries — keep it up!</Text>
+        </View>
+      ) : (
+        injuries.filter((inj) => !inj.resolved_at).map((inj) => {
+          const region = INJURY_REGIONS[inj.body_region];
+          const sev = SEVERITIES.find((s) => s.value === inj.severity);
+          return (
+            <View key={inj.id} style={[styles.injuryCard, { backgroundColor: c.card, borderColor: sev?.color ?? c.border }]}>
+              <View style={styles.injuryHeader}>
+                <Text style={{ fontSize: 22 }}>{region?.icon ?? '🩹'}</Text>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.injuryName, { color: c.text }]}>
+                    {region?.label ?? inj.body_region} — {sev?.label ?? inj.severity}
+                  </Text>
+                  <Text style={[styles.injuryMeta, { color: c.textSecondary }]}>
+                    {inj.injury_type.replace('_', ' ')} • since {new Date(inj.started_at).toLocaleDateString()}
+                  </Text>
+                  {inj.notes ? (
+                    <Text style={[styles.injuryNotes, { color: c.textTertiary }]} numberOfLines={2}>
+                      {inj.notes}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={{ fontSize: 16 }}>{sev?.icon ?? '🟡'}</Text>
+              </View>
+              <View style={styles.injuryActions}>
+                <Pressable
+                  onPress={() => {
+                    setEditingInjury(inj);
+                    setInjuryModalVisible(true);
+                  }}
+                  style={[styles.injuryActionBtn, { borderColor: c.border }]}
+                >
+                  <Text style={[styles.injuryActionText, { color: c.accent }]}>Edit</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    Alert.alert('Mark as Healed', `Resolve ${region?.label ?? inj.body_region} injury?`, [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Healed!',
+                        onPress: async () => {
+                          haptic('success');
+                          await resolveInjury(inj.id);
+                          await loadInjuries();
+                        },
+                      },
+                    ]);
+                  }}
+                  style={[styles.injuryActionBtn, { borderColor: c.success, backgroundColor: c.success + '15' }]}
+                >
+                  <Text style={[styles.injuryActionText, { color: c.success }]}>✓ Healed</Text>
+                </Pressable>
+              </View>
+            </View>
+          );
+        })
+      )}
+
+      <Pressable
+        onPress={() => {
+          setEditingInjury(null);
+          setInjuryModalVisible(true);
+        }}
+        style={[styles.button, { backgroundColor: c.card, borderWidth: 1, borderColor: c.border, marginTop: 4 }]}
+      >
+        <Text style={[styles.buttonText, { color: c.text }]}>🩹 Log New Injury</Text>
+      </Pressable>
+
+      {/* Resolved injuries toggle */}
+      {injuries.some((inj) => inj.resolved_at) && (
+        <>
+          <Pressable
+            onPress={() => setShowResolved(!showResolved)}
+            style={{ marginTop: 8, marginBottom: 4, paddingHorizontal: 2 }}
+          >
+            <Text style={{ color: c.primary, fontSize: 13, fontWeight: '600' }}>
+              {showResolved ? '▲  Hide resolved injuries' : '▼  Show resolved injuries'}
+            </Text>
+          </Pressable>
+          {showResolved &&
+            injuries
+              .filter((inj) => inj.resolved_at)
+              .map((inj) => {
+                const region = INJURY_REGIONS[inj.body_region];
+                return (
+                  <View key={inj.id} style={[styles.injuryCard, { backgroundColor: c.card, borderColor: c.border, opacity: 0.7 }]}>
+                    <View style={styles.injuryHeader}>
+                      <Text style={{ fontSize: 18 }}>{region?.icon ?? '🩹'}</Text>
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={[styles.injuryName, { color: c.textSecondary }]}>
+                          {region?.label ?? inj.body_region} — {inj.severity}
+                        </Text>
+                        <Text style={[styles.injuryMeta, { color: c.textTertiary }]}>
+                          Resolved {new Date(inj.resolved_at!).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.injuryActions}>
+                      <Pressable
+                        onPress={async () => {
+                          haptic('light');
+                          await reactivateInjury(inj.id);
+                          await loadInjuries();
+                        }}
+                        style={[styles.injuryActionBtn, { borderColor: c.border }]}
+                      >
+                        <Text style={[styles.injuryActionText, { color: c.accent }]}>Reactivate</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          Alert.alert('Delete Record', 'Permanently remove this injury record?', [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Delete',
+                              style: 'destructive',
+                              onPress: async () => {
+                                await deleteInjury(inj.id);
+                                await loadInjuries();
+                              },
+                            },
+                          ]);
+                        }}
+                        style={[styles.injuryActionBtn, { borderColor: c.danger }]}
+                      >
+                        <Text style={[styles.injuryActionText, { color: c.danger }]}>Delete</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })}
+        </>
+      )}
+
+      {/* Injury Modal */}
+      <InjuryModal
+        visible={injuryModalVisible}
+        onClose={() => {
+          setInjuryModalVisible(false);
+          setEditingInjury(null);
+        }}
+        existing={editingInjury}
+        onSave={async (data) => {
+          if (editingInjury) {
+            await updateInjury(editingInjury.id, data.bodyRegion, data.injuryType, data.severity, data.notes);
+          } else {
+            await addInjury(data.bodyRegion, data.injuryType, data.severity, data.notes);
+          }
+          await loadInjuries();
+        }}
+      />
+
       <Text style={[styles.sectionTitle, { color: c.text }]}>Data</Text>
 
-      <Pressable onPress={exportJson} style={[styles.button, { backgroundColor: c.primary }]}>
-        <Text style={[styles.buttonText, { color: c.primaryText }]}>Export Full Backup</Text>
+      <Pressable onPress={exportZip} style={[styles.button, { backgroundColor: c.primary }]}>
+        <Text style={[styles.buttonText, { color: c.primaryText }]}>Export Backup (.zip)</Text>
       </Pressable>
       <Text style={[styles.hint, { color: c.textSecondary }]}>
-        Exports all exercises, templates, sessions, sets, and settings as a single JSON file.
+        Exports your templates, sessions, sets, PRs, and settings as a zip file.  Exercise library data (guides, tips) is skipped — it reloads automatically.
       </Text>
 
       <Text style={[styles.sectionTitle, { marginTop: 24, color: c.text }]}>Restore Backup</Text>
       <Text style={[styles.hint, { color: c.textSecondary }]}>
-        Select a previously exported JSON backup file, or paste its contents manually.
+        Select a .zip or legacy .json backup file, or paste JSON contents manually.
       </Text>
 
       <Pressable onPress={pickBackupFile} style={[styles.button, { backgroundColor: c.card, borderWidth: 1, borderColor: c.border }]}>
@@ -459,5 +716,46 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
     paddingVertical: 24,
+  },
+
+  // Injury tracker
+  injuryCard: {
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1.5,
+    marginBottom: 8,
+  },
+  injuryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  injuryName: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  injuryMeta: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  injuryNotes: {
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  injuryActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  injuryActionBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  injuryActionText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

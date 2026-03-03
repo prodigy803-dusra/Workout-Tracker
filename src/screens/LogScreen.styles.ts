@@ -43,6 +43,11 @@ export const styles = StyleSheet.create({
   // Action buttons
   actionRow: {
     flexDirection: 'row',
+    marginBottom: 8,
+  },
+
+  secondaryRow: {
+    flexDirection: 'row',
     gap: 10,
     marginBottom: 16,
   },
@@ -75,12 +80,21 @@ export const styles = StyleSheet.create({
     borderColor: '#DC2626',
   },
   discardBtnText: { color: '#DC2626', fontSize: 15, fontWeight: '700' },
+  secondaryBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E6E1DB',
+  },
+  secondaryBtnText: { fontSize: 13, fontWeight: '600' },
   finishBtn: {
     backgroundColor: '#1A7F37',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
-    flex: 2,
+    flex: 1,
   },
   finishBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   slotCard: {
@@ -401,6 +415,55 @@ export const styles = StyleSheet.create({
   addDropBtnText: {
     fontSize: 13,
     fontWeight: '600' as const,
+  },
+
+  // Add Set button (inside slot card, after set rows)
+  addSetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+    marginBottom: 4,
+    borderStyle: 'dashed' as any,
+  },
+  addSetBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Add Exercise button (bottom of workout)
+  addExerciseBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    borderStyle: 'dashed' as any,
+  },
+  addExerciseBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  // Warmup management buttons
+  warmupBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as any,
+  warmupBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 
   // Swipe to delete

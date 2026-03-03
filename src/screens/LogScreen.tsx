@@ -28,6 +28,12 @@ import SessionSummaryHeader from '../components/SessionSummaryHeader';
 import SlotCard from '../components/SlotCard';
 import RestTimerModal from '../components/RestTimerModal';
 import PlateCalculator from '../components/PlateCalculator';
+import ExercisePickerModal from '../components/ExercisePickerModal';
+import { listActiveInjuries } from '../db/repositories/injuryRepo';
+import type { Injury } from '../db/repositories/injuryRepo';
+import { isExerciseAffected, INJURY_REGIONS, SEVERITIES } from '../data/injuryRegionMap';
+import { getMuscleInfo } from '../data/muscleExerciseMap';
+import type { InjuryWarning } from '../components/SlotCard';
 import type { SetData, LogStackParamList } from '../types';
 import { styles } from './LogScreen.styles';
 
@@ -36,14 +42,21 @@ export default function LogScreenV2() {
   const { unit } = useUnit();
   const c = useColors();
   const timer = useRestTimer();
-  const { state, dispatch, hydrate, persistSetCompletion, persistSet, persistDeleteSet, persistSelectChoice, persistNotes, persistFinish, persistDiscard, persistDropSegment, persistUpdateDrop, persistDeleteDrop, persistGenerateWarmups } = useSessionStore();
+  const { state, dispatch, hydrate, persistSetCompletion, persistSet, persistDeleteSet, persistSelectChoice, persistNotes, persistFinish, persistDiscard, persistDropSegment, persistUpdateDrop, persistDeleteDrop, persistGenerateWarmups, persistAddExercise, persistRemoveExercise, persistAddSet, persistReorderSlots, persistClearWarmups } = useSessionStore();
 
   /* ── UI-only local state (§1: allowed) ── */
   const [expandedSlots, setExpandedSlots] = useState<Set<number>>(new Set());
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [plateCalcVisible, setPlateCalcVisible] = useState(false);
   const [plateCalcWeight, setPlateCalcWeight] = useState(0);
+  const [exercisePickerVisible, setExercisePickerVisible] = useState(false);
   const [rawNotes, setRawNotes] = useState('');
+
+  /* ── Active injuries for warning banners ── */
+  const [activeInjuries, setActiveInjuries] = useState<Injury[]>([]);
+
+  /* Ref to suppress auto-expand after warmup gen / drop add (bug fix) */
+  const suppressAutoExpandRef = useRef(false);
 
   /* ── Session elapsed timer ── */
   const [elapsed, setElapsed] = useState(0);
@@ -92,12 +105,18 @@ export default function LogScreenV2() {
   useFocusEffect(
     useCallback(() => {
       void hydrate();
+      listActiveInjuries().then(setActiveInjuries);
     }, [hydrate]),
   );
 
   // Auto-expand first incomplete slot after hydrate
   useEffect(() => {
     if (state.phase !== 'active') return;
+    // Skip auto-expand when hydrate was triggered by warmup gen / drop add
+    if (suppressAutoExpandRef.current) {
+      suppressAutoExpandRef.current = false;
+      return;
+    }
     for (const slot of state.slots) {
       const choiceId = slot.selected_session_slot_choice_id;
       if (!choiceId) continue;
@@ -249,6 +268,7 @@ export default function LogScreenV2() {
     const suggestedReps = set?.reps ?? 0;
 
     await persistDropSegment(setId, nextIndex, suggestedWeight, suggestedReps);
+    suppressAutoExpandRef.current = true;
     await hydrate(); // re-fetch to get the generated segment ID
   }, [state.dropsBySet, state.setsByChoice, unit, persistDropSegment, hydrate]);
 
@@ -274,8 +294,109 @@ export default function LogScreenV2() {
 
   const handleGenerateWarmups = useCallback(async (choiceId: number, workingWeight: number) => {
     await persistGenerateWarmups(choiceId, workingWeight, unit as 'kg' | 'lb');
+    suppressAutoExpandRef.current = true;
     await hydrate();
   }, [unit, persistGenerateWarmups, hydrate]);
+
+  /* ── Mid-workout editing handlers ── */
+
+  const handleAddExercisePick = useCallback(async (exerciseId: number, exerciseName: string) => {
+    if (!state.draft || !state.draft.template_id) return;
+    setExercisePickerVisible(false);
+    const templateId = state.draft.template_id;
+
+    Alert.alert(
+      `Add ${exerciseName}`,
+      'Apply this change to future workouts too?',
+      [
+        {
+          text: 'Just This Workout',
+          onPress: async () => {
+            await persistAddExercise(state.draft!.id, templateId, exerciseId, false);
+            suppressAutoExpandRef.current = true;
+            await hydrate();
+            haptic('success');
+          },
+        },
+        {
+          text: 'Update Template',
+          style: 'default',
+          onPress: async () => {
+            await persistAddExercise(state.draft!.id, templateId, exerciseId, true);
+            suppressAutoExpandRef.current = true;
+            await hydrate();
+            haptic('success');
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  }, [state.draft, persistAddExercise, hydrate]);
+
+  const handleRemoveExercise = useCallback((sessionSlotId: number, exerciseName: string) => {
+    haptic('medium');
+    Alert.alert(
+      `Remove ${exerciseName}?`,
+      'This will delete all sets for this exercise in the current workout.',
+      [
+        {
+          text: 'Just This Workout',
+          style: 'destructive',
+          onPress: async () => {
+            await persistRemoveExercise(sessionSlotId, false);
+            await hydrate();
+            haptic('error');
+          },
+        },
+        {
+          text: 'Remove From Template Too',
+          style: 'destructive',
+          onPress: async () => {
+            await persistRemoveExercise(sessionSlotId, true);
+            await hydrate();
+            haptic('error');
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  }, [persistRemoveExercise, hydrate]);
+
+  const handleAddSet = useCallback(async (choiceId: number) => {
+    await persistAddSet(choiceId);
+    suppressAutoExpandRef.current = true;
+    await hydrate();
+    haptic('light');
+  }, [persistAddSet, hydrate]);
+
+  const handleMoveUp = useCallback(async (sessionSlotId: number) => {
+    if (!state.draft) return;
+    const idx = state.slots.findIndex((sl) => sl.session_slot_id === sessionSlotId);
+    if (idx <= 0) return;
+    const aboveSlotId = state.slots[idx - 1].session_slot_id;
+    await persistReorderSlots(state.draft.id, sessionSlotId, aboveSlotId);
+    suppressAutoExpandRef.current = true;
+    await hydrate();
+    haptic('selection');
+  }, [state.draft, state.slots, persistReorderSlots, hydrate]);
+
+  const handleMoveDown = useCallback(async (sessionSlotId: number) => {
+    if (!state.draft) return;
+    const idx = state.slots.findIndex((sl) => sl.session_slot_id === sessionSlotId);
+    if (idx < 0 || idx >= state.slots.length - 1) return;
+    const belowSlotId = state.slots[idx + 1].session_slot_id;
+    await persistReorderSlots(state.draft.id, sessionSlotId, belowSlotId);
+    suppressAutoExpandRef.current = true;
+    await hydrate();
+    haptic('selection');
+  }, [state.draft, state.slots, persistReorderSlots, hydrate]);
+
+  const handleClearWarmups = useCallback(async (choiceId: number) => {
+    await persistClearWarmups(choiceId);
+    suppressAutoExpandRef.current = true;
+    await hydrate();
+    haptic('light');
+  }, [persistClearWarmups, hydrate]);
 
   const handleFinish = useCallback(() => {
     if (!state.draft) return;
@@ -341,6 +462,18 @@ export default function LogScreenV2() {
     setPlateCalcWeight(weight);
     setPlateCalcVisible(true);
   }, []);
+
+  const handleAdHocTimer = useCallback(() => {
+    const presets = [
+      { text: '30s', onPress: () => timer.start(30) },
+      { text: '60s', onPress: () => timer.start(60) },
+      { text: '90s', onPress: () => timer.start(90) },
+      { text: '2 min', onPress: () => timer.start(120) },
+      { text: '3 min', onPress: () => timer.start(180) },
+      { text: 'Cancel', style: 'cancel' as const },
+    ];
+    Alert.alert('Start Rest Timer', 'Pick a duration:', presets);
+  }, [timer]);
 
   /* ── Helpers ── */
 
@@ -443,16 +576,24 @@ export default function LogScreenV2() {
         {/* Action buttons */}
         <View style={styles.actionRow}>
           <Pressable onPress={handleFinish} style={[styles.finishBtn, { backgroundColor: c.success }]}>
-            <Text style={styles.finishBtnText}>✓ Finish</Text>
+            <Text style={styles.finishBtnText}>✓ Finish Workout</Text>
+          </Pressable>
+        </View>
+        <View style={styles.secondaryRow}>
+          <Pressable
+            onPress={handleAdHocTimer}
+            style={[styles.secondaryBtn, { borderColor: c.border, backgroundColor: c.card }]}
+          >
+            <Text style={[styles.secondaryBtnText, { color: c.accent }]}>⏱ Rest</Text>
           </Pressable>
           <Pressable
             onPress={() => { setPlateCalcWeight(0); setPlateCalcVisible(true); }}
-            style={[styles.discardBtn, { borderColor: c.border, backgroundColor: c.card }]}
+            style={[styles.secondaryBtn, { borderColor: c.border, backgroundColor: c.card }]}
           >
-            <Text style={[styles.discardBtnText, { color: c.accent }]}>📐 Plates</Text>
+            <Text style={[styles.secondaryBtnText, { color: c.accent }]}>📐 Plates</Text>
           </Pressable>
-          <Pressable onPress={handleDiscard} style={[styles.discardBtn, { backgroundColor: c.card, borderColor: c.danger }]}>
-            <Text style={styles.discardBtnText}>✕ Discard</Text>
+          <Pressable onPress={handleDiscard} style={[styles.secondaryBtn, { backgroundColor: c.card, borderColor: c.border }]}>
+            <Text style={[styles.secondaryBtnText, { color: c.danger }]}>✕ Discard</Text>
           </Pressable>
         </View>
 
@@ -478,7 +619,7 @@ export default function LogScreenV2() {
         )}
 
         {/* Slot cards */}
-        {state.slots.map((slot) => (
+        {state.slots.map((slot, i) => (
           <SlotCard
             key={slot.session_slot_id}
             slot={slot}
@@ -501,10 +642,25 @@ export default function LogScreenV2() {
             onCommitDropReps={handleCommitDropReps}
             onDeleteDrop={handleDeleteDrop}
             onGenerateWarmups={handleGenerateWarmups}
+            onAddSet={handleAddSet}
+            onRemoveExercise={handleRemoveExercise}
+            onMoveUp={handleMoveUp}
+            onMoveDown={handleMoveDown}
+            isFirst={i === 0}
+            isLast={i === state.slots.length - 1}
+            onClearWarmups={handleClearWarmups}
           />
         ))}
 
-        {/* Rest Timer */}
+        {/* Add Exercise button */}
+        <Pressable
+          onPress={() => setExercisePickerVisible(true)}
+          style={[styles.addExerciseBtn, { borderColor: c.accent, backgroundColor: c.accentBg }]}
+        >
+          <Text style={[styles.addExerciseBtnText, { color: c.accent }]}>＋ Add Exercise</Text>
+        </Pressable>
+
+        {/* Rest Timer */}}
         <RestTimerModal timer={timer} unit={unit} />
 
         {/* Plate Calculator */}
@@ -513,6 +669,13 @@ export default function LogScreenV2() {
           onClose={() => setPlateCalcVisible(false)}
           weight={plateCalcWeight}
           unit={unit}
+        />
+
+        {/* Exercise Picker */}
+        <ExercisePickerModal
+          visible={exercisePickerVisible}
+          onClose={() => setExercisePickerVisible(false)}
+          onPick={handleAddExercisePick}
         />
       </ScrollView>
     </KeyboardAvoidingView>

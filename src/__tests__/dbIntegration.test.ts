@@ -130,6 +130,16 @@ import {
   deleteBodyWeight,
 } from '../db/repositories/bodyWeightRepo';
 
+import {
+  listSchedulesForTemplate,
+  listAllEnabledSchedules,
+  upsertSchedule,
+  deleteSchedule,
+  deleteAllSchedulesForTemplate,
+  toggleScheduleEnabled,
+  dayName,
+} from '../db/repositories/scheduleRepo';
+
 /* ═══════════════════════════════════════════════════════════
  *  Helpers
  * ═══════════════════════════════════════════════════════════ */
@@ -965,6 +975,72 @@ describe('DB Integration Tests', () => {
         [draftId]
       );
       expect(setsAfter.rows.item(0).c).toBe(0);
+    });
+  });
+
+  /* ── Schedule repo ──────────────────────────────────────── */
+
+  describe('scheduleRepo', () => {
+    test('dayName returns correct day names', () => {
+      expect(dayName(0)).toBe('Sunday');
+      expect(dayName(1)).toBe('Monday');
+      expect(dayName(6)).toBe('Saturday');
+      expect(dayName(99)).toBe('');
+    });
+
+    test('upsertSchedule creates a new schedule row', async () => {
+      await upsertSchedule(tplPush, 1, 18, 0, true); // Monday 6 PM
+      const rows = await listSchedulesForTemplate(tplPush);
+      expect(rows.length).toBe(1);
+      expect(rows[0].day_of_week).toBe(1);
+      expect(rows[0].hour).toBe(18);
+      expect(rows[0].minute).toBe(0);
+      expect(rows[0].enabled).toBe(1);
+    });
+
+    test('upsertSchedule on same day updates time', async () => {
+      await upsertSchedule(tplPush, 1, 8, 30, true); // Monday 8:30 AM
+      const rows = await listSchedulesForTemplate(tplPush);
+      const mon = rows.find((r) => r.day_of_week === 1)!;
+      expect(mon.hour).toBe(8);
+      expect(mon.minute).toBe(30);
+    });
+
+    test('multiple days for same template', async () => {
+      await upsertSchedule(tplPush, 3, 18, 0, true); // Wednesday
+      await upsertSchedule(tplPush, 5, 18, 0, true); // Friday
+      const rows = await listSchedulesForTemplate(tplPush);
+      expect(rows.length).toBe(3); // Mon, Wed, Fri
+    });
+
+    test('listAllEnabledSchedules joins template name', async () => {
+      const all = await listAllEnabledSchedules();
+      expect(all.length).toBeGreaterThanOrEqual(3);
+      expect(all[0]).toHaveProperty('template_name');
+      expect(all[0].template_name).toBeTruthy();
+    });
+
+    test('toggleScheduleEnabled disables a schedule', async () => {
+      const rows = await listSchedulesForTemplate(tplPush);
+      const first = rows[0];
+      await toggleScheduleEnabled(first.id, false);
+      const after = await listSchedulesForTemplate(tplPush);
+      const toggled = after.find((r) => r.id === first.id)!;
+      expect(toggled.enabled).toBe(0);
+    });
+
+    test('deleteSchedule removes a single row', async () => {
+      const before = await listSchedulesForTemplate(tplPush);
+      const toDelete = before[before.length - 1];
+      await deleteSchedule(toDelete.id);
+      const after = await listSchedulesForTemplate(tplPush);
+      expect(after.length).toBe(before.length - 1);
+    });
+
+    test('deleteAllSchedulesForTemplate wipes all', async () => {
+      await deleteAllSchedulesForTemplate(tplPush);
+      const rows = await listSchedulesForTemplate(tplPush);
+      expect(rows.length).toBe(0);
     });
   });
 });

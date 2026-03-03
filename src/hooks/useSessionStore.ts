@@ -17,14 +17,20 @@ import {
   selectSlotChoice,
   discardDraft,
   finalizeSession,
+  addExerciseToSession,
+  removeExerciseFromSession,
+  addSetToChoice,
+  reorderSessionSlots,
 } from '../db/repositories/sessionsRepo';
 import {
   listSetsForChoice,
   toggleSetCompleted,
   upsertSet,
   lastTimeForOption,
+  lastTimeForExercise,
   deleteSet,
   generateWarmupSets,
+  clearWarmupSets,
   addDropSegment,
   updateDropSegment,
   deleteDropSegment,
@@ -292,6 +298,7 @@ export function useSessionStore() {
           rpe: row.rpe,
           rest_seconds: row.rest_seconds,
           completed: !!row.completed,
+          is_warmup: !!row.is_warmup,
         });
       }
     }
@@ -319,11 +326,16 @@ export function useSessionStore() {
       }
     }
 
-    // Last-time data per slot
+    // Last-time data per slot — template-specific first, then global exercise fallback
     const lastTimeEntries: (readonly [number, Awaited<ReturnType<typeof lastTimeForOption>>])[] = [];
     for (const s of slotRows) {
       if (s.template_slot_option_id != null) {
-        const lt = await lastTimeForOption(s.template_slot_option_id);
+        let lt = await lastTimeForOption(s.template_slot_option_id);
+        // Fallback: if no history for this specific template option, try the
+        // exercise globally across all templates
+        if (!lt && s.exercise_id != null) {
+          lt = await lastTimeForExercise(s.exercise_id);
+        }
         lastTimeEntries.push([s.session_slot_id, lt] as const);
       }
     }
@@ -426,6 +438,41 @@ export function useSessionStore() {
     [],
   );
 
+  const persistAddExercise = useCallback(
+    async (sessionId: number, templateId: number, exerciseId: number, permanent: boolean) => {
+      await addExerciseToSession(sessionId, templateId, exerciseId, permanent);
+    },
+    [],
+  );
+
+  const persistRemoveExercise = useCallback(
+    async (sessionSlotId: number, permanent: boolean) => {
+      await removeExerciseFromSession(sessionSlotId, permanent);
+    },
+    [],
+  );
+
+  const persistAddSet = useCallback(
+    async (choiceId: number) => {
+      await addSetToChoice(choiceId);
+    },
+    [],
+  );
+
+  const persistReorderSlots = useCallback(
+    async (sessionId: number, slotIdA: number, slotIdB: number) => {
+      await reorderSessionSlots(sessionId, slotIdA, slotIdB);
+    },
+    [],
+  );
+
+  const persistClearWarmups = useCallback(
+    async (choiceId: number) => {
+      await clearWarmupSets(choiceId);
+    },
+    [],
+  );
+
   return {
     state,
     dispatch,
@@ -442,5 +489,10 @@ export function useSessionStore() {
     persistUpdateDrop,
     persistDeleteDrop,
     persistGenerateWarmups,
+    persistAddExercise,
+    persistRemoveExercise,
+    persistAddSet,
+    persistReorderSlots,
+    persistClearWarmups,
   };
 }
