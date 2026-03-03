@@ -1,6 +1,19 @@
 # 🏋️ WorkoutApp
 
-A full-featured workout tracking app built with **React Native + Expo**. Log workouts, track progress over time, and follow structured training programs — all stored locally on your device.
+**Your gym notebook, supercharged.**
+
+Most workout apps either drown you in features you'll never use or oversimplify until they're just a glorified checklist. WorkoutApp sits in the sweet spot: it remembers your weights, nudges you to lift heavier, warns you when an injury might affect today's session, and stays out of your way for the rest.
+
+### Why it's different
+
+- **Zero accounts, zero cloud, zero subscriptions.** Everything lives on your device in a local SQLite database. Your data is yours — export a full JSON backup anytime and you own every byte.
+- **Actually smart pre-fill.** Tap a template and your last session's weights are already loaded. Did you finish every set last time? The app suggests a progressive overload bump before you even touch a plate.
+- **Injury-aware training.** Log an injury once and the app automatically reduces pre-filled weights, flags affected exercises with visual banners, and labels intentional deload as "Recovery" instead of "Regressed" — so you can train around an injury without second-guessing every set.
+- **Pre-workout check-in.** Every session starts with a quick "How are you feeling?" moment. Note an injury on the spot or just acknowledge you're a bit sore — it takes two seconds and keeps you honest.
+- **Warm-up generation.** One button produces ramping warm-up sets based on your working weight. Edit or clear them if you prefer your own routine.
+- **Mid-workout flexibility.** Add exercises, reorder slots, toss in extra sets, remove what you don't need — all without leaving the session.
+- **Workout review that's actually useful.** Post-session breakdown with per-exercise progression badges, volume deltas, rest-time stats, effort density, and personal record confetti.
+- **Built for lifters, not influencers.** No social feed, no AI coach upsell, no "motivational" push notifications begging you to open the app. Just your numbers, your progress, your schedule.
 
 ---
 
@@ -59,7 +72,7 @@ A full-featured workout tracking app built with **React Native + Expo**. Log wor
 - Uses the existing exercise → muscle group mappings (15 muscle groups)
 
 ### 💪 Exercise Library
-- 90+ exercises pre-loaded with:
+- 136+ exercises pre-loaded with:
   - Primary and secondary muscle groups
   - Interactive **muscle map** (SVG front & back body diagrams)
   - Step-by-step **how-to instructions**
@@ -72,10 +85,19 @@ A full-featured workout tracking app built with **React Native + Expo**. Log wor
 - Full session history with date, template name, exercises, volume
 - Tap any session for a detailed breakdown of every set
 
+### 🩹 Injury Awareness
+- Log injuries with **body region** (10 regions), **severity** (mild / moderate / severe), **injury type**, and notes
+- **Automatic weight reduction** — mild = 70%, moderate = 50%, severe = exercises skipped entirely
+- **Warning banners** on affected exercises during a workout
+- **Recovery labels** — intentional deload shows "🛡️ Recovery" instead of "📉 Regressed" in post-workout review
+- **Pre-workout check-in** — log a new injury on the spot before starting any session
+- Manage, heal, reactivate, or delete injuries from Settings
+
 ### ⚙️ Settings
 - Toggle between **kg** and **lb**
 - **Dark mode** — light / dark / system theme
-- **Full JSON backup** — exports all 14 database tables
+- **Injury management** — full lifecycle (log, edit, heal, reactivate, delete)
+- **Full JSON backup** — exports all 15 database tables
 - **Restore from backup** — pick a file or paste JSON to restore everything
 - **Reset database** — wipe and re-seed from scratch
 
@@ -118,7 +140,8 @@ WorkoutApp/
 │   │   ├── DropSegmentRow.tsx       # Drop-set segment row
 │   │   ├── ErrorBoundary.tsx        # App-level error boundary
 │   │   ├── ExercisePickerModal.tsx   # Searchable exercise picker (mid-workout)
-│   │   ├── IdleScreen.tsx           # Idle dashboard with stats
+│   │   ├── IdleScreen.tsx           # Idle dashboard with stats + pre-workout check-in
+│   │   ├── InjuryModal.tsx          # Add/edit injury bottom-sheet modal
 │   │   ├── LastTimePanel.tsx        # "Last time" data display
 │   │   ├── MuscleMap.tsx            # SVG front/back body diagram
 │   │   ├── OptionChips.tsx          # Exercise variant selector pills
@@ -141,8 +164,8 @@ WorkoutApp/
 │   │   └── useSessionStore.ts       # Central useReducer store for active session
 │   ├── db/
 │   │   ├── db.ts                    # SQLite wrapper, init, migrations runner
-│   │   ├── migrations.ts           # 36 sequential DDL migrations
-│   │   ├── seed.ts                  # 92 exercises, 11 templates, guides
+│   │   ├── migrations.ts           # 37 sequential DDL migrations
+│   │   ├── seed.ts                  # 136+ exercises, 11 templates, guides
 │   │   └── repositories/
 │   │       ├── exercisesRepo.ts     # Exercise + variant CRUD
 │   │       ├── sessionsRepo.ts      # Draft/finalize sessions, mid-workout editing
@@ -150,10 +173,12 @@ WorkoutApp/
 │   │       ├── statsRepo.ts         # Dashboard stats, e1RM history, session comparison
 │   │       ├── templatesRepo.ts     # Template/slot/option CRUD
 │   │       ├── bodyWeightRepo.ts    # Body weight tracking
+│   │       ├── injuryRepo.ts        # Active injury CRUD (log, heal, reactivate)
 │   │       └── scheduleRepo.ts      # Workout reminder schedule CRUD
 │   ├── data/
-│   │   ├── exerciseGuides.ts        # How-to instructions + tips for 90 exercises
-│   │   └── muscleExerciseMap.ts     # Exercise -> muscle group mappings
+│   │   ├── exerciseGuides.ts        # How-to instructions + tips for 136+ exercises
+│   │   ├── muscleExerciseMap.ts     # Exercise -> muscle group mappings
+│   │   └── injuryRegionMap.ts       # Body region → muscle/severity mappings for injuries
 │   ├── utils/
 │   │   ├── normalize.ts             # Name normalisation for dedup
 │   │   ├── units.ts                 # kg <-> lb conversion helpers
@@ -210,13 +235,13 @@ EAS will give you a download link for the `.apk` when the build finishes.
 npm test
 ```
 
-375 tests across 5 suites: DB unit tests, DB integration, session store reducer, feature interactions, and mid-workout editing.
+453 tests across 5 suites: DB unit tests, DB integration, session store reducer, feature interactions, and mid-workout editing.
 
 ---
 
 ## Database
 
-The app uses a local SQLite database with **35 migrations** applied sequentially on first launch. Key tables:
+The app uses a local SQLite database with **37 migrations** applied sequentially on first launch. Key tables:
 
 | Table | Purpose |
 |-------|---------|
@@ -234,13 +259,15 @@ The app uses a local SQLite database with **35 migrations** applied sequentially
 | `personal_records` | PR tracking (e1RM + heaviest weight) |
 | `body_weight` | Body weight logs |
 | `app_settings` | Key-value config (unit preference, theme, versions) |
+| `active_injuries` | Injury tracking (body region, severity, type, notes, resolved status) |
+| `schedule` | Workout reminder schedule (template, day, time) |
 
 ### Backup & Restore
 
 - **Export:** Settings -> Export Full Backup -> shares a JSON file
 - **Import:** Settings -> paste JSON -> Restore Backup
 
-The backup includes all 14 tables and can fully restore the app's state.
+The backup includes all 16 tables and can fully restore the app's state.
 
 ---
 
@@ -273,3 +300,34 @@ Only completed sets with 1-12 reps are included.
 ## License
 
 This project is for personal use.
+
+---
+
+## Release Notes
+
+### Alpha V 1.01 — "Train Smarter"
+
+**44 new exercises. Injury-aware training. A check-in before every workout.**
+
+#### What's New
+
+**🩹 Injury Awareness System**
+Log an injury once and the app adjusts everything for you. Mild strain? Weights drop to 70%. Moderate? Down to 50%. Severe? Those exercises are skipped entirely. Warning banners appear on affected exercises during your workout, and your post-session review labels intentional deload as "Recovery" instead of "Regressed" — because backing off smart isn't going backwards.
+
+**🏋️ Pre-Workout Check-In**
+Every session now starts with a quick "How are you feeling?" moment. Pick your readiness level, review any active injuries, or log a new one on the spot — all before your first set. Takes two seconds, keeps you honest.
+
+**💪 44 New Exercises**
+The library grew from 92 to 136+ exercises — more variations for legs, back, shoulders, arms, and core. All come with muscle group mappings and how-to guides.
+
+#### Fixes
+
+- **Warmup sets no longer count** toward your working set totals in the workout summary
+- **Regression count** no longer inflated by exercises you skipped entirely
+- **Previous-session lookup** now correctly matches your last workout with the same template
+- **Crash fix:** Finishing a workout without completing any exercises no longer crashes the summary screen
+
+#### Under the Hood
+- 453 tests across 5 suites, all passing
+- 37 database migrations (up from 35)
+- Full JSON backup now covers 16 tables (including injuries + schedule)

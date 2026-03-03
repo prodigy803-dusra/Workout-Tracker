@@ -486,6 +486,35 @@ export default function LogScreenV2() {
     return map;
   }, [state.setsByChoice]);
 
+  /* ── Injury warnings per slot ── */
+  const injuryWarningsBySlot = useMemo(() => {
+    const map: Record<number, InjuryWarning[]> = {};
+    if (!activeInjuries.length) return map;
+    for (const slot of state.slots) {
+      const name = slot.exercise_name;
+      if (!name) continue;
+      const info = getMuscleInfo(name);
+      const warnings: InjuryWarning[] = [];
+      for (const injury of activeInjuries) {
+        if (isExerciseAffected(info?.primary ?? null, info?.secondary ?? null, null, injury.body_region)) {
+          const sev = SEVERITIES.find((s) => s.value === injury.severity) ?? SEVERITIES[0];
+          const region = INJURY_REGIONS[injury.body_region];
+          warnings.push({
+            icon: region?.icon ?? '⚠️',
+            label: region?.label ?? injury.body_region,
+            severity: injury.severity as 'mild' | 'moderate' | 'severe',
+            color: sev.color,
+            message: injury.severity === 'severe'
+              ? `${region?.label} injury — avoid this exercise`
+              : `${region?.label} (${sev.label}) — weights reduced`,
+          });
+        }
+      }
+      if (warnings.length) map[slot.session_slot_id] = warnings;
+    }
+    return map;
+  }, [state.slots, activeInjuries]);
+
   function findChoiceIdForSet(setId: number): number | null {
     return setToChoiceMap.get(setId) ?? null;
   }
@@ -629,6 +658,7 @@ export default function LogScreenV2() {
             lastTime={state.lastTimeBySlot[slot.session_slot_id]}
             isExpanded={expandedSlots.has(slot.session_slot_id)}
             unit={unit}
+            injuryWarnings={injuryWarningsBySlot[slot.session_slot_id] || []}
             onToggleExpand={handleToggleExpand}
             onSelectChoice={handleSelectChoice}
             onToggleComplete={handleToggleComplete}

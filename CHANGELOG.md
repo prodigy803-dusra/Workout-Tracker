@@ -26,7 +26,7 @@
 | Exercises | ExercisesHome → ExerciseDetail | `ExercisesScreen.tsx`, `ExerciseDetailScreen.tsx` |
 | Settings | (single screen) | `SettingsScreen.tsx` |
 
-### Data Model (36 migrations)
+### Data Model (37 migrations)
 ```
 exercises ──< exercise_options
 templates ──< template_slots ──< template_slot_options ──< template_prescribed_sets
@@ -34,6 +34,7 @@ sessions  ──< session_slots  ──< session_slot_choices   ──< sets ─
 templates ──< template_schedule (day_of_week, hour, minute, enabled)
 personal_records (exercise_id, session_id, pr_type, value)
 body_weight (weight, unit, measured_at)
+active_injuries (body_region, injury_type, severity, notes, started_at, resolved_at)
 app_settings (key/value store for theme, unit, library version, etc.)
 ```
 
@@ -55,7 +56,7 @@ app_settings (key/value store for theme, unit, library version, etc.)
 3. **statsRepo has remaining lines** (200–332) not yet reviewed for `weeklyVolumeByMuscle`, `workoutDaysMap`, `currentStreak`, `prCountsBySession`.
 4. **Seed file is ~450 lines** with 136+ exercises, demo template seeding, and cleanup logic for old seeded templates.
 5. **Backup table list** in SettingsScreen is manually maintained — must stay in sync with schema.
-6. ~~**No automated tests**~~ — **Resolved:** 397 tests across 5 suites (db, dbIntegration, sessionStore, featureInteraction, midWorkoutEditing).
+6. ~~**No automated tests**~~ — **Resolved:** 447 tests across 5 suites (db, dbIntegration, sessionStore, featureInteraction, midWorkoutEditing).
 7. **No CI/CD pipeline** detected.
 
 ---
@@ -74,6 +75,57 @@ Template for new entries:
 -->
 
 ### [2026-02-12] Add ARCHITECTURE.md — refactoring rules & state management contract
+
+### [2026-03-03] Universal pre-workout check-in (redesign)
+- **Files changed:** `src/components/IdleScreen.tsx`, `src/__tests__/db.test.ts`
+- **What:** Redesigned the pre-workout check-in to be **universal** — it now appears before every workout, not just when injuries exist. New features:
+  1. **Readiness selector:** Three mood chips ("💪 Feeling Great", "👍 Good to Go", "🤕 A Bit Sore") give a quick "How are you feeling?" moment.
+  2. **Active injuries section:** Still shown when injuries exist (severity, weight %, notes).
+  3. **Inline injury logging:** "🩹 Anything bothering you? Log an injury" button opens InjuryModal directly from the check-in — no need to navigate to Settings first.
+  4. Removed old "Manage Injuries" navigation button; replaced with inline logging.
+  5. Modal content now scrollable for longer injury lists.
+- **Why:** User wanted every workout to start with a general check-in, with the option to note injuries regardless of whether any are already logged in Settings.
+- **Risk:** Low — no DB changes, no new migrations. Only UI flow change (always show modal instead of conditionally).
+- **Tests:** 453 passing (+6 net: replaced 2 old conditional tests with 4 new universal ones, added readiness + inline logging tests)
+
+### [2026-03-03] Pre-workout injury check-in modal (superseded)
+- **Files changed:** `src/components/IdleScreen.tsx`
+- **What:** ~~When tapping "Start →" on a template with active injuries, a check-in modal now appears listing each injury with its severity, weight %, and notes.~~ **Superseded** by universal pre-workout check-in above.
+- **Why:** User wanted a conscious check-in before working out with injuries.
+- **Risk:** Low
+- **Tests:** 451 passing (now superseded by 453)
+
+### [2026-03-03] Fix WorkoutSummaryScreen hooks + JSX crash
+- **Files changed:** `src/screens/WorkoutSummaryScreen.tsx`
+- **What:** Fixed two runtime crashes: (1) `useMemo` was after early return, violating Rules of Hooks when navigating to summary with empty state; (2) JSX `<>` fragment inside `<Text>` caused "Text strings must be rendered within a Text component" error. Replaced fragment with array-join string concatenation.
+- **Why:** Finalizing an empty workout (or any first render before data loads) crashed the app.
+- **Risk:** Low — purely a hook ordering + JSX fix; no logic changes.
+
+### [2026-02-13] Injury Awareness Feature — full injury tracking + workout integration
+- **Files created:**
+  - `src/data/injuryRegionMap.ts` — 10 body regions (ankle, knee, hip, lower_back, upper_back, shoulder, elbow, wrist, chest, neck) mapped to muscles/patterns; 3-tier severity model (mild/moderate/severe) with weight factors (0.7/0.5/0); `isExerciseAffected()` utility; 6 injury types.
+  - `src/db/repositories/injuryRepo.ts` — Full CRUD for `active_injuries` table (list active/all, get, add, update, resolve, reactivate, delete).
+  - `src/components/InjuryModal.tsx` — Bottom-sheet modal with scrollable body region chips, severity picker with color coding + hint text ("weights reduced to 70%"), injury type chips, notes input, and affected areas preview.
+- **Files modified:**
+  - `src/db/migrations.ts` — New migration: `active_injuries` table with body_region, injury_type, severity (CHECK constraint), notes, started_at, resolved_at, created_at.
+  - `src/types.ts` — Added `ActiveInjury` type.
+  - `src/screens/SettingsScreen.tsx` — Full "Active Injuries" management section: injury cards with edit/healed actions, "Log New Injury" button, resolved injuries toggle with reactivate/delete, `active_injuries` added to BACKUP_TABLES.
+  - `src/db/repositories/sessionsRepo.ts` — `createDraftFromTemplate()` now loads active injuries, computes per-slot weight reduction factor via `isExerciseAffected()`, applies most-restrictive severity factor (mild=70%, moderate=50%, severe=0%), rounds to nearest 0.25.
+  - `src/components/SlotCard.tsx` — New `InjuryWarning` type + prop, renders colored warning banners per injury, suppresses ProgressiveOverloadBanner when injuries active.
+  - `src/screens/LogScreen.tsx` — Loads active injuries on focus, computes `injuryWarningsBySlot` via `useMemo` + `getMuscleInfo()`, passes `injuryWarnings` prop to each SlotCard.
+  - `src/screens/WorkoutSummaryScreen.tsx` — Loads active injuries, replaces "📉 Regressed" with "🛡️ Recovery" for injury-affected exercises, adds recovery count chip to progression banner + share text.
+  - `src/components/IdleScreen.tsx` — Shows "🩹 Active Injuries" notice card with severity and management link when injuries are active.
+  - `src/__tests__/db.test.ts` — 50 new tests covering: `isExerciseAffected()` logic (20 cases across all regions), data integrity (INJURY_REGIONS, SEVERITIES, SEVERITY_WEIGHT_FACTOR, INJURY_TYPES), migration structure, source-level integration checks for LogScreen, SlotCard, WorkoutSummaryScreen, IdleScreen, SettingsScreen, sessionsRepo, InjuryModal, and injuryRepo.
+- **What:** Comprehensive injury awareness system with 5 touch-points:
+  1. **Settings:** Log/edit/resolve/reactivate/delete injuries with body region, severity, type, and notes.
+  2. **Weight Pre-fill:** Draft sessions automatically reduce pre-filled weights based on injury severity (mild=70%, moderate=50%, severe=empty).
+  3. **Workout Banners:** SlotCard shows colored injury warnings per affected exercise; suppresses progressive overload suggestions.
+  4. **Summary Integration:** Regressed exercises under active injury show "🛡️ Recovery" status instead of "📉 Regressed" — separate recovery count in the review banner and share text.
+  5. **Idle Screen:** Persistent injury notice card above quick-start templates.
+- **Why:** User requested injury tracking to support recovery (e.g., sprain → lighter leg exercises). System automatically adjusts weight suggestions and avoids alarming "regressed" labels during intentional recovery.
+- **Risk:** Low-Medium — New DB table (additive), dynamic imports in sessionsRepo avoid circular dependencies, all existing tests pass (447 total). Weight reduction only affects new drafts, not in-progress workouts.
+- **Rollback:** Remove created files. Revert changes to modified files. Drop `active_injuries` table. Remove migration.
+- **Tests:** 447 passing (was 397; +50 new injury feature tests)
 
 ### [2026-02-13] Fix warmup set counting in WorkoutSummaryScreen + add 44 new exercises
 - **Files changed:**

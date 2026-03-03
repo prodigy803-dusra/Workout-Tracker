@@ -2058,3 +2058,488 @@ describe('Next-set preview in timer', () => {
     expect(source).toMatch(/Let.*s Go/);
   });
 });
+
+/* ═══════════════════════════════════════════════════════════
+ *  INJURY AWARENESS FEATURE TESTS
+ * ═══════════════════════════════════════════════════════════ */
+import {
+  isExerciseAffected,
+  INJURY_REGIONS,
+  INJURY_REGION_KEYS,
+  SEVERITIES,
+  SEVERITY_WEIGHT_FACTOR,
+  INJURY_TYPES,
+} from '../data/injuryRegionMap';
+
+describe('Injury Region Map — isExerciseAffected', () => {
+  test('shoulder injury flags chest press (primary muscle match)', () => {
+    expect(isExerciseAffected('chest', null, 'press', 'shoulder')).toBe(true);
+  });
+
+  test('shoulder injury flags exercise with shoulders front primary', () => {
+    expect(isExerciseAffected('shoulders front', null, null, 'shoulder')).toBe(true);
+  });
+
+  test('shoulder injury flags exercise by secondary muscle (rear delt)', () => {
+    expect(isExerciseAffected('lats', 'rear delt', 'pull', 'shoulder')).toBe(true);
+  });
+
+  test('shoulder injury flags exercise by movement pattern (press)', () => {
+    expect(isExerciseAffected('triceps', null, 'press', 'shoulder')).toBe(true);
+  });
+
+  test('shoulder injury does NOT flag squat-focused exercise', () => {
+    expect(isExerciseAffected('quads', 'glutes', 'squat', 'shoulder')).toBe(false);
+  });
+
+  test('knee injury flags quads primary', () => {
+    expect(isExerciseAffected('quads', null, null, 'knee')).toBe(true);
+  });
+
+  test('knee injury flags hamstrings primary', () => {
+    expect(isExerciseAffected('hamstrings', null, 'hinge', 'knee')).toBe(true);
+  });
+
+  test('knee injury does NOT flag bicep curl', () => {
+    expect(isExerciseAffected('biceps', null, 'isolation', 'knee')).toBe(false);
+  });
+
+  test('lower_back injury flags via hinge pattern', () => {
+    expect(isExerciseAffected('hamstrings', null, 'hinge', 'lower_back')).toBe(true);
+  });
+
+  test('lower_back injury flags lower back primary', () => {
+    expect(isExerciseAffected('lower back', null, null, 'lower_back')).toBe(true);
+  });
+
+  test('ankle injury flags calves', () => {
+    expect(isExerciseAffected('calves', null, null, 'ankle')).toBe(true);
+  });
+
+  test('elbow injury flags biceps', () => {
+    expect(isExerciseAffected('biceps', null, null, 'elbow')).toBe(true);
+  });
+
+  test('elbow injury flags triceps', () => {
+    expect(isExerciseAffected('triceps', null, null, 'elbow')).toBe(true);
+  });
+
+  test('wrist injury flags via row pattern', () => {
+    expect(isExerciseAffected('lats', null, 'row', 'wrist')).toBe(true);
+  });
+
+  test('chest region flags chest primary', () => {
+    expect(isExerciseAffected('chest', null, null, 'chest')).toBe(true);
+  });
+
+  test('chest region flags fly pattern', () => {
+    expect(isExerciseAffected(null, null, 'fly', 'chest')).toBe(true);
+  });
+
+  test('neck injury flags traps', () => {
+    expect(isExerciseAffected('traps', null, null, 'neck')).toBe(true);
+  });
+
+  test('neck injury does NOT flag chest press (no patterns for neck)', () => {
+    expect(isExerciseAffected('chest', null, 'press', 'neck')).toBe(false);
+  });
+
+  test('unknown region returns false', () => {
+    expect(isExerciseAffected('chest', null, 'press', 'toe')).toBe(false);
+  });
+
+  test('all null params returns false', () => {
+    expect(isExerciseAffected(null, null, null, 'shoulder')).toBe(false);
+  });
+
+  test('hip injury flags glutes', () => {
+    expect(isExerciseAffected('glutes', null, null, 'hip')).toBe(true);
+  });
+
+  test('hip injury flags adductors', () => {
+    expect(isExerciseAffected('adductors', null, null, 'hip')).toBe(true);
+  });
+
+  test('upper_back flags lats', () => {
+    expect(isExerciseAffected('lats', null, null, 'upper_back')).toBe(true);
+  });
+});
+
+describe('Injury Region Map — data integrity', () => {
+  test('INJURY_REGIONS has at least 10 regions', () => {
+    expect(INJURY_REGION_KEYS.length).toBeGreaterThanOrEqual(10);
+  });
+
+  test('every region has label, icon, muscles, patterns', () => {
+    for (const key of INJURY_REGION_KEYS) {
+      const r = INJURY_REGIONS[key];
+      expect(typeof r.label).toBe('string');
+      expect(typeof r.icon).toBe('string');
+      expect(Array.isArray(r.muscles)).toBe(true);
+      expect(Array.isArray(r.patterns)).toBe(true);
+      expect(r.muscles.length).toBeGreaterThan(0);
+    }
+  });
+
+  test('SEVERITIES has 3 tiers', () => {
+    expect(SEVERITIES).toHaveLength(3);
+    expect(SEVERITIES.map(s => s.value)).toEqual(['mild', 'moderate', 'severe']);
+  });
+
+  test('SEVERITY_WEIGHT_FACTOR: mild=0.7, moderate=0.5, severe=0', () => {
+    expect(SEVERITY_WEIGHT_FACTOR.mild).toBe(0.7);
+    expect(SEVERITY_WEIGHT_FACTOR.moderate).toBe(0.5);
+    expect(SEVERITY_WEIGHT_FACTOR.severe).toBe(0);
+  });
+
+  test('INJURY_TYPES has at least 6 options', () => {
+    expect(INJURY_TYPES.length).toBeGreaterThanOrEqual(6);
+  });
+
+  test('every severity has color and icon', () => {
+    for (const sev of SEVERITIES) {
+      expect(sev.color).toMatch(/^#/);
+      expect(sev.icon.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('Injury awareness — migration', () => {
+  test('last migration creates active_injuries table', () => {
+    expect(migrations.length).toBeGreaterThanOrEqual(36);
+    const last = migrations[migrations.length - 1];
+    expect(last).toMatch(/CREATE TABLE.*active_injuries/i);
+    expect(last).toMatch(/body_region\s+TEXT\s+NOT\s+NULL/i);
+    expect(last).toMatch(/severity\s+TEXT\s+NOT\s+NULL/i);
+    expect(last).toMatch(/CHECK.*severity\s+IN\s*\('mild','moderate','severe'\)/i);
+  });
+});
+
+describe('Injury awareness — LogScreen integration (source)', () => {
+  test('LogScreen imports injury modules', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'screens', 'LogScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/listActiveInjuries/);
+    expect(source).toMatch(/isExerciseAffected/);
+    expect(source).toMatch(/INJURY_REGIONS/);
+    expect(source).toMatch(/getMuscleInfo/);
+  });
+
+  test('LogScreen computes injuryWarningsBySlot via useMemo', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'screens', 'LogScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/injuryWarningsBySlot\s*=\s*useMemo/);
+    expect(source).toMatch(/getMuscleInfo\(name\)/);
+    expect(source).toMatch(/isExerciseAffected\(/);
+  });
+
+  test('LogScreen passes injuryWarnings prop to SlotCard', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'screens', 'LogScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/injuryWarnings=\{injuryWarningsBySlot\[/);
+  });
+});
+
+describe('Injury awareness — SlotCard integration (source)', () => {
+  test('SlotCard exports InjuryWarning type', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'SlotCard.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/export\s+type\s+InjuryWarning/);
+  });
+
+  test('SlotCard renders injury banners', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'SlotCard.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/injuryWarnings/);
+    expect(source).toMatch(/w\.message/);
+  });
+
+  test('SlotCard suppresses ProgressiveOverloadBanner when injuries present', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'SlotCard.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/!injuryWarnings\s*\|\|\s*injuryWarnings\.length\s*===\s*0/);
+  });
+});
+
+describe('Injury awareness — WorkoutSummaryScreen integration (source)', () => {
+  test('WorkoutSummaryScreen loads active injuries', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'screens', 'WorkoutSummaryScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/listActiveInjuries/);
+    expect(source).toMatch(/setActiveInjuries/);
+  });
+
+  test('WorkoutSummaryScreen shows recovery badge for injury-affected regressed exercises', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'screens', 'WorkoutSummaryScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/injuryAffectedExercises/);
+    expect(source).toMatch(/recoveryCount/);
+    expect(source).toMatch(/🛡️/);
+    expect(source).toMatch(/Recovery mode/);
+  });
+
+  test('WorkoutSummaryScreen share text includes recovery count', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'screens', 'WorkoutSummaryScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/recoveryCount > 0.*Recovery/s);
+  });
+});
+
+describe('Injury awareness — IdleScreen integration (source)', () => {
+  test('IdleScreen loads active injuries on focus', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'IdleScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/listActiveInjuries/);
+    expect(source).toMatch(/setActiveInjuries/);
+  });
+
+  test('IdleScreen shows active injury notice card', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'IdleScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/Active Injuries/);
+    expect(source).toMatch(/Manage in Settings/);
+  });
+
+  test('IdleScreen has universal pre-workout check-in modal', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'IdleScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/Pre-Workout Check-In/);
+    expect(source).toMatch(/checkInVisible/);
+    expect(source).toMatch(/pendingTemplateId/);
+  });
+
+  test('IdleScreen check-in shows severity with weight percentage', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'IdleScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/SEVERITY_WEIGHT_FACTOR/);
+    expect(source).toMatch(/weights at/);
+    expect(source).toMatch(/exercises skipped/);
+  });
+
+  test('IdleScreen check-in has Start Workout and Cancel actions', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'IdleScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/Start Workout/);
+    expect(source).toMatch(/Cancel/);
+  });
+
+  test('IdleScreen check-in always shows (universal, not injury-conditional)', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'IdleScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/handleStartPress/);
+    // Universal: always shows check-in, no injury-length gate
+    expect(source).toMatch(/setCheckInVisible\(true\)/);
+    expect(source).toMatch(/doQuickStart/);
+    // Should NOT have the old conditional gate
+    expect(source).not.toMatch(/if\s*\(activeInjuries\.length\s*>\s*0\)/);
+  });
+
+  test('IdleScreen check-in has readiness selector', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'IdleScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/READINESS_OPTIONS/);
+    expect(source).toMatch(/How are you feeling/);
+    expect(source).toMatch(/Feeling Great/);
+    expect(source).toMatch(/Good to Go/);
+    expect(source).toMatch(/A Bit Sore/);
+    expect(source).toMatch(/setReadiness/);
+  });
+
+  test('IdleScreen check-in allows inline injury logging', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'IdleScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/InjuryModal/);
+    expect(source).toMatch(/injuryModalVisible/);
+    expect(source).toMatch(/handleCheckInInjurySave/);
+    expect(source).toMatch(/Log an injury/);
+    expect(source).toMatch(/addInjury/);
+  });
+});
+
+describe('Injury awareness — SettingsScreen integration (source)', () => {
+  test('SettingsScreen has injury management section', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'screens', 'SettingsScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/Active Injuries/);
+    expect(source).toMatch(/Log New Injury/);
+    expect(source).toMatch(/InjuryModal/);
+    expect(source).toMatch(/loadInjuries/);
+  });
+
+  test('SettingsScreen includes active_injuries in backup tables', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'screens', 'SettingsScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/active_injuries/);
+    expect(source).toMatch(/BACKUP_TABLES/);
+  });
+});
+
+describe('Injury awareness — sessionsRepo weight reduction (source)', () => {
+  test('createDraftFromTemplate applies injury weight factor', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'db', 'repositories', 'sessionsRepo.ts'),
+      'utf8'
+    );
+    expect(source).toMatch(/weightFactor/);
+    expect(source).toMatch(/isExerciseAffected/);
+    expect(source).toMatch(/SEVERITY_WEIGHT_FACTOR/);
+    expect(source).toMatch(/Math\.min\(weightFactor/);
+  });
+
+  test('weight rounding is to nearest 0.25', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'db', 'repositories', 'sessionsRepo.ts'),
+      'utf8'
+    );
+    // Math.round(... * 4) / 4 rounds to nearest 0.25
+    expect(source).toMatch(/Math\.round\(.*\*\s*4\)\s*\/\s*4/);
+  });
+});
+
+describe('Injury awareness — InjuryModal component (source)', () => {
+  test('InjuryModal has region picker, severity picker, injury type picker', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'InjuryModal.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/INJURY_REGIONS/);
+    expect(source).toMatch(/SEVERITIES/);
+    expect(source).toMatch(/INJURY_TYPES/);
+    expect(source).toMatch(/body_region/);
+    expect(source).toMatch(/severity/);
+  });
+
+  test('InjuryModal shows affected areas preview', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'InjuryModal.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/Affected areas/i);
+    expect(source).toMatch(/muscles/);
+    expect(source).toMatch(/patterns/);
+  });
+});
+
+describe('Injury awareness — injuryRepo module (source)', () => {
+  test('injuryRepo exports all CRUD functions', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'db', 'repositories', 'injuryRepo.ts'),
+      'utf8'
+    );
+    expect(source).toMatch(/listActiveInjuries/);
+    expect(source).toMatch(/listAllInjuries/);
+    expect(source).toMatch(/getInjury/);
+    expect(source).toMatch(/addInjury/);
+    expect(source).toMatch(/updateInjury/);
+    expect(source).toMatch(/resolveInjury/);
+    expect(source).toMatch(/reactivateInjury/);
+    expect(source).toMatch(/deleteInjury/);
+  });
+
+  test('listActiveInjuries filters by resolved_at IS NULL', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'db', 'repositories', 'injuryRepo.ts'),
+      'utf8'
+    );
+    expect(source).toMatch(/resolved_at IS NULL/);
+  });
+
+  test('resolveInjury sets resolved_at', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'db', 'repositories', 'injuryRepo.ts'),
+      'utf8'
+    );
+    expect(source).toMatch(/resolved_at=\?/);
+    expect(source).toMatch(/toISOString/);
+  });
+});

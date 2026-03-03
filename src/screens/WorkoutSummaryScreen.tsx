@@ -3,13 +3,17 @@
  * Displays total volume, duration, exercises, sets, any PRs hit,
  * and comparison with the previous session (progression/regression badges).
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Share, ActivityIndicator } from 'react-native';
 import { useColors, ThemeColors } from '../contexts/ThemeContext';
 import { useUnit } from '../contexts/UnitContext';
 import { getSessionDetail } from '../db/repositories/sessionsRepo';
 import { getSessionPRs, sessionExerciseDeltas, previousSessionComparison, sessionEffortStats } from '../db/repositories/statsRepo';
 import type { ExerciseDelta, SessionEffortStats } from '../db/repositories/statsRepo';
+import { listActiveInjuries } from '../db/repositories/injuryRepo';
+import type { Injury } from '../db/repositories/injuryRepo';
+import { isExerciseAffected, INJURY_REGIONS, SEVERITIES } from '../data/injuryRegionMap';
+import { getMuscleInfo } from '../data/muscleExerciseMap';
 import ConfettiCannon from '../components/ConfettiCannon';
 import { haptic } from '../utils/haptics';
 import type { SessionDetail, LogStackParamList } from '../types';
@@ -36,6 +40,7 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
   const [deltas, setDeltas] = useState<ExerciseDelta[]>([]);
   const [prevComp, setPrevComp] = useState<PrevComparison>({ prevVolume: null, prevDurationSecs: null });
   const [effort, setEffort] = useState<SessionEffortStats | null>(null);
+  const [activeInjuries, setActiveInjuries] = useState<Injury[]>([]);
 
   useEffect(() => {
     getSessionDetail(sessionId).then(setDetail);
@@ -49,7 +54,25 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
     sessionExerciseDeltas(sessionId).then(setDeltas);
     previousSessionComparison(sessionId).then(setPrevComp);
     sessionEffortStats(sessionId, duration || undefined).then(setEffort);
+    listActiveInjuries().then(setActiveInjuries);
   }, [sessionId]);
+
+  // Determine which exercises were done under injury — override 'regressed' to 'recovery'
+  // Must be before early return to satisfy Rules of Hooks
+  const injuryAffectedExercises = useMemo(() => {
+    const set = new Set<string>();
+    if (!activeInjuries.length) return set;
+    for (const d of deltas) {
+      const info = getMuscleInfo(d.exercise_name);
+      for (const injury of activeInjuries) {
+        if (isExerciseAffected(info?.primary ?? null, info?.secondary ?? null, null, injury.body_region)) {
+          set.add(d.exercise_name);
+          break;
+        }
+      }
+    }
+    return set;
+  }, [deltas, activeInjuries]);
 
   if (!detail) return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.background }}>
@@ -80,13 +103,16 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
     : null;
 
   const progressed = deltas.filter(d => d.status === 'progressed').length;
-  const regressed = deltas.filter(d => d.status === 'regressed').length;
   const maintained = deltas.filter(d => d.status === 'maintained').length;
   const newExercises = deltas.filter(d => d.status === 'new').length;
   const skipped = deltas.filter(d => d.status === 'skipped').length;
-  const hasReviewData = progressed + regressed + maintained + newExercises > 0;
 
-  const statusBadge = (status: ExerciseDelta['status']) => {
+  const recoveryCount = deltas.filter(d => d.status === 'regressed' && injuryAffectedExercises.has(d.exercise_name)).length;
+  const regressed = deltas.filter(d => d.status === 'regressed').length - recoveryCount;
+  const hasReviewData = progressed + regressed + recoveryCount + maintained + newExercises > 0;
+
+  const statusBadge = (status: ExerciseDelta['status'], exerciseName?: string) => {
+    if (status === 'regressed' && exerciseName && injuryAffectedExercises.has(exerciseName)) return '🛡️';
     switch (status) {
       case 'progressed': return '📈';
       case 'regressed': return '📉';
@@ -124,6 +150,7 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
       lines.push('');
       if (progressed > 0) lines.push(`📈 Progressed: ${progressed}`);
       if (regressed > 0) lines.push(`📉 Regressed: ${regressed}`);
+      if (recoveryCount > 0) lines.push(`🛡️ Recovery: ${recoveryCount}`);
       if (maintained > 0) lines.push(`➡️ Maintained: ${maintained}`);
       if (skipped > 0) lines.push(`⏭️ Skipped: ${skipped}`);
     }
@@ -206,6 +233,11 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
                 <Text style={s.progressionChipText}>📉 {regressed} regressed</Text>
               </View>
             )}
+            {recoveryCount > 0 && (
+              <View style={[s.progressionChip, { backgroundColor: c.isDark ? '#2A2A1A' : '#FFF8E1' }]}>
+                <Text style={s.progressionChipText}>🛡️ {recoveryCount} recovery</Text>
+              </View>
+            )}
             {newExercises > 0 && (
               <View style={s.progressionChip}>
                 <Text style={s.progressionChipText}>🆕 {newExercises} new</Text>
@@ -283,7 +315,7 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
             <View key={slot.session_slot_id} style={s.exerciseRow}>
               <View style={s.exerciseInfo}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  {delta && <Text style={{ fontSize: 14 }}>{statusBadge(delta.status)}</Text>}
+                  {delta && <Text style={{ fontSize: 14 }}>{statusBadge(delta.status, delta.exercise_name)}</Text>}
                   <Text style={s.exerciseName}>
                     {slot.exercise_name}
                     {slot.option_name ? ` (${slot.option_name})` : ''}
@@ -293,18 +325,24 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
                   {completed.length}/{sets.length} sets
                 </Text>
                 {/* Delta detail */}
-                {delta && delta.status !== 'new' && (
+                {delta && delta.status !== 'new' && delta.status !== 'skipped' && (
                   <Text style={[s.exerciseDelta, {
                     color: delta.status === 'progressed' ? c.success
+                      : delta.status === 'regressed' && injuryAffectedExercises.has(delta.exercise_name) ? '#E6A817'
                       : delta.status === 'regressed' ? c.danger
                       : c.textSecondary
                   }]}>
-                    {delta.top_weight !== delta.prev_top_weight && delta.prev_top_weight != null
-                      ? `Top: ${delta.prev_top_weight}→${delta.top_weight} ${unit}  `
-                      : ''}
-                    {delta.total_volume !== delta.prev_total_volume && delta.prev_total_volume != null
-                      ? `Vol: ${delta.prev_total_volume >= 1000 ? `${(delta.prev_total_volume/1000).toFixed(1)}k` : delta.prev_total_volume}→${delta.total_volume >= 1000 ? `${(delta.total_volume/1000).toFixed(1)}k` : delta.total_volume}`
-                      : ''}
+                    {delta.status === 'regressed' && injuryAffectedExercises.has(delta.exercise_name)
+                      ? 'Recovery mode — lighter weight expected'
+                      : [
+                          delta.top_weight !== delta.prev_top_weight && delta.prev_top_weight != null
+                            ? `Top: ${delta.prev_top_weight}→${delta.top_weight} ${unit}  `
+                            : '',
+                          delta.total_volume !== delta.prev_total_volume && delta.prev_total_volume != null
+                            ? `Vol: ${delta.prev_total_volume >= 1000 ? `${(delta.prev_total_volume/1000).toFixed(1)}k` : delta.prev_total_volume}→${delta.total_volume >= 1000 ? `${(delta.total_volume/1000).toFixed(1)}k` : delta.total_volume}`
+                            : '',
+                        ].filter(Boolean).join('')
+                    }
                   </Text>
                 )}
                 {delta && delta.status === 'new' && (
