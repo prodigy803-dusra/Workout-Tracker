@@ -61,6 +61,10 @@ type Props = {
   onClearWarmups: (choiceId: number) => void;
   /** Injury warnings for this exercise, if any active injuries affect it */
   injuryWarnings?: InjuryWarning[];
+  /** Number of recent consecutive sessions at the same top weight (0 = not stagnant) */
+  stagnantSessions?: number;
+  /** True if this is an assisted exercise (weight = counterweight, more weight = easier) */
+  isAssisted?: boolean;
 };
 
 function SlotCard({
@@ -92,6 +96,8 @@ function SlotCard({
   isLast,
   onClearWarmups,
   injuryWarnings,
+  stagnantSessions = 0,
+  isAssisted = false,
 }: Props) {
   const c = useColors();
   const navigation = useNavigation<any>();
@@ -109,12 +115,33 @@ function SlotCard({
     if (!lastTime || lastTime.sets.length === 0) return null;
     const allCompleted = lastTime.sets.every((s) => s.completed);
     if (!allCompleted) return null;
+    const increment = unit === 'lb' ? 5 : 2.5;
+    if (isAssisted) {
+      // Assisted: lightest weight = hardest. Suggest LESS assistance.
+      const lightest = lastTime.sets.reduce(
+        (min, s) => (s.weight < min.weight ? s : min),
+        lastTime.sets[0],
+      );
+      const nextWeight = Math.max(0, lightest.weight - increment);
+      return {
+        suggestedWeight: nextWeight,
+        suggestedReps: lightest.reps,
+        stagnant: stagnantSessions >= 3,
+        stagnantCount: stagnantSessions,
+        assisted: true,
+      };
+    }
     const heaviest = lastTime.sets.reduce(
       (max, s) => (s.weight > max.weight ? s : max),
       lastTime.sets[0],
     );
-    const increment = unit === 'lb' ? 5 : 2.5;
-    return { suggestedWeight: heaviest.weight + increment, suggestedReps: heaviest.reps };
+    return {
+      suggestedWeight: heaviest.weight + increment,
+      suggestedReps: heaviest.reps,
+      stagnant: stagnantSessions >= 3,
+      stagnantCount: stagnantSessions,
+      assisted: false,
+    };
   })();
 
   // §4: Pre-compute whether warmup should show
@@ -145,6 +172,7 @@ function SlotCard({
             <Text style={[styles.slotTitle, { color: c.text }]}>
               {slot.exercise_name}
               {slot.option_name ? ` (${slot.option_name})` : ''}
+              {isAssisted ? ' 🔄' : ''}
             </Text>
             {/* Reorder + info buttons */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -236,6 +264,9 @@ function SlotCard({
               suggestedWeight={overloadSuggestion.suggestedWeight}
               suggestedReps={overloadSuggestion.suggestedReps}
               unit={unit}
+              stagnant={overloadSuggestion.stagnant}
+              stagnantCount={overloadSuggestion.stagnantCount}
+              assisted={overloadSuggestion.assisted}
             />
           )}
 
@@ -278,7 +309,7 @@ function SlotCard({
               <View style={styles.setsHeader}>
                 <Text style={[styles.colLabel, { width: 36, color: c.textTertiary }]} />
                 <Text style={[styles.colLabel, { color: c.textTertiary }]}>#</Text>
-                <Text style={[styles.colLabel, { flex: 1, color: c.textTertiary }]}>Weight ({unit})</Text>
+                <Text style={[styles.colLabel, { flex: 1, color: c.textTertiary }]}>{isAssisted ? `Assist (${unit})` : `Weight (${unit})`}</Text>
                 <Text style={[styles.colLabel, { width: 64, color: c.textTertiary }]}>Reps</Text>
                 <Text style={[styles.colLabel, { width: 52, color: c.textTertiary }]}>RPE</Text>
               </View>

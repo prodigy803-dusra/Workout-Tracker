@@ -28,6 +28,7 @@ import {
   upsertSet,
   lastTimeForOption,
   lastTimeForExercise,
+  recentMaxWeights,
   deleteSet,
   generateWarmupSets,
   clearWarmupSets,
@@ -63,6 +64,8 @@ export type SessionState = {
   setsByChoice: Record<number, SetData[]>;
   dropsBySet: Record<number, DropSegment[]>;
   lastTimeBySlot: Record<number, LastTimeData>;
+  /** Number of consecutive sessions at roughly the same top weight, per slot. 0 = no stagnation. */
+  stagnationBySlot: Record<number, number>;
   sessionNotes: string;
 };
 
@@ -80,7 +83,8 @@ export type SessionAction =
   | { type: 'COMMIT_DROP_REPS'; setId: number; segmentId: number; raw: string }
   | { type: 'DELETE_DROP_SEGMENT'; setId: number; segmentId: number }
   | { type: 'SAVE_NOTES'; text: string }
-  | { type: 'SET_PHASE'; phase: 'idle' | 'active' | 'finishing' };
+  | { type: 'SET_PHASE'; phase: 'idle' | 'active' | 'finishing' }
+  | { type: 'UPDATE_REST'; setId: number; choiceId: number; restSeconds: number };
 
 /* ═══════════════════════════════════════════════════════════
  *  Initial state
@@ -94,6 +98,7 @@ const INITIAL_STATE: SessionState = {
   setsByChoice: {},
   dropsBySet: {},
   lastTimeBySlot: {},
+  stagnationBySlot: {},
   sessionNotes: '',
 };
 
@@ -166,6 +171,12 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         const nextRpe = RPE_ORDER[(idx + 1) % RPE_ORDER.length];
         return { ...s, rpe: nextRpe };
       });
+
+    case 'UPDATE_REST':
+      return updateSetInChoice(state, action.choiceId, action.setId, (s) => ({
+        ...s,
+        rest_seconds: action.restSeconds,
+      }));
 
     case 'DELETE_SET': {
       const sets = state.setsByChoice[action.choiceId];
@@ -341,6 +352,29 @@ export function useSessionStore() {
     }
     const lastTimeBySlot = Object.fromEntries(lastTimeEntries);
 
+    // Stagnation detection per slot: count consecutive sessions at roughly the same top weight
+    const stagnationEntries: (readonly [number, number])[] = [];
+    for (const s of slotRows) {
+      if (s.exercise_id != null) {
+        const assisted = !!(s as any).is_assisted;
+        const history = await recentMaxWeights(s.exercise_id, 5, assisted);
+        let stagnantCount = 0;
+        if (history.length >= 2) {
+          const latest = history[0].max_weight;
+          // Count how many consecutive sessions match within ~2% or 2.5 units
+          for (let i = 1; i < history.length; i++) {
+            if (Math.abs(history[i].max_weight - latest) <= Math.max(latest * 0.02, 2.5)) {
+              stagnantCount++;
+            } else {
+              break;
+            }
+          }
+        }
+        stagnationEntries.push([s.session_slot_id, stagnantCount] as const);
+      }
+    }
+    const stagnationBySlot = Object.fromEntries(stagnationEntries);
+
     dispatch({
       type: 'HYDRATE',
       payload: {
@@ -351,6 +385,7 @@ export function useSessionStore() {
         setsByChoice: setsMap,
         dropsBySet: dropsMap,
         lastTimeBySlot,
+        stagnationBySlot,
         sessionNotes: d.notes || '',
       },
     });

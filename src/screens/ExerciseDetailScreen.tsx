@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Linking, ActivityIndicator, Alert } from 'react-native';
-import { listExerciseOptions, createExerciseOption, getExerciseGuide, getExerciseStats } from '../db/repositories/exercisesRepo';
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Linking, ActivityIndicator, Alert, Switch } from 'react-native';
+import { listExerciseOptions, createExerciseOption, getExerciseGuide, getExerciseStats, isExerciseAssisted, toggleAssisted } from '../db/repositories/exercisesRepo';
 import { e1rmHistory } from '../db/repositories/statsRepo';
 import MuscleMap from '../components/MuscleMap';
 import TrendChart, { DataPoint } from '../components/TrendChart';
@@ -20,6 +20,7 @@ export default function ExerciseDetailScreen({ route }: Props) {
   const [trendData, setTrendData] = useState<DataPoint[]>([]);
   const c = useColors();
   const [loading, setLoading] = useState(true);
+  const [assisted, setAssisted] = useState(false);
 
   async function loadGuide() {
     const data = await getExerciseGuide(exerciseId);
@@ -57,6 +58,8 @@ export default function ExerciseDetailScreen({ route }: Props) {
         await loadGuide();
         const trend = await e1rmHistory(exerciseId);
         setTrendData(trend);
+        const isAssist = await isExerciseAssisted(exerciseId);
+        setAssisted(isAssist);
       } catch (e) {
         Alert.alert('Error', 'Failed to load exercise details.');
       } finally {
@@ -73,9 +76,29 @@ export default function ExerciseDetailScreen({ route }: Props) {
     await loadOptions();
   }
 
+  async function handleToggleAssisted(val: boolean) {
+    const newVal = await toggleAssisted(exerciseId);
+    setAssisted(newVal);
+  }
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: c.background }]} contentContainerStyle={{ paddingBottom: 32 }}>
       <Text style={[styles.title, { color: c.text }]}>{name}</Text>
+
+      {/* ── Assisted toggle ── */}
+      <View style={[styles.assistedCard, { backgroundColor: c.card, borderColor: c.border }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.assistedLabel, { color: c.text }]}>🔄 Assisted Machine</Text>
+          <Text style={[styles.assistedHint, { color: c.textSecondary }]}>
+            Weight = counterweight — more weight means easier
+          </Text>
+        </View>
+        <Switch
+          value={assisted}
+          onValueChange={handleToggleAssisted}
+          trackColor={{ false: c.border, true: c.accent }}
+        />
+      </View>
 
       {loading && (
         <View style={{ paddingVertical: 32, alignItems: 'center' }}>
@@ -137,10 +160,17 @@ export default function ExerciseDetailScreen({ route }: Props) {
 
       <View style={[styles.statsCard, { backgroundColor: c.card, borderColor: c.border }]}>
         <Text style={[styles.sectionTitle, { color: c.text }]}>Stats</Text>
-        <View style={styles.statRow}>
-          <Text style={[styles.statLabel, { color: c.textSecondary }]}>Best e1RM</Text>
-          <Text style={[styles.statValue, { color: c.text }]}>{stats?.best_e1rm?.toFixed(1) || '—'}</Text>
-        </View>
+        {assisted ? (
+          <View style={styles.statRow}>
+            <Text style={[styles.statLabel, { color: c.textSecondary }]}>Least assist weight</Text>
+            <Text style={[styles.statValue, { color: c.text }]}>{stats?.best_e1rm ? '—' : '—'}</Text>
+          </View>
+        ) : (
+          <View style={styles.statRow}>
+            <Text style={[styles.statLabel, { color: c.textSecondary }]}>Best e1RM</Text>
+            <Text style={[styles.statValue, { color: c.text }]}>{stats?.best_e1rm?.toFixed(1) || '—'}</Text>
+          </View>
+        )}
         <View style={styles.statRow}>
           <Text style={[styles.statLabel, { color: c.textSecondary }]}>Best volume set</Text>
           <Text style={[styles.statValue, { color: c.text }]}>{stats?.best_volume?.toFixed(1) || '—'}</Text>
@@ -153,8 +183,8 @@ export default function ExerciseDetailScreen({ route }: Props) {
         </View>
       </View>
 
-      {/* ── e1RM Trend Chart ── */}
-      {trendData.length >= 2 && (
+      {/* ── e1RM Trend Chart (not relevant for assisted exercises) ── */}
+      {!assisted && trendData.length >= 2 && (
         <View style={[styles.statsCard, { backgroundColor: c.card, borderColor: c.border }]}>
           <TrendChart data={trendData} label="Estimated 1RM Trend" unit="weight" color="#4A90D9" />
         </View>
@@ -275,4 +305,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   videoBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  assistedCard: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E6E1DB',
+  },
+  assistedLabel: { fontSize: 15, fontWeight: '600' as const },
+  assistedHint: { fontSize: 12, marginTop: 2 },
 });

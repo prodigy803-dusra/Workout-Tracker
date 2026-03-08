@@ -133,6 +133,38 @@ export async function lastTimeForExercise(exerciseId: number): Promise<LastTimeD
   return { performed_at: row.performed_at, sets: sets.rows._array };
 }
 
+/**
+ * Get the heaviest (or lightest for assisted) working-set weight from the last
+ * N finalized sessions for a given exercise. Used for stagnation detection.
+ * @param assisted If true, returns MIN weight per session (less assist = harder).
+ */
+export async function recentMaxWeights(
+  exerciseId: number,
+  limit: number = 4,
+  assisted: boolean = false,
+): Promise<{ performed_at: string; max_weight: number }[]> {
+  const agg = assisted ? 'MIN' : 'MAX';
+  const res = await executeSqlAsync(
+    `
+    SELECT s.performed_at, ${agg}(se.weight) AS max_weight
+    FROM sets se
+    JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+    JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    JOIN sessions s ON s.id = ss.session_id
+    WHERE s.status = 'final'
+      AND tso.exercise_id = ?
+      AND se.is_warmup = 0
+      AND se.completed = 1
+    GROUP BY s.id
+    ORDER BY s.performed_at DESC, s.id DESC
+    LIMIT ?;
+    `,
+    [exerciseId, limit]
+  );
+  return res.rows._array;
+}
+
 /* ═══════════════════════════════════════════════════════════
  *  Drop-set segment operations
  * ═══════════════════════════════════════════════════════════ */

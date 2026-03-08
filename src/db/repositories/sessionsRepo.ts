@@ -220,10 +220,10 @@ export async function createDraftFromTemplate(templateId: number) {
       [sscId, sessionSlotId]
     );
 
-    // Get historical working sets (warmups excluded) and prescribed sets
-    let historicalSets = defaultOptionId ? await getLastPerformedSets(defaultOptionId) : [];
-    // Fallback: if no template-specific history, try the exercise globally
-    if (historicalSets.length === 0 && defaultOptionId) {
+    // Get historical working sets (warmups excluded) — global lookup
+    // so weights stay consistent across all templates for the same exercise
+    let historicalSets: any[] = [];
+    if (defaultOptionId) {
       const exRes = await executeSqlAsync(
         `SELECT exercise_id FROM template_slot_options WHERE id=?;`,
         [defaultOptionId]
@@ -325,7 +325,8 @@ export async function listDraftSlots(sessionId: number): Promise<DraftSlot[]> {
   const res = await executeSqlAsync(
     `
     SELECT ss.id as session_slot_id, ss.slot_index, ss.name, ss.selected_session_slot_choice_id,
-           tco.id as template_slot_option_id, e.id as exercise_id, e.name as exercise_name, eo.name as option_name
+           tco.id as template_slot_option_id, e.id as exercise_id, e.name as exercise_name, eo.name as option_name,
+           COALESCE(e.is_assisted, 0) as is_assisted
     FROM session_slots ss
     LEFT JOIN session_slot_choices ssc ON ssc.id = ss.selected_session_slot_choice_id
     LEFT JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
@@ -377,10 +378,10 @@ export async function selectSlotChoice(
     );
     choiceId = await lastInsertRowId();
 
-    // Get historical working sets (warmups excluded) and prescribed sets
-    let historicalSets = await getLastPerformedSets(templateSlotOptionId);
-    // Fallback: if no template-specific history, try the exercise globally
-    if (historicalSets.length === 0) {
+    // Get historical working sets (warmups excluded) — global lookup
+    // so weights stay consistent across all templates for the same exercise
+    let historicalSets: any[] = [];
+    {
       const exRes = await executeSqlAsync(
         `SELECT exercise_id FROM template_slot_options WHERE id=?;`,
         [templateSlotOptionId]
@@ -617,11 +618,9 @@ export async function addExerciseToSession(
       [choiceId, sessionSlotId]
     );
 
-    // Pre-populate with historical data if available
-    let historicalSets = await getLastPerformedSets(templateSlotOptionId);
-    if (historicalSets.length === 0) {
-      historicalSets = await getLastPerformedSetsForExercise(exerciseId);
-    }
+    // Pre-populate with historical data — global lookup
+    // so weights stay consistent across all templates for the same exercise
+    let historicalSets = await getLastPerformedSetsForExercise(exerciseId);
 
     if (historicalSets.length > 0) {
       for (let i = 0; i < historicalSets.length; i++) {

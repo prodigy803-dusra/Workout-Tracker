@@ -42,6 +42,8 @@ export type TimerContext = {
   nextSet?: NextSetInfo;
   nextExercise?: NextExerciseInfo;
   isLastSet?: boolean;
+  /** Called when the user adjusts the timer (+/-5s), with the new total duration. */
+  onRestAdjusted?: (newTotalSeconds: number) => void;
 };
 
 /* ─── Hook ─── */
@@ -60,6 +62,7 @@ export function useRestTimer() {
   const [nextExercise, setNextExercise] = useState<NextExerciseInfo>(null);
   const [isLastSetOfExercise, setIsLastSetOfExercise] = useState(false);
 
+  const onRestAdjustedRef = useRef<((s: number) => void) | null>(null);
   const notifIdRef = useRef<string | null>(null);
   const appStateRef = useRef(AppState.currentState);
   const autoDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -166,6 +169,7 @@ export function useRestTimer() {
       if (ctx?.nextSet !== undefined) setNextSet(ctx.nextSet);
       if (ctx?.nextExercise !== undefined) setNextExercise(ctx.nextExercise);
       setIsLastSetOfExercise(ctx?.isLastSet ?? false);
+      onRestAdjustedRef.current = ctx?.onRestAdjusted ?? null;
       scheduleNotif(seconds);
     },
     [scheduleNotif],
@@ -205,7 +209,12 @@ export function useRestTimer() {
         endTimeRef.current = newEnd;
         const rem = Math.max(0, Math.ceil((newEnd - Date.now()) / 1000));
         setRemaining(rem);
-        setTotalDuration((d) => Math.max(1, d + delta));
+        setTotalDuration((d) => {
+          const newTotal = Math.max(1, d + delta);
+          // Notify LogScreen so the adjusted rest time persists for next session
+          onRestAdjustedRef.current?.(newTotal);
+          return newTotal;
+        });
         cancelNotif().then(() => scheduleNotif(rem));
       } else {
         setRemaining((prev) => Math.max(0, prev + delta));

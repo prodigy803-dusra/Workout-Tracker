@@ -17,6 +17,8 @@ export type Exercise = {
   video_url: string | null;
   instructions: string | null;
   tips: string | null;
+  /** 1 = assisted machine (weight = counterweight, more weight = easier) */
+  is_assisted: number;
 };
 
 export type ExerciseOption = {
@@ -116,6 +118,8 @@ export type DraftSlot = {
   exercise_id: number | null;
   exercise_name: string | null;
   option_name: string | null;
+  /** 1 = assisted machine (weight = counterweight, more weight = easier) */
+  is_assisted: number;
 };
 
 export type SlotOption = {

@@ -240,4 +240,6 @@ export const migrations: string[] = [
     created_at TEXT NOT NULL
   );
   `,
+  // Migration 38: is_assisted flag on exercises (weight = assistance, not resistance)
+  `ALTER TABLE exercises ADD COLUMN is_assisted INTEGER NOT NULL DEFAULT 0;`,
 ];

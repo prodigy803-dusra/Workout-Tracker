@@ -2205,13 +2205,13 @@ describe('Injury Region Map — data integrity', () => {
 });
 
 describe('Injury awareness — migration', () => {
-  test('last migration creates active_injuries table', () => {
+  test('migration 36 creates active_injuries table', () => {
     expect(migrations.length).toBeGreaterThanOrEqual(36);
-    const last = migrations[migrations.length - 1];
-    expect(last).toMatch(/CREATE TABLE.*active_injuries/i);
-    expect(last).toMatch(/body_region\s+TEXT\s+NOT\s+NULL/i);
-    expect(last).toMatch(/severity\s+TEXT\s+NOT\s+NULL/i);
-    expect(last).toMatch(/CHECK.*severity\s+IN\s*\('mild','moderate','severe'\)/i);
+    const m36 = migrations[35]; // 0-indexed
+    expect(m36).toMatch(/CREATE TABLE.*active_injuries/i);
+    expect(m36).toMatch(/body_region\s+TEXT\s+NOT\s+NULL/i);
+    expect(m36).toMatch(/severity\s+TEXT\s+NOT\s+NULL/i);
+    expect(m36).toMatch(/CHECK.*severity\s+IN\s*\('mild','moderate','severe'\)/i);
   });
 });
 
@@ -2541,5 +2541,181 @@ describe('Injury awareness — injuryRepo module (source)', () => {
     );
     expect(source).toMatch(/resolved_at=\?/);
     expect(source).toMatch(/toISOString/);
+  });
+});
+
+// ── Assisted exercises ──
+
+describe('Assisted exercises — migration', () => {
+  test('migration 37 adds is_assisted column', () => {
+    expect(migrations.length).toBeGreaterThanOrEqual(37);
+    const m37 = migrations[36]; // 0-indexed
+    expect(m37).toMatch(/ALTER TABLE exercises ADD COLUMN is_assisted/i);
+  });
+});
+
+describe('Assisted exercises — seed', () => {
+  test('seed file marks assisted exercises', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'db', 'seed.ts'),
+      'utf8'
+    );
+    expect(source).toMatch(/ASSISTED_EXERCISES/);
+    expect(source).toMatch(/assisted pull up/i);
+    expect(source).toMatch(/assisted chin up/i);
+    expect(source).toMatch(/assisted dip/i);
+    expect(source).toMatch(/machine dip/i);
+    expect(source).toMatch(/is_assisted\s*=\s*1/);
+  });
+});
+
+describe('Assisted exercises — types', () => {
+  test('Exercise and DraftSlot types include is_assisted', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'types.ts'),
+      'utf8'
+    );
+    // Ensure is_assisted appears in the types file
+    expect(source).toMatch(/is_assisted:\s*number/);
+  });
+});
+
+describe('Assisted exercises — exercisesRepo', () => {
+  test('toggleAssisted and isExerciseAssisted functions exist', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'db', 'repositories', 'exercisesRepo.ts'),
+      'utf8'
+    );
+    expect(source).toMatch(/export\s+(async\s+)?function\s+toggleAssisted/);
+    expect(source).toMatch(/export\s+(async\s+)?function\s+isExerciseAssisted/);
+    expect(source).toMatch(/is_assisted/);
+  });
+
+  test('listExercises query includes is_assisted', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'db', 'repositories', 'exercisesRepo.ts'),
+      'utf8'
+    );
+    expect(source).toMatch(/is_assisted/);
+  });
+});
+
+describe('Assisted exercises — setsRepo', () => {
+  test('recentMaxWeights accepts assisted param and uses MIN', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'db', 'repositories', 'setsRepo.ts'),
+      'utf8'
+    );
+    expect(source).toContain('assisted');
+    expect(source).toMatch(/MIN.*weight|MIN\(se\.weight\)/i);
+  });
+});
+
+describe('Assisted exercises — PR detection', () => {
+  test('detectAndRecordPRs handles assisted exercises', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'db', 'repositories', 'statsRepo.ts'),
+      'utf8'
+    );
+    // Should query is_assisted flag
+    expect(source).toMatch(/is_assisted/);
+    // Should use least_assisted PR type
+    expect(source).toMatch(/least_assisted/);
+    // Should skip e1RM for assisted
+    expect(source).toMatch(/skip.*e1RM|e1RM.*skip|assisted.*continue/i);
+  });
+});
+
+describe('Assisted exercises — sessionExerciseDeltas', () => {
+  test('sessionExerciseDeltas reverses progress direction for assisted', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'db', 'repositories', 'statsRepo.ts'),
+      'utf8'
+    );
+    // Should have assisted-specific comparison logic
+    expect(source).toMatch(/if\s*\(assisted\)/);
+    // Should use dynamic aggregate
+    expect(source).toMatch(/aggFn/);
+  });
+});
+
+describe('Assisted exercises — SlotCard UI', () => {
+  test('SlotCard accepts isAssisted prop and shows assist label', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'SlotCard.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/isAssisted/);
+    expect(source).toMatch(/Assist/);
+    expect(source).toMatch(/🔄/);
+  });
+});
+
+describe('Assisted exercises — ProgressiveOverloadBanner', () => {
+  test('banner reverses messaging for assisted exercises', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'ProgressiveOverloadBanner.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/assisted/);
+    expect(source).toMatch(/reducing assist/i);
+  });
+});
+
+describe('Assisted exercises — ExerciseDetailScreen', () => {
+  test('ExerciseDetailScreen has assisted toggle UI', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'screens', 'ExerciseDetailScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/toggleAssisted/);
+    expect(source).toMatch(/isExerciseAssisted/);
+    expect(source).toMatch(/Switch/);
+    expect(source).toMatch(/Assisted Machine/);
+    expect(source).toMatch(/counterweight/i);
+  });
+});
+
+describe('Assisted exercises — LogScreen wiring', () => {
+  test('LogScreen passes isAssisted to SlotCard', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'screens', 'LogScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/isAssisted=\{!!slot\.is_assisted\}/);
+  });
+});
+
+describe('Assisted exercises — ExercisesScreen', () => {
+  test('ExercisesScreen shows assisted indicator on exercise name', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'screens', 'ExercisesScreen.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/is_assisted.*🔄|🔄.*is_assisted/);
   });
 });

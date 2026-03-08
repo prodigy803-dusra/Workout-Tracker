@@ -202,7 +202,7 @@ export default function ExercisesScreen({ navigation }: Props) {
             style={[s.row, { backgroundColor: c.card, borderBottomColor: c.border }]}
           >
             <View style={s.rowContent}>
-              <Text style={[s.rowText, { color: c.text }]}>{item.name}</Text>
+              <Text style={[s.rowText, { color: c.text }]}>{item.is_assisted ? '🔄 ' : ''}{item.name}</Text>
               {item.equipment && (
                 <View
                   style={[

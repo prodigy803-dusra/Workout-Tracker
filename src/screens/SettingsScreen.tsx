@@ -24,6 +24,7 @@ import { useTheme, useColors, ThemeMode } from '../contexts/ThemeContext';
 import TrendChart from '../components/TrendChart';
 import InjuryModal from '../components/InjuryModal';
 import { haptic } from '../utils/haptics';
+import { shareWeeklySummary, currentWeekStart, weekEnd } from '../utils/weeklyPdf';
 import Constants from 'expo-constants';
 
 /** Tables exported/restored in dependency order. */
@@ -53,6 +54,8 @@ const EXERCISE_SKIP_COLS = new Set([
   'instructions', 'tips', 'video_url', 'aliases',
   'equipment', 'movement_pattern', 'secondary_muscle',
 ]);
+
+function pad2(n: number) { return n < 10 ? '0' + n : '' + n; }
 
 export default function SettingsScreen() {
   const [json, setJson] = useState('');
@@ -288,6 +291,28 @@ export default function SettingsScreen() {
         },
       ]
     );
+  }
+
+  async function handleShareThisWeek() {
+    try {
+      const start = currentWeekStart();
+      const end = weekEnd(start);
+      await shareWeeklySummary(start, end, unit);
+    } catch (e) {
+      Alert.alert('PDF Error', 'Could not generate weekly summary: ' + (e as Error).message);
+    }
+  }
+
+  async function handleShareLastWeek() {
+    try {
+      const thisStart = new Date(currentWeekStart() + 'T00:00:00');
+      thisStart.setDate(thisStart.getDate() - 7);
+      const start = `${thisStart.getFullYear()}-${pad2(thisStart.getMonth() + 1)}-${pad2(thisStart.getDate())}`;
+      const end = weekEnd(start);
+      await shareWeeklySummary(start, end, unit);
+    } catch (e) {
+      Alert.alert('PDF Error', 'Could not generate weekly summary: ' + (e as Error).message);
+    }
   }
 
   return (
@@ -557,6 +582,25 @@ export default function SettingsScreen() {
           await loadInjuries();
         }}
       />
+
+      <Text style={[styles.sectionTitle, { color: c.text }]}>Weekly Summary</Text>
+      <Text style={[styles.hint, { color: c.textSecondary }]}>
+        Generate a PDF report of this week's workouts — share it with your trainer or keep it for your records.
+      </Text>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+        <Pressable
+          onPress={handleShareThisWeek}
+          style={[styles.button, { flex: 1, backgroundColor: c.primary }]}
+        >
+          <Text style={[styles.buttonText, { color: c.primaryText }]}>📄  This Week</Text>
+        </Pressable>
+        <Pressable
+          onPress={handleShareLastWeek}
+          style={[styles.button, { flex: 1, backgroundColor: c.card, borderWidth: 1, borderColor: c.border }]}
+        >
+          <Text style={[styles.buttonText, { color: c.text }]}>📄  Last Week</Text>
+        </Pressable>
+      </View>
 
       <Text style={[styles.sectionTitle, { color: c.text }]}>Data</Text>
 

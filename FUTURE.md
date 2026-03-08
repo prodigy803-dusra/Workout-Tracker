@@ -1,6 +1,6 @@
 # Workout Tracker — Roadmap & Feature Plan
 
-> **Last updated:** 2026-03-20
+> **Last updated:** 2026-03-04
 
 ---
 
@@ -25,9 +25,27 @@
 - ~~5.1 Workout Reminders~~ — Migration 36 (`template_schedule` table). `scheduleRepo.ts` CRUD. `workoutReminders.ts` syncs expo-notifications WEEKLY triggers. `ScheduleModal.tsx` bottom-sheet UI with day toggles + time picker. ⏰ button on TemplatesScreen. 8 new tests.
 - ~~5.2 Weekly Volume Dashboard~~ — `WeeklyVolumeCard.tsx` with colored progress bars per muscle group (green 10+/yellow 5–9/red <5 sets). Integrated into IdleScreen between THIS WEEK stats and all-time card. Uses existing `weeklyVolumeByMuscle()`. **383 total tests**, all passing.
 
+### Batch 5 (2026-03-04)
+- ~~6.1 Cross-template weight bug~~ — weight pre-fill now global across all templates (uses `getLastPerformedSetsForExercise`).
+- ~~6.2 Rest timer persistence~~ — `addTime(±15s)` adjustments now persist to DB via `onRestAdjusted` callback + `UPDATE_REST` action.
+- ~~6.3 Stagnation detection~~ — `recentMaxWeights()` query, computed `stagnationBySlot` in hydration, orange ProgressiveOverloadBanner when same weight ≥3 sessions. 6 new tests.
+- ~~6.4 Weekly PDF summary~~ — `weeklyReportData()` repo + `weeklyPdf.ts` utility. HTML→PDF via expo-print, shared via expo-sharing. "This Week" / "Last Week" buttons in Settings. **459 total tests**, all passing.
+
 ---
 
 # Not Yet Implemented
+
+## Assisted / Negative Exercises
+**User request:** Some exercises (e.g. dip assist, pull-up assist) use machines where **more weight = easier**, not harder. The current progressive overload logic suggests "increase weight," which is backwards for these exercises.
+- Would need a per-exercise `is_assisted` or `weight_polarity` flag (migration).
+- Stagnation detection, progressive overload suggestions, and PR logic would need polarity-aware comparisons.
+- Effort: Medium. Schema change + conditional logic in repos/components.
+
+## Trainer Data Sharing (server)
+**User request:** Share tracking data with a trainer in real-time (not just PDF).
+- Would require a backend server (e.g. Supabase, Firebase, or custom).
+- Sync model: push finalized sessions + optional real-time live view.
+- Effort: Large. Auth, server infra, sync conflict resolution.
 
 ## Music Player Integration
 **User request:** Now playing, next, previous, pause controls within the app.

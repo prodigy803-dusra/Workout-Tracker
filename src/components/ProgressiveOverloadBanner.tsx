@@ -13,10 +13,43 @@ type Props = {
   suggestedWeight: number;
   suggestedReps: number;
   unit: string;
+  /** Weight has been roughly the same for 3+ sessions */
+  stagnant?: boolean;
+  /** How many consecutive sessions at the same weight */
+  stagnantCount?: number;
+  /** Assisted exercise — weight is counterweight, less = harder */
+  assisted?: boolean;
 };
 
-function ProgressiveOverloadBanner({ suggestedWeight, suggestedReps, unit }: Props) {
+function ProgressiveOverloadBanner({ suggestedWeight, suggestedReps, unit, stagnant, stagnantCount, assisted }: Props) {
   const c = useColors();
+
+  if (stagnant) {
+    const action = assisted
+      ? `try reducing to ${suggestedWeight} ${unit} assist × ${suggestedReps}`
+      : `consider adding ${suggestedWeight} ${unit} × ${suggestedReps}, or try a different rep range/variation`;
+    return (
+      <View style={[styles.suggestionBanner, { backgroundColor: c.isDark ? '#2A1A00' : '#FFF3E0', borderColor: c.isDark ? '#804A00' : '#FFB74D' }]}>
+        <Text style={styles.suggestionIcon}>⚠️</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.suggestionText, { color: c.isDark ? '#FFB74D' : '#E65100' }]}>
+            Same {assisted ? 'assist level' : 'top weight'} for {stagnantCount} sessions — {action}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (assisted) {
+    return (
+      <View style={[styles.suggestionBanner, { backgroundColor: c.warningBg, borderColor: c.isDark ? '#665A00' : '#F5D76E' }]}>
+        <Text style={styles.suggestionIcon}>💪</Text>
+        <Text style={[styles.suggestionText, { color: c.warningText }]}>
+          You completed all sets last time — try reducing assist to {suggestedWeight} {unit} × {suggestedReps}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.suggestionBanner, { backgroundColor: c.warningBg, borderColor: c.isDark ? '#665A00' : '#F5D76E' }]}>

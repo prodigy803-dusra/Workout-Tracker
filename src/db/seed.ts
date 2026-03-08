@@ -160,6 +160,11 @@ const EXERCISE_LIBRARY: ExEntry[] = [
   ['Seated Row Machine', 'mid back', 'biceps', 'low row machine|horizontal row machine', 'machine', 'row'],
   ['Smith Machine Bench Press', 'chest', 'triceps', 'smith bench', 'machine', 'press'],
   ['Smith Machine Incline Bench', 'chest', 'triceps', 'smith incline bench|smith incline press', 'machine', 'press'],
+
+  // ── Assisted exercises (is_assisted = 1, weight = counterweight) ──
+  ['Assisted Pull Up', 'lats', 'biceps', 'assisted pullup|machine pull up|pull up assist|pullup machine', 'machine', 'pull'],
+  ['Assisted Chin Up', 'lats', 'biceps', 'assisted chinup|machine chin up|chin up assist|chinup machine', 'machine', 'pull'],
+  ['Assisted Dip', 'chest', 'triceps', 'assisted dip machine|dip assist|assisted dips', 'machine', 'press'],
 ];
 
 /**
@@ -167,7 +172,15 @@ const EXERCISE_LIBRARY: ExEntry[] = [
  * On subsequent launches, only updates metadata (muscle groups, equipment, guides)
  * for exercises that already exist — never re-inserts exercises the user deleted.
  */
-const LIBRARY_VERSION = 7; // bump when EXERCISE_LIBRARY changes
+const LIBRARY_VERSION = 8; // bump when EXERCISE_LIBRARY changes
+
+/** Exercises that use counterweight (machine assist) — more weight = easier. */
+const ASSISTED_EXERCISES = new Set([
+  'assisted pull up',
+  'assisted chin up',
+  'assisted dip',
+  'machine dip',     // aliases include "assisted dip"
+]);
 
 export async function ensureExerciseLibrary() {
   const vRes = await executeSqlAsync(
@@ -203,6 +216,14 @@ export async function ensureExerciseLibrary() {
         `UPDATE exercises SET video_url=?, instructions=?, tips=?
          WHERE name_norm=? AND video_url IS NULL;`,
         [guide.url, guide.steps, guide.tips, normalizeName(name)]
+      );
+    }
+
+    // Mark assisted exercises (counterweight machines)
+    if (ASSISTED_EXERCISES.has(normalizeName(name))) {
+      await executeSqlAsync(
+        `UPDATE exercises SET is_assisted=1 WHERE name_norm=?;`,
+        [normalizeName(name)]
       );
     }
   }

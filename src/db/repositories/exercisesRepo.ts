@@ -16,7 +16,7 @@ function now() {
 export async function listExercises(): Promise<Exercise[]> {
   const res = await executeSqlAsync(
     `SELECT id, name, primary_muscle, secondary_muscle, aliases, equipment, movement_pattern,
-            video_url, instructions, tips
+            video_url, instructions, tips, COALESCE(is_assisted, 0) as is_assisted
      FROM exercises ORDER BY name;`
   );
   return res.rows._array;
@@ -56,6 +56,28 @@ export async function deleteExercise(exerciseId: number): Promise<boolean> {
   await executeSqlAsync(`DELETE FROM exercise_options WHERE exercise_id = ?;`, [exerciseId]);
   await executeSqlAsync(`DELETE FROM exercises WHERE id = ?;`, [exerciseId]);
   return true;
+}
+
+/** Toggle the is_assisted flag on an exercise. Returns the new value. */
+export async function toggleAssisted(exerciseId: number): Promise<boolean> {
+  await executeSqlAsync(
+    `UPDATE exercises SET is_assisted = CASE WHEN is_assisted = 1 THEN 0 ELSE 1 END WHERE id = ?;`,
+    [exerciseId]
+  );
+  const res = await executeSqlAsync(
+    `SELECT is_assisted FROM exercises WHERE id = ?;`,
+    [exerciseId]
+  );
+  return res.rows.item(0).is_assisted === 1;
+}
+
+/** Check whether an exercise is marked as assisted. */
+export async function isExerciseAssisted(exerciseId: number): Promise<boolean> {
+  const res = await executeSqlAsync(
+    `SELECT COALESCE(is_assisted, 0) as is_assisted FROM exercises WHERE id = ?;`,
+    [exerciseId]
+  );
+  return res.rows.length > 0 && res.rows.item(0).is_assisted === 1;
 }
 
 /** Add a new variant to an exercise. */

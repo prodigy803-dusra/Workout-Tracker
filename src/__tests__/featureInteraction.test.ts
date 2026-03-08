@@ -81,6 +81,7 @@ import {
   lastTimeForOption,
   lastTimeForExercise,
   generateWarmupSets,
+  recentMaxWeights,
 } from '../db/repositories/setsRepo';
 
 import {
@@ -347,13 +348,12 @@ describe('Cross-template weight persistence', () => {
     const choiceId = benchSlot!.selected_session_slot_choice_id!;
     const sets = await listSetsForChoice(choiceId);
 
-    // Push Day has its own template-specific history (session 1: 80/85/90)
-    // The Upper Body session (82.5/87.5/92.5) is more recent but uses a different template_slot_option_id
-    // Push Day should use its OWN template-specific history (80/85/90) via getLastPerformedSets
-    // because it HAS template-specific history
-    expect(sets[0].weight).toBe(80);
-    expect(sets[1].weight).toBe(85);
-    expect(sets[2].weight).toBe(90);
+    // Weights are now GLOBALLY resolved: the Upper Body session (82.5/87.5/92.5)
+    // is more recent than Push Day's own history (80/85/90), so the global
+    // lookup picks the latest weights regardless of which template they came from.
+    expect(sets[0].weight).toBe(82.5);
+    expect(sets[1].weight).toBe(87.5);
+    expect(sets[2].weight).toBe(92.5);
 
     await discardDraft(draftId);
   });
@@ -730,5 +730,142 @@ describe('lastTimeForExercise excludes warmup sets', () => {
       // The key check is that warmup rows (is_warmup=1) are excluded
       expect(s.weight).toBeGreaterThanOrEqual(60);
     }
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+ *  PART F — Stagnation detection (recentMaxWeights + logic)
+ * ═══════════════════════════════════════════════════════════ */
+
+describe('Stagnation detection', () => {
+  /**
+   * Helper: create a Push Day session with bench at given weight, finalize it.
+   * Each call produces one finalized session with 3 bench sets at `weight`.
+   */
+  async function finalizePushAtWeight(weight: number, dateIso: string) {
+    const draftId = await createDraftFromTemplate(tplPush);
+    const slots = await listDraftSlots(draftId);
+
+    const benchSlot = slots.find((s) => s.exercise_name === 'Bench Press')!;
+    const choiceId = benchSlot.selected_session_slot_choice_id!;
+    await upsertSet(choiceId, 1, weight, 8, null, null, 90);
+    await upsertSet(choiceId, 2, weight, 6, null, null, 90);
+    await upsertSet(choiceId, 3, weight, 5, null, null, 90);
+    const sets = await listSetsForChoice(choiceId);
+    for (const s of sets) await toggleSetCompleted(s.id, true);
+
+    // Complete OHP too
+    const ohpSlot = slots.find((s) => s.exercise_name === 'Overhead Press');
+    if (ohpSlot?.selected_session_slot_choice_id) {
+      const ohpSets = await listSetsForChoice(ohpSlot.selected_session_slot_choice_id);
+      for (const s of ohpSets) await toggleSetCompleted(s.id, true);
+    }
+
+    await finalizeSession(draftId);
+
+    // Backdate the session so ordering is deterministic
+    await executeSqlAsync(
+      `UPDATE sessions SET performed_at=? WHERE id=?;`,
+      [dateIso, draftId],
+    );
+  }
+
+  test('recentMaxWeights returns correct per-session max weight', async () => {
+    // At this point there are already some finalized sessions from earlier tests.
+    // Create 3 fresh sessions with known weights
+    await finalizePushAtWeight(100, '2026-06-01T10:00:00.000Z');
+    await finalizePushAtWeight(100, '2026-06-03T10:00:00.000Z');
+    await finalizePushAtWeight(100, '2026-06-05T10:00:00.000Z');
+
+    const history = await recentMaxWeights(exBench, 3);
+    expect(history.length).toBe(3);
+    // All max weights should be 100
+    for (const h of history) {
+      expect(h.max_weight).toBe(100);
+    }
+    // Should be ordered most recent first
+    expect(history[0].performed_at).toBe('2026-06-05T10:00:00.000Z');
+    expect(history[1].performed_at).toBe('2026-06-03T10:00:00.000Z');
+    expect(history[2].performed_at).toBe('2026-06-01T10:00:00.000Z');
+  });
+
+  test('stagnation count is correct for repeated same-weight sessions', async () => {
+    // Use recentMaxWeights + the same counting logic from useSessionStore
+    const history = await recentMaxWeights(exBench, 5);
+    expect(history.length).toBeGreaterThanOrEqual(3);
+
+    const latest = history[0].max_weight;
+    let stagnantCount = 0;
+    for (let i = 1; i < history.length; i++) {
+      if (Math.abs(history[i].max_weight - latest) <= Math.max(latest * 0.02, 2.5)) {
+        stagnantCount++;
+      } else {
+        break;
+      }
+    }
+    // The last 3 sessions were all at 100kg — 2 consecutive matches after the latest
+    expect(stagnantCount).toBeGreaterThanOrEqual(2);
+  });
+
+  test('stagnation breaks when weight changes significantly', async () => {
+    // Add a session at a much higher weight
+    await finalizePushAtWeight(120, '2026-06-07T10:00:00.000Z');
+
+    const history = await recentMaxWeights(exBench, 5);
+    const latest = history[0].max_weight;
+    expect(latest).toBe(120);
+
+    let stagnantCount = 0;
+    for (let i = 1; i < history.length; i++) {
+      if (Math.abs(history[i].max_weight - latest) <= Math.max(latest * 0.02, 2.5)) {
+        stagnantCount++;
+      } else {
+        break;
+      }
+    }
+    // 120 vs 100 is >2.5 and >2%, so chain breaks immediately
+    expect(stagnantCount).toBe(0);
+  });
+
+  test('stagnation tolerates tiny weight differences within 2% threshold', async () => {
+    // Add two sessions at 121 and 119 (within 2% of 120)
+    await finalizePushAtWeight(121, '2026-06-09T10:00:00.000Z');
+    await finalizePushAtWeight(119, '2026-06-11T10:00:00.000Z');
+
+    const history = await recentMaxWeights(exBench, 5);
+    // Order: 119 (Jun 11), 121 (Jun 9), 120 (Jun 7), 100, 100
+    expect(history[0].max_weight).toBe(119);
+
+    const latest = history[0].max_weight;
+    let stagnantCount = 0;
+    for (let i = 1; i < history.length; i++) {
+      if (Math.abs(history[i].max_weight - latest) <= Math.max(latest * 0.02, 2.5)) {
+        stagnantCount++;
+      } else {
+        break;
+      }
+    }
+    // 121 is within 2% of 119 (diff=2, threshold=2.5 or 2.38) → stagnant
+    // 120 is within 2% of 119 (diff=1) → stagnant
+    // 100 is NOT within 2% of 119 (diff=19) → break
+    expect(stagnantCount).toBe(2);
+  });
+
+  test('recentMaxWeights respects limit parameter', async () => {
+    const two = await recentMaxWeights(exBench, 2);
+    expect(two.length).toBe(2);
+
+    const one = await recentMaxWeights(exBench, 1);
+    expect(one.length).toBe(1);
+  });
+
+  test('recentMaxWeights returns empty for exercise with no finalized sessions', async () => {
+    // Create a new exercise with no sessions
+    const newExId = await rawInsert(
+      `INSERT INTO exercises(name, name_norm, primary_muscle, created_at) VALUES (?,?,?,?);`,
+      ['Deadlift', 'deadlift', 'Back', TS]
+    );
+    const history = await recentMaxWeights(newExId, 5);
+    expect(history).toHaveLength(0);
   });
 });

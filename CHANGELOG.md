@@ -56,7 +56,7 @@ app_settings (key/value store for theme, unit, library version, etc.)
 3. **statsRepo has remaining lines** (200–332) not yet reviewed for `weeklyVolumeByMuscle`, `workoutDaysMap`, `currentStreak`, `prCountsBySession`.
 4. **Seed file is ~450 lines** with 136+ exercises, demo template seeding, and cleanup logic for old seeded templates.
 5. **Backup table list** in SettingsScreen is manually maintained — must stay in sync with schema.
-6. ~~**No automated tests**~~ — **Resolved:** 447 tests across 5 suites (db, dbIntegration, sessionStore, featureInteraction, midWorkoutEditing).
+6. ~~**No automated tests**~~ — **Resolved:** 472 tests across 5 suites (db, dbIntegration, sessionStore, featureInteraction, midWorkoutEditing).
 7. **No CI/CD pipeline** detected.
 
 ---
@@ -75,6 +75,64 @@ Template for new entries:
 -->
 
 ### [2026-02-12] Add ARCHITECTURE.md — refactoring rules & state management contract
+
+### [2026-03-05] Feature — Assisted exercises (counterweight machines)
+- **Files changed:** `src/db/migrations.ts`, `src/db/seed.ts`, `src/types.ts`, `src/db/repositories/exercisesRepo.ts`, `src/db/repositories/setsRepo.ts`, `src/db/repositories/statsRepo.ts`, `src/db/repositories/sessionsRepo.ts`, `src/hooks/useSessionStore.ts`, `src/components/SlotCard.tsx`, `src/components/ProgressiveOverloadBanner.tsx`, `src/screens/LogScreen.tsx`, `src/screens/ExerciseDetailScreen.tsx`, `src/screens/ExercisesScreen.tsx`, `src/__tests__/db.test.ts`
+- **What:** Full support for assisted exercises (dip assist, pull-up assist, chin-up assist) where the weight entered represents counterweight (assistance), not resistance. Key changes:
+  1. **Migration 37:** `ALTER TABLE exercises ADD COLUMN is_assisted INTEGER NOT NULL DEFAULT 0`
+  2. **Seed:** 3 new exercises (Assisted Pull Up, Assisted Chin Up, Assisted Dip) + Machine Dip auto-marked; LIBRARY_VERSION → 8
+  3. **Types:** Added `is_assisted: number` to `Exercise` and `DraftSlot` types
+  4. **exercisesRepo:** New `toggleAssisted()` and `isExerciseAssisted()` functions; `listExercises` includes `is_assisted`
+  5. **sessionsRepo:** `listDraftSlots` SELECT includes `COALESCE(e.is_assisted, 0) as is_assisted`
+  6. **setsRepo:** `recentMaxWeights()` takes `assisted` param — uses MIN (least assistance) instead of MAX
+  7. **statsRepo — PR detection:** Skips e1RM for assisted exercises; uses MIN for weight PR; creates `'least_assisted'` PR type
+  8. **statsRepo — sessionExerciseDeltas:** Uses MIN aggregate for assisted; reverses progress direction (lower weight = progressed)
+  9. **useSessionStore:** Stagnation hydration passes `is_assisted` flag to `recentMaxWeights`
+  10. **SlotCard:** `isAssisted` prop — reversed overload suggestion (suggest lower weight), 🔄 icon, "Assist (unit)" column header
+  11. **ProgressiveOverloadBanner:** Assisted-specific messaging ("try reducing assist to X")
+  12. **ExerciseDetailScreen:** Toggle switch to mark any exercise as assisted; hides e1RM chart for assisted
+  13. **ExercisesScreen:** Shows 🔄 icon next to assisted exercise names
+- **Why:** User request — "can you consider the weight mentioned as assist rather than lifted? I don't want it to be like I'm lifting something when I am not"
+- **Risk:** Low — additive column with default 0; all existing exercises unaffected. Assisted logic isolated behind `is_assisted` flag checks.
+- **Tests:** 459 → 472 (13 new tests covering migration, seed, types, repos, UI wiring)
+
+### [2026-03-04] Bug fix — Cross-template weight carry-forward
+- **Files changed:** `src/db/repositories/sessionsRepo.ts` (lines ~224, ~382, ~622), `src/__tests__/featureInteraction.test.ts`
+- **What:** Fixed a bug where the same exercise in different templates showed different pre-filled weights. Root cause: `getLastPerformedSets(templateSlotOptionId)` was template-specific. Changed all 3 weight pre-fill call sites (`createDraftFromTemplate`, `selectSlotChoice`, `addExerciseToSession`) to use `getLastPerformedSetsForExercise(exerciseId)` which looks globally across all templates.
+- **Why:** User observed that Bench Press in "Push Day" and "Upper Body" templates showed mismatched weights even when done on the same day.
+- **Risk:** Low — query is broader (finds any session) but always picks the most recent. Fallback to prescribed defaults unchanged.
+- **Tests:** 453 → 453 (updated cross-template test to expect global weights)
+
+### [2026-03-04] Bug fix — Rest timer adjustments not persisted
+- **Files changed:** `src/hooks/useRestTimer.ts`, `src/hooks/useSessionStore.ts`, `src/screens/LogScreen.tsx`
+- **What:** When users tapped +15s / −15s during a rest timer, the adjustment was only in-memory and lost on reload. Added:
+  1. `onRestAdjusted` callback in `TimerContext` type — `start()` captures it, `addTime()` calls it with the new total.
+  2. `UPDATE_REST` action in the session reducer — persists the adjusted rest time to the DB set row.
+  3. LogScreen wiring: provides the callback that calls `persistSet()` and dispatches `UPDATE_REST`.
+- **Why:** User noted "remember rest timers?" — adjustments were ephemeral.
+- **Risk:** Low — additive change; no schema migration needed.
+- **Tests:** 453 passing
+
+### [2026-03-04] Feature — Stagnation detection & warning banner
+- **Files changed:** `src/db/repositories/setsRepo.ts`, `src/hooks/useSessionStore.ts`, `src/components/SlotCard.tsx`, `src/components/ProgressiveOverloadBanner.tsx`, `src/screens/LogScreen.tsx`, `src/__tests__/featureInteraction.test.ts`
+- **What:** Detects when a user has been lifting the same top weight for 3+ consecutive sessions and shows a warning:
+  1. New `recentMaxWeights(exerciseId, limit)` query in setsRepo — returns per-session max completed working-set weight.
+  2. Hydration in `useSessionStore` computes `stagnationBySlot` — counts consecutive sessions within ~2% or 2.5 units of the latest max weight.
+  3. `SlotCard` receives `stagnantSessions` prop; when ≥3, `ProgressiveOverloadBanner` shows an orange "⚠️ Same top weight for N sessions" warning with actionable suggestions.
+- **Why:** User requested "next weight suggestion should not only look at the last session but see if they are stagnant."
+- **Risk:** Low — read-only stagnation check during hydration; no writes; purely informational.
+- **Tests:** 453 → 459 (+6 stagnation tests: recentMaxWeights accuracy, stagnation counting, threshold tolerance, limit param, empty exercise)
+
+### [2026-03-04] Feature — Weekly PDF summary (shareable)
+- **Files changed:** `src/db/repositories/statsRepo.ts`, `src/utils/weeklyPdf.ts` (new), `src/screens/SettingsScreen.tsx`, `package.json`
+- **What:** Users can generate a shareable PDF report summarising their week's workouts:
+  1. New `weeklyReportData(startDate, endDate)` in statsRepo — gathers sessions, per-exercise breakdown, muscle volume, PR counts for a date range.
+  2. New `src/utils/weeklyPdf.ts` — builds styled HTML, converts to PDF via `expo-print`, opens share sheet via `expo-sharing`.
+  3. SettingsScreen: "Weekly Summary" section with "This Week" and "Last Week" buttons.
+  4. Added `expo-print` dependency.
+- **Why:** User asked "How to share data maybe send a PDF to a trainer?"
+- **Risk:** Low — new screens/utilities only; no schema changes. `expo-print` is a well-supported Expo module.
+- **Tests:** 459 passing (repo query tested implicitly through existing data; PDF generation is runtime-only)
 
 ### [2026-03-03] Universal pre-workout check-in (redesign)
 - **Files changed:** `src/components/IdleScreen.tsx`, `src/__tests__/db.test.ts`

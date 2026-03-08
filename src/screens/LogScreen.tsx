@@ -200,6 +200,14 @@ export default function LogScreenV2() {
       // Start rest timer
       if (set?.rest_seconds && set.rest_seconds > 0) {
         const timerContext = computeTimerContext(setId, choiceId);
+        const capturedChoiceId = choiceId;
+        const capturedSetIndex = set.set_index;
+        const capturedSet = set;
+        timerContext.onRestAdjusted = (newTotal: number) => {
+          // Persist the adjusted rest time so next session remembers it
+          persistSet(capturedChoiceId, capturedSetIndex, capturedSet.weight, capturedSet.reps, capturedSet.rpe, newTotal);
+          dispatch({ type: 'UPDATE_REST', setId, choiceId: capturedChoiceId, restSeconds: newTotal });
+        };
         timer.start(set.rest_seconds, timerContext);
       }
     } else {
@@ -656,7 +664,9 @@ export default function LogScreenV2() {
             sets={state.setsByChoice[slot.selected_session_slot_choice_id!] || []}
             drops={state.dropsBySet}
             lastTime={state.lastTimeBySlot[slot.session_slot_id]}
+            stagnantSessions={state.stagnationBySlot[slot.session_slot_id] ?? 0}
             isExpanded={expandedSlots.has(slot.session_slot_id)}
+            isAssisted={!!slot.is_assisted}
             unit={unit}
             injuryWarnings={injuryWarningsBySlot[slot.session_slot_id] || []}
             onToggleExpand={handleToggleExpand}

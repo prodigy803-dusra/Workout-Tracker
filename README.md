@@ -7,12 +7,12 @@ Tracked by you. Stored on your device. Owned by you and only you.
 
 No cloud. No accounts. No subscriptions. Just iron and honest numbers.
 
-Most workout apps either drown you in features you'll never use or oversimplify until they're just a glorified checklist. WorkoutApp sits in the sweet spot: it remembers your weights, nudges you to lift heavier, warns you when an injury might affect today's session, and stays out of your way for the rest.
+Most workout apps either drown you in features you'll never use or oversimplify until they're just a glorified checklist. WorkoutApp sits in the sweet spot: it remembers your weights, nudges you to lift heavier, understands whether you're pushing resistance or working off assistance, warns you when an injury might affect today's session, and stays out of your way for the rest.
 
 ### Why it's different
 
 - **Your data lives on your device.** Zero accounts, zero cloud, zero subscriptions. Export a full JSON backup anytime — you own every byte, every rep, every PR.
-- **Your last session, remembered.** Tap a template and your weights are already loaded. Finished every set last time? The app nudges you to go heavier. Your history drives your future.
+- **Your last session, remembered.** Tap a template and your weights are already loaded. Finished every set last time? The app nudges you to go heavier — or lighter on an assisted machine. Your history drives your future.
 - **Your body, respected.** Log an injury once and the app adjusts — lighter weights, warning banners, "Recovery" labels instead of "Regressed." Training around pain shouldn't feel like failing.
 - **Your honest moment.** Every session starts with a check-in. How are you feeling? Note an injury on the spot or just acknowledge you're sore. Two seconds of honesty before your first rep.
 - **Your warm-up, generated.** One button. Ramping sets based on your working weight. Edit them, clear them, or do your own thing.
@@ -64,6 +64,7 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 ### 📈 Own Your Progress
 - Completed every set last time? A **suggestion banner** nudges you forward:
   *"Try 87.5 kg x 6"* (+2.5 on your heaviest set)
+- **Assisted machine awareness** — for exercises like dip assist and pull-up assist, progress means *less* assistance. The banner flips: *"Try reducing assist to 25 kg × 8"*
 - Estimated 1RM **trend chart** on each exercise detail page — watch your strength curve rise over weeks and months
 
 ### 📑 Own Your Program
@@ -78,8 +79,16 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 - Color-coded: 🟢 10+ sets (on target), 🟡 5–9 (getting there), 🔴 <5 (needs work)
 - 15 muscle groups tracked automatically from your exercises
 
+### � Own Your Assist
+- **Assisted exercises treated correctly** — dip assist, pull-up assist, chin-up assist machines where the weight is counterweight, not resistance
+- Weight column reads **"Assist"** instead of "Weight" — no pretending you're lifting what you're not
+- PRs track **least assistance** (lower weight = stronger you)
+- Stagnation detection works in reverse — same assist level for 3+ sessions triggers a suggestion to reduce
+- Toggle any exercise as assisted from its detail page — your call, your classification
+- e1RM is hidden for assisted exercises (it doesn't apply to counterweight machines)
+
 ### 💪 Own Your Knowledge
-- 136+ exercises pre-loaded — each one yours to explore:
+- 139+ exercises pre-loaded — each one yours to explore:
   - Primary and secondary muscle groups
   - Interactive **muscle map** (SVG front & back body diagrams)
   - Step-by-step **how-to instructions**
@@ -140,7 +149,7 @@ WorkoutApp/
 │   │   ├── TemplatesScreen.tsx      # Template list + quick start
 │   │   ├── TemplateEditorScreen.tsx # Edit slots, options, prescribed sets
 │   │   ├── ExercisesScreen.tsx      # Exercise library with search
-│   │   ├── ExerciseDetailScreen.tsx # Stats, muscle map, guide, trend chart
+│   │   ├── ExerciseDetailScreen.tsx # Stats, muscle map, guide, trend chart, assisted toggle
 │   │   └── SettingsScreen.tsx       # Unit toggle, backup/restore, reset
 │   ├── components/
 │   │   ├── ConfettiCannon.tsx       # Celebration animation for PRs
@@ -153,12 +162,12 @@ WorkoutApp/
 │   │   ├── MuscleMap.tsx            # SVG front/back body diagram
 │   │   ├── OptionChips.tsx          # Exercise variant selector pills
 │   │   ├── PlateCalculator.tsx      # Barbell plate breakdown
-│   │   ├── ProgressiveOverloadBanner.tsx  # Suggestion banner
+│   │   ├── ProgressiveOverloadBanner.tsx  # Suggestion banner (normal + assisted modes)
 │   │   ├── RestTimerModal.tsx       # Rest timer overlay with next-set preview
 │   │   ├── SessionSummaryHeader.tsx # Duration / sets / volume bar
 │   │   ├── SetRowEditor.tsx         # Set row: weight/reps/RPE/warmup badge
 │   │   ├── ScheduleModal.tsx        # Weekly reminder day/time picker
-│   │   ├── SlotCard.tsx             # Expandable exercise card with reorder
+│   │   ├── SlotCard.tsx             # Expandable exercise card with reorder + assisted labels
 │   │   ├── TrendChart.tsx           # SVG line chart for e1RM trends
 │   │   ├── VolumeChart.tsx          # Volume over time chart
 │   │   ├── WeeklyVolumeCard.tsx     # Muscle group volume progress bars
@@ -172,9 +181,9 @@ WorkoutApp/
 │   ├── db/
 │   │   ├── db.ts                    # SQLite wrapper, init, migrations runner
 │   │   ├── migrations.ts           # 37 sequential DDL migrations
-│   │   ├── seed.ts                  # 136+ exercises, 11 templates, guides
+│   │   ├── seed.ts                  # 139+ exercises, 11 templates, guides
 │   │   └── repositories/
-│   │       ├── exercisesRepo.ts     # Exercise + variant CRUD
+│   │       ├── exercisesRepo.ts     # Exercise + variant CRUD, assisted toggle
 │   │       ├── sessionsRepo.ts      # Draft/finalize sessions, mid-workout editing
 │   │       ├── setsRepo.ts          # Set CRUD, "last time" queries, warmup management
 │   │       ├── statsRepo.ts         # Dashboard stats, e1RM history, session comparison
@@ -242,7 +251,7 @@ EAS will give you a download link for the `.apk` when the build finishes.
 npm test
 ```
 
-453 tests across 5 suites: DB unit tests, DB integration, session store reducer, feature interactions, and mid-workout editing.
+472 tests across 5 suites: DB unit tests, DB integration, session store reducer, feature interactions, and mid-workout editing.
 
 ---
 
@@ -252,7 +261,7 @@ The app uses a local SQLite database with **37 migrations** applied sequentially
 
 | Table | Purpose |
 |-------|---------|
-| `exercises` | Exercise definitions (name, muscles, guide, video) |
+| `exercises` | Exercise definitions (name, muscles, guide, video, is_assisted) |
 | `exercise_options` | Variants per exercise (Barbell, Dumbbell, etc.) |
 | `templates` | Workout template definitions |
 | `template_slots` | Exercise positions within a template (supports `is_hidden` for permanent removal) |
@@ -263,7 +272,7 @@ The app uses a local SQLite database with **37 migrations** applied sequentially
 | `session_slot_choices` | Which exercise option the user picked |
 | `sets` | Actual logged sets (weight, reps, RPE, completed, is_warmup, completed_at) |
 | `drop_set_segments` | Drop-set segments within a set |
-| `personal_records` | PR tracking (e1RM + heaviest weight) |
+| `personal_records` | PR tracking (e1RM + heaviest weight + least assisted) |
 | `body_weight` | Body weight logs |
 | `app_settings` | Key-value config (unit preference, theme, versions) |
 | `active_injuries` | Injury tracking (body region, severity, type, notes, resolved status) |
@@ -295,6 +304,8 @@ The backup includes all 16 tables and can fully restore the app's state.
 ### Progressive Overload
 
 Completed every prescribed set last time? A yellow banner suggests you go heavier — +2.5 on your heaviest set. Your past pushes your present.
+
+For **assisted exercises** (dip assist, pull-up assist, etc.), the logic flips — the banner suggests *reducing* assistance. Less counterweight means you're doing more of the work. Progress on an assisted machine means needing less help.
 
 ### e1RM Tracking
 
@@ -340,3 +351,22 @@ The library grew from 92 to 136+ exercises — more variations for legs, back, s
 - 453 tests across 5 suites, all passing
 - 37 database migrations (up from 35)
 - Full JSON backup now covers 16 tables (including injuries + schedule)
+
+### Alpha V 1.1 — "Own Your Assist"
+
+**Assisted exercise support. Your counterweight, respected.**
+
+#### What's New
+
+**🔄 Assisted Exercises**
+Exercises like dip assist, pull-up assist, and chin-up assist machines now work correctly. The weight you enter is treated as counterweight — the app knows you're not lifting it, you're using it as assistance. Column headers read "Assist" instead of "Weight", progressive overload suggests *less* assistance (not more weight), PRs track your *least* assisted lift, and stagnation detection catches when you've been at the same assist level too long. Toggle any exercise as assisted from its detail page.
+
+**💪 3 New Exercises**
+Assisted Pull Up, Assisted Chin Up, and Assisted Dip join the library. Machine Dip is also auto-classified as assisted.
+
+#### Under the Hood
+- 472 tests across 5 suites, all passing (up from 453)
+- 37 database migrations (added `is_assisted` column on exercises)
+- Exercise library: 139+ exercises (up from 136+)
+- New PR type: `least_assisted` for counterweight machines
+- e1RM skipped for assisted exercises (Epley formula doesn't apply to counterweight)
