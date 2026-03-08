@@ -76,6 +76,18 @@ Template for new entries:
 
 ### [2026-02-12] Add ARCHITECTURE.md — refactoring rules & state management contract
 
+### [2026-03-05] Quality — Exercise guides comprehensive overhaul
+- **Files changed:** `src/data/exerciseGuides.ts`
+- **What:** Major quality pass across all exercise guides — upgraded existing tips, replaced generic filler, and added 48 missing exercise guides:
+  1. **Bench press upgrade:** Added J-curve bar path, wrist stacking, elbow tucking, and unrack technique tips
+  2. **💡 Cue additions (19 exercises):** Added specific, actionable coaching cues to sumo deadlift, trap bar deadlift, stiff leg deadlift, good morning, zercher squat, smith machine squat, donkey calf raise, weighted pushup, diamond pushup, decline barbell bench, neutral pulldown, chest supported row, arnold press, rear delt fly, dumbbell curl, hammer curl, hanging leg raise, pallof press (front squat & chin up already done)
+  3. **Generic tip replacement:** Rewrote vague tips ("great exercise", "named after Arnold") with specific, actionable coaching advice across all 19 exercises above
+  4. **48 new exercise guides added:** Core/abs (12: crunch, decline crunch, reverse crunch, lying leg raise, captain chair leg raise, bicycle crunch, dead bug, v up, russian twist, dragon flag, decline situp, mountain climber), Cable (10: upright row, reverse fly, front raise, overhead curl, hammer curl, single arm row, shrug, external rotation, internal rotation, standing ab crunch), Dip variations (4: weighted dip, tricep dip, machine dip, ring dip), Machines (6: chest press, shoulder press, lat pulldown, row, preacher curl, seated row), Barbell/DB/BW (11: close grip bench, incline cable fly, DB RDL, reverse lunge, lateral lunge, sissy squat, landmine press, incline hammer curl, spider curl, smith bench, smith incline bench), Forearms (2: wrist curl, reverse wrist curl), Assisted (3: assisted pull up, assisted chin up, assisted dip)
+- **Why:** User audit revealed 48 exercises with no guide at all, ~19 with generic/filler tips, and key compound lifts (bench, sumo, trap bar) missing important coaching cues
+- **Risk:** Low — data-only change in exerciseGuides.ts, no logic or schema changes
+- **Rollback:** Revert `src/data/exerciseGuides.ts` to previous version
+- **Tests:** 472 passing (no test changes needed — data-only file)
+
 ### [2026-03-05] Feature — Assisted exercises (counterweight machines)
 - **Files changed:** `src/db/migrations.ts`, `src/db/seed.ts`, `src/types.ts`, `src/db/repositories/exercisesRepo.ts`, `src/db/repositories/setsRepo.ts`, `src/db/repositories/statsRepo.ts`, `src/db/repositories/sessionsRepo.ts`, `src/hooks/useSessionStore.ts`, `src/components/SlotCard.tsx`, `src/components/ProgressiveOverloadBanner.tsx`, `src/screens/LogScreen.tsx`, `src/screens/ExerciseDetailScreen.tsx`, `src/screens/ExercisesScreen.tsx`, `src/__tests__/db.test.ts`
 - **What:** Full support for assisted exercises (dip assist, pull-up assist, chin-up assist) where the weight entered represents counterweight (assistance), not resistance. Key changes:

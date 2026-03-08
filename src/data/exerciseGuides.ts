@@ -33,7 +33,8 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
     tips:
       '• High elbows are critical — if they drop, the bar rolls forward.\n' +
       '• This variation emphasizes quads more than back squats.\n' +
-      '• Work on wrist/lat mobility if the clean grip feels uncomfortable.',
+      '• Work on wrist/lat mobility if the clean grip feels uncomfortable.\n' +
+      '\n💡 Cue: "Elbows to the ceiling" — as you stand up, drive your elbows up first. This keeps your torso upright and prevents the bar from dumping forward.',
   },
   'safety bar squat': {
     url: 'https://www.muscleandstrength.com/exercises/safety-squat-bar-squat.html',
@@ -55,9 +56,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Squat down keeping the bar tight to your torso.\n' +
       '4. Drive up through your heels to return.',
     tips:
-      '• Use a pad or towel around the bar to protect your arms.\n' +
-      '• Keeps you very upright — great for core and quad engagement.\n' +
-      '• Start light to get used to the position.',
+      '• Use a bar pad, towel, or fat gripz to protect the crooks of your elbows.\n' +
+      '• Forces an extremely upright torso — great for quad and core development.\n' +
+      '• Start light to build tolerance for the bar position.\n' +
+      '\n💡 Cue: "Hug the bar into your chest" as you stand — this braces your core and keeps you from folding forward.',
   },
   'smith machine squat': {
     url: 'https://www.muscleandstrength.com/exercises/smith-machine-squat.html',
@@ -67,9 +69,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Unrack and lower until thighs are parallel.\n' +
       '4. Press up to return to the start.',
     tips:
-      '• Placing feet forward allows you to sit back more safely.\n' +
-      '• The fixed bar path removes the need for stabilization.\n' +
-      '• Good for beginners or high-rep burnout sets.',
+      '• Place feet 6-12 inches in front of the bar to sit back safely.\n' +
+      '• The fixed bar path lets you focus on depth and tempo without balance concerns.\n' +
+      '• Good for high-rep burnout sets or training without a spotter.\n' +
+      '\n💡 Cue: "Sit into a chair behind you" — the feet-forward position makes this feel more like a wall sit, targeting your quads.',
   },
   'hack squat machine': {
     url: 'https://www.muscleandstrength.com/exercises/hack-squat.html',
@@ -196,9 +199,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Go as low as your hamstring flexibility allows.\n' +
       '4. Return to standing by extending your hips.',
     tips:
-      '• Legs stay straighter than an RDL — more hamstring stretch.\n' +
-      '• Keep a neutral spine throughout.\n' +
-      '• Focus on feeling the stretch in the back of your legs.',
+      '• Knees stay nearly locked (slight bend) — straighter than an RDL.\n' +
+      '• Stop the descent when your back starts rounding, not when the bar reaches a set height.\n' +
+      '• Great for building hamstring flexibility; depth improves over time.\n' +
+      '\n💡 Cue: "Push your hips behind you like closing a car door with your butt" — this loads the hamstrings instead of straining your lower back.',
   },
   'conventional deadlift': {
     url: 'https://www.muscleandstrength.com/exercises/deadlifts.html',
@@ -221,9 +225,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Drop your hips, chest up, and brace your core.\n' +
       '4. Drive through your feet, pushing your knees out, to stand up.',
     tips:
-      '• This shifts more emphasis to quads, glutes and adductors.\n' +
-      '• Hips should be closer to the bar than in conventional.\n' +
-      '• Let the knees track over the toes throughout.',
+      '• This shifts more emphasis to quads, glutes and adductors vs conventional.\n' +
+      '• Hips should be closer to the bar — get your torso upright before pulling.\n' +
+      '• Be patient off the floor — sumo is slow to break but fast at lockout.\n' +
+      '\n💡 Cue: "Spread the floor apart" with your feet — this fires your glutes and adductors to break the bar off the ground.',
   },
   'trap bar deadlift': {
     url: 'https://www.muscleandstrength.com/exercises/trap-bar-deadlift.html',
@@ -233,9 +238,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Brace and drive through your feet to stand up.\n' +
       '4. Lower under control back to the floor.',
     tips:
-      '• More quad-friendly than conventional deadlifts.\n' +
-      '• The neutral grip reduces stress on the lower back.\n' +
-      '• Great for beginners learning the hip hinge.',
+      '• High handles reduce range of motion (good for beginners); low handles mimic a conventional pull.\n' +
+      '• The neutral grip lets you lift heavier with less bicep tear risk.\n' +
+      '• Stay centred in the hex — drifting forward turns it into a conventional pull.\n' +
+      '\n💡 Cue: "Push the floor away" — think of it as a leg press, not a pull. This keeps your chest up and drives through the quads.',
   },
   'good morning': {
     url: 'https://www.muscleandstrength.com/exercises/good-morning.html',
@@ -245,9 +251,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Lower your torso until nearly parallel to the floor.\n' +
       '4. Return to upright by driving your hips forward.',
     tips:
-      '• Start very light — this is a challenging movement.\n' +
-      '• Keep the weight on your heels.\n' +
-      '• Think of it as an RDL with the bar on your back.',
+      '• Start very light — this exercise places high demand on the lower back.\n' +
+      '• Keep a slight knee bend — don\'t lock out.\n' +
+      '• Keep your back flat throughout — if it rounds, reduce depth.\n' +
+      '\n💡 Cue: "Push your hips straight back to touch the wall behind you" — the hinge should come from your hips, not by bending your spine.',
   },
 
   /* ═══════ HAMSTRINGS — CURLS ═══════ */
@@ -410,9 +417,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Lower your heels for a deep stretch.\n' +
       '4. Rise up onto your toes, squeezing at the top.',
     tips:
-      '• The hip-flexed position provides a great stretch on the calves.\n' +
-      '• If no machine is available, have a partner sit on your lower back.\n' +
-      '• Use a full range of motion for best results.',
+      '• The hip-flexed position stretches the gastrocnemius more than standing raises.\n' +
+      '• Considered one of the best calf exercises by old-school bodybuilders.\n' +
+      '• Use a full range of motion — deep stretch at the bottom, hard squeeze on top.\n' +
+      '\n💡 Cue: Pause for 2 seconds at the full stretch (bottom) — calves respond best to time under tension, not bouncing.',
   },
   'tibialis raise': {
     url: 'https://www.muscleandstrength.com/exercises/tibialis-raise.html',
@@ -436,10 +444,12 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Lower the bar to your mid-chest with elbows at about 45°.\n' +
       '4. Press the bar up and slightly back to lockout.',
     tips:
-      '• Retract and depress your shoulder blades — squeeze them together.\n' +
-      '• Keep a slight arch in your lower back.\n' +
-      '• Drive your feet into the floor for leg drive.\n' +
-      '\n💡 Cue: Try to "bend the bar apart" (pull hands outward) as you press — this activates your chest more than just pushing up.',
+      '• Retract AND depress your shoulder blades — squeeze them together then pull toward your hips.\n' +
+      '• Keep wrists stacked directly over your elbows to protect the joint.\n' +
+      '• Bar path is a J-curve: lower to your nipple line, press back toward the rack.\n' +
+      '• Tuck elbows to ~45° — never flare to 90°, this protects your shoulders.\n' +
+      '• Unrack by pulling the bar out, not pressing it off the hooks. Drive feet into the floor for leg drive.\n' +
+      '\n💡 Cue: "Bend the bar" — try to snap it in half as you press. This auto-tucks your elbows and fires your lats for a stable, powerful press.',
   },
   'incline barbell bench': {
     url: 'https://www.muscleandstrength.com/exercises/incline-bench-press.html',
@@ -462,8 +472,9 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '4. Press back up to lockout.',
     tips:
       '• Emphasizes the lower chest fibers.\n' +
-      '• Many people feel stronger in this position.\n' +
-      '• Have a spotter hand off the bar for safety.',
+      '• Bar path should touch low on the chest, near the bottom of your sternum.\n' +
+      '• Many lifters feel stronger on decline — the reduced range of motion helps.\n' +
+      '\n💡 Cue: "Drive your back into the bench" as you press — this creates a stable platform and prevents your butt from lifting off the pad.',
   },
   'dumbbell bench press': {
     url: 'https://www.muscleandstrength.com/exercises/dumbbell-bench-press.html',
@@ -498,9 +509,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Lower your chest to the floor with elbows at ~45°.\n' +
       '4. Push back up to full extension.',
     tips:
-      '• A partner can place/remove the plate for you.\n' +
-      '• Keep your body in a straight line — don\'t sag your hips.\n' +
-      '• A weighted vest is more practical for higher loads.',
+      '• A weighted vest is cleaner for heavy sets; plates shift easily without one.\n' +
+      '• Keep your body in a plank — don\'t let hips sag or pike up.\n' +
+      '• Treat it like a bench press: elbows ~45°, full range of motion.\n' +
+      '\n💡 Cue: "Screw your hands into the floor" (externally rotate) — this packs your shoulders and protects the joint, just like on bench.',
   },
   'weighted decline pushup': {
     url: 'https://www.muscleandstrength.com/exercises/decline-push-up.html',
@@ -535,9 +547,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Lower your chest to your hands.\n' +
       '4. Press back up to full extension.',
     tips:
-      '• Primarily targets the triceps with chest as secondary.\n' +
-      '• Keep your elbows close to your body.\n' +
-      '• Widen the diamond if wrist discomfort occurs.',
+      '• Primarily targets the triceps — think of it as a bodyweight close-grip bench.\n' +
+      '• Keep elbows tracking back along your sides, not flaring out.\n' +
+      '• Widen the diamond shape if you feel wrist discomfort.\n' +
+      '\n💡 Cue: Lower your chest to your thumbs, not your chin — this keeps elbows tucked and maximizes tricep engagement.',
   },
 
   /* ═══════ CHEST — FLYS ═══════ */
@@ -627,9 +640,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Squeeze your lats and biceps at the top.\n' +
       '4. Lower all the way to a dead hang.',
     tips:
-      '• Easier than pull-ups due to more bicep involvement.\n' +
-      '• Great for building both back and bicep size.\n' +
-      '• Keep your core tight to prevent swinging.',
+      '• Supinated grip recruits more biceps, making it easier than pronated pull-ups.\n' +
+      '• Full dead hang at the bottom, chin above the bar at the top.\n' +
+      '• Keep your core tight and avoid kipping or swinging.\n' +
+      '\n💡 Cue: "Pull your chest to the bar, not your chin over it" — this prevents neck craning and ensures your lats do the work through a full range of motion.',
   },
   'lat pulldown': {
     url: 'https://www.muscleandstrength.com/exercises/lat-pull-down.html',
@@ -652,9 +666,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Pull the handle to your chest.\n' +
       '4. Extend your arms fully at the top.',
     tips:
-      '• Neutral grip is often easier on the shoulders.\n' +
-      '• Provides a longer range of motion than wide grip.\n' +
-      '• Great for overall lat development.',
+      '• Neutral grip is easier on the shoulders and allows a longer range of motion.\n' +
+      '• Pull to your sternum, not just your chin — full contraction matters.\n' +
+      '• Let your shoulder blades fully depress and retract at the bottom of each rep.\n' +
+      '\n💡 Cue: "Drive your elbows into your back pockets" — same cue as pull-ups. If you feel it more in your biceps than your back, lower the weight and focus on this cue.',
   },
   'dumbbell pullover': {
     url: 'https://www.muscleandstrength.com/exercises/dumbbell-pullover.html',
@@ -717,9 +732,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Row both dumbbells up, squeezing your shoulder blades.\n' +
       '4. Lower slowly.',
     tips:
-      '• Eliminates momentum — pure back work.\n' +
-      '• Great for those with lower back issues.\n' +
-      '• Can also be done on a dedicated machine.',
+      '• Eliminates momentum and spinal loading — pure back isolation.\n' +
+      '• Let the dumbbells hang to a full stretch at the bottom before each rep.\n' +
+      '• Try different grip angles (neutral, pronated) to hit different back fibers.\n' +
+      '\n💡 Cue: "Lead with your elbows, not your hands" — think about driving elbows to the ceiling. This shifts work from biceps to mid-back.',
   },
   't bar row': {
     url: 'https://www.muscleandstrength.com/exercises/t-bar-row.html',
@@ -832,9 +848,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Lock out overhead with palms forward.\n' +
       '4. Reverse the motion as you lower back down.',
     tips:
-      '• The rotation hits all three delt heads through the movement.\n' +
-      '• Use controlled rotation — don\'t rush it.\n' +
-      '• Named after Arnold Schwarzenegger — a classic exercise.',
+      '• The rotation hits all three delt heads through one continuous motion.\n' +
+      '• Use controlled rotation — don\'t rush it; the transition is where the magic happens.\n' +
+      '• Use lighter weight than a standard shoulder press — the rotation adds difficulty.\n' +
+      '\n💡 Cue: At the bottom (palms facing you), squeeze your elbows together in front, then rotate and press. This "hug-to-press" path maximizes delt activation.',
   },
   'dumbbell lateral raise': {
     url: 'https://www.muscleandstrength.com/exercises/dumbbell-lateral-raise.html',
@@ -870,9 +887,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Hold at the top briefly.\n' +
       '4. Lower slowly.',
     tips:
-      '• Don\'t use momentum — keep the motion controlled.\n' +
-      '• Think "pinch your shoulder blades" at the top.\n' +
-      '• Can also be done seated on a bench for more stability.',
+      '• Use light weight and focus on the squeeze — rear delts respond to control, not heavy load.\n' +
+      '• Lead with your elbows, not your hands, to keep the rear delts working.\n' +
+      '• Can also be done seated or face-down on an incline bench for strict form.\n' +
+      '\n💡 Cue: "Show your knuckles to the wall behind you" at the top of each rep — this externally rotates and keeps work in your rear delts instead of traps.',
   },
 
   /* ═══════ TRAPS ═══════ */
@@ -935,9 +953,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Squeeze at the top and supinate (twist pinky up) for maximum contraction.\n' +
       '4. Lower slowly.',
     tips:
-      '• Can be done alternating or simultaneously.\n' +
-      '• Supination (twisting) is key for full bicep contraction.\n' +
-      '• Keep upper arms stationary throughout.',
+      '• Supinate (twist pinkies outward) at the top for full bicep contraction.\n' +
+      '• Keep upper arms pinned — if elbows drift forward, you\'re using momentum.\n' +
+      '• Alternating reps let you focus on each arm; simultaneous reps save time.\n' +
+      '\n💡 Cue: Start with palms neutral at your sides, then actively rotate as you curl — the twist is where the bicep peak really fires.',
   },
   'hammer curl': {
     url: 'https://www.muscleandstrength.com/exercises/seated-hammer-curl.html',
@@ -947,9 +966,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Squeeze at the top.\n' +
       '4. Lower under control.',
     tips:
-      '• Targets the brachialis and brachioradialis in addition to biceps.\n' +
-      '• Builds forearm and outer arm thickness.\n' +
-      '• Can be done seated, standing, or alternating.',
+      '• Targets the brachialis and brachioradialis — key for overall arm thickness.\n' +
+      '• Keep elbows pinned at your sides throughout the movement.\n' +
+      '• Cross-body hammer curls (across your chest) emphasize the brachialis more.\n' +
+      '\n💡 Cue: "Curl like you\'re hammering a nail" — the neutral grip should stay constant from bottom to top with zero wrist rotation.',
   },
   'concentration curl': {
     url: 'https://www.muscleandstrength.com/exercises/concentration-curl.html',
@@ -1051,9 +1071,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Pause at the top.\n' +
       '4. Lower slowly under control.',
     tips:
-      '• Avoid swinging — control the motion.\n' +
+      '• Curl your pelvis up (posterior tilt) at the top — without this, hip flexors do most of the work.\n' +
       '• Bend knees to make it easier, straighten legs to make it harder.\n' +
-      '• Curl your pelvis up at the top for maximum ab engagement.',
+      '• Use ab straps if your grip gives out before your abs.\n' +
+      '\n💡 Cue: "Bring your belt buckle to your chin" — this forces the pelvic curl that actually works the abs, not just the hip flexors.',
   },
   'ab wheel rollout': {
     url: 'https://www.muscleandstrength.com/exercises/ab-wheel-roll-out.html',
@@ -1087,9 +1108,10 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '3. Press the handle straight out in front of you, resisting the rotation.\n' +
       '4. Bring it back to your chest. Complete reps, then switch sides.',
     tips:
-      '• Your core is working to resist rotation — anti-rotation exercise.\n' +
-      '• Keep your hips and shoulders square to the front.\n' +
-      '• Great for building functional core stability.',
+      '• An anti-rotation exercise — your core resists the cable pulling you sideways.\n' +
+      '• Keep hips and shoulders square to the front throughout each rep.\n' +
+      '• Hold the pressed-out position for 2-3 seconds for extra time under tension.\n' +
+      '\n💡 Cue: "Brace like someone is about to push you from the side" — this activates your obliques and deep core stabilizers, not just your rectus abdominis.',
   },
 
   /* ═══════ NEW EXERCISES ═══════ */
@@ -1233,5 +1255,613 @@ export const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
       '• Try different patterns: alternating waves, double slams, circles.\n' +
       '• Power comes from your whole body, not just your arms.\n' +
       '• Excellent for HIIT-style conditioning.',
+  },
+
+  /* ═══════ ADDITIONAL CORE / ABS ═══════ */
+  'crunch': {
+    url: 'https://www.muscleandstrength.com/exercises/crunches.html',
+    steps:
+      '1. Lie on your back with knees bent, feet flat on the floor.\n' +
+      '2. Place your hands behind your head or across your chest.\n' +
+      '3. Curl your shoulders off the floor by contracting your abs.\n' +
+      '4. Lower slowly back to the starting position.',
+    tips:
+      '• Don\'t pull on your neck — let your abs do the work.\n' +
+      '• Exhale forcefully as you crunch for a deeper contraction.\n' +
+      '• Only lift your shoulder blades off the floor — it\'s a small motion.\n' +
+      '\n💡 Cue: "Shorten the distance between your ribs and your hips" — this mental image keeps the work in your abs and prevents neck strain.',
+  },
+  'decline crunch': {
+    url: 'https://www.muscleandstrength.com/exercises/decline-crunch.html',
+    steps:
+      '1. Lie on a decline bench with your feet hooked under the pads.\n' +
+      '2. Cross your arms over your chest or place hands behind your head.\n' +
+      '3. Crunch up by curling your torso toward your knees.\n' +
+      '4. Lower slowly under control.',
+    tips:
+      '• The decline adds resistance compared to a flat crunch.\n' +
+      '• Don\'t sit all the way up — focus on curling your spine.\n' +
+      '• Hold a weight plate at your chest for added resistance.',
+  },
+  'reverse crunch': {
+    url: 'https://www.muscleandstrength.com/exercises/reverse-crunch.html',
+    steps:
+      '1. Lie on your back with arms at your sides, knees bent 90°.\n' +
+      '2. Curl your hips off the floor by contracting your lower abs.\n' +
+      '3. Bring your knees toward your chest, lifting your tailbone.\n' +
+      '4. Lower slowly back to the start.',
+    tips:
+      '• Focus on curling your pelvis, not just swinging your legs.\n' +
+      '• Keep the motion slow and controlled — no momentum.\n' +
+      '• Great for targeting the lower portion of the rectus abdominis.\n' +
+      '\n💡 Cue: "Tilt your pelvis toward the ceiling" — this ensures your abs are doing the work instead of your hip flexors.',
+  },
+  'lying leg raise': {
+    url: 'https://www.muscleandstrength.com/exercises/lying-floor-leg-raise.html',
+    steps:
+      '1. Lie flat on your back with legs straight, hands under your hips for support.\n' +
+      '2. Keeping legs straight, raise them until perpendicular to the floor.\n' +
+      '3. Pause briefly at the top.\n' +
+      '4. Lower slowly without letting your feet touch the floor.',
+    tips:
+      '• Press your lower back into the floor throughout — if it arches, bend your knees slightly.\n' +
+      '• Hands under your hips helps maintain a neutral spine.\n' +
+      '• To make it harder, add a hip curl at the top (lift tailbone off the floor).',
+  },
+  'captain chair leg raise': {
+    url: 'https://www.muscleandstrength.com/exercises/captain-chair-leg-raise.html',
+    steps:
+      '1. Position yourself in the captain\'s chair with arms on the pads, back against the support.\n' +
+      '2. Let your legs hang straight down.\n' +
+      '3. Raise your knees (or straight legs) toward your chest.\n' +
+      '4. Lower slowly under control.',
+    tips:
+      '• Curl your pelvis at the top for maximum ab engagement.\n' +
+      '• Keep your back pressed against the pad — don\'t swing.\n' +
+      '• Straight legs are harder; bent knees are easier.\n' +
+      '\n💡 Cue: Think "knees to chest, not feet to face" — this forces the posterior pelvic tilt that makes the exercise effective.',
+  },
+  'bicycle crunch': {
+    url: 'https://www.muscleandstrength.com/exercises/bicycle-crunch.html',
+    steps:
+      '1. Lie on your back with hands behind your head, legs raised and knees at 90°.\n' +
+      '2. Bring your right elbow toward your left knee while extending your right leg.\n' +
+      '3. Switch sides in a pedaling motion.\n' +
+      '4. Continue alternating for the prescribed reps.',
+    tips:
+      '• Don\'t just twist your arms — rotate your entire torso.\n' +
+      '• Keep the motion controlled — faster isn\'t better.\n' +
+      '• Fully extend each leg on the outward phase for full range of motion.',
+  },
+  'dead bug': {
+    url: 'https://www.muscleandstrength.com/exercises/dead-bug.html',
+    steps:
+      '1. Lie on your back with arms extended toward the ceiling, knees at 90°.\n' +
+      '2. Slowly lower your right arm behind your head while extending your left leg.\n' +
+      '3. Return to the start, then repeat on the opposite side.\n' +
+      '4. Continue alternating.',
+    tips:
+      '• Press your lower back into the floor the entire time — no arching.\n' +
+      '• Move slowly and with control — this is an anti-extension exercise.\n' +
+      '• Great for learning core bracing and coordination.\n' +
+      '\n💡 Cue: "Flatten your back like you\'re squishing a grape under your spine" — if your lower back lifts off the floor, reduce the range of motion.',
+  },
+  'v up': {
+    url: 'https://www.muscleandstrength.com/exercises/v-up.html',
+    steps:
+      '1. Lie flat on your back, arms extended overhead, legs straight.\n' +
+      '2. Simultaneously raise your legs and torso, reaching your hands toward your toes.\n' +
+      '3. Your body should form a V shape at the top.\n' +
+      '4. Lower slowly back to the starting position.',
+    tips:
+      '• Keep your legs as straight as possible throughout.\n' +
+      '• If it\'s too hard, start with tuck-ups (knees bent).\n' +
+      '• Control the descent — don\'t just fall back to the floor.',
+  },
+  'russian twist': {
+    url: 'https://www.muscleandstrength.com/exercises/russian-twist.html',
+    steps:
+      '1. Sit on the floor with knees bent, feet elevated slightly, torso leaned back ~45°.\n' +
+      '2. Hold a weight plate or dumbbell at chest height.\n' +
+      '3. Rotate your torso to one side, tapping the weight near the floor.\n' +
+      '4. Rotate to the other side. Continue alternating.',
+    tips:
+      '• Feet off the floor makes it harder; feet on the floor makes it easier.\n' +
+      '• Rotate through your entire torso, not just your arms.\n' +
+      '• Start with bodyweight before adding load.',
+  },
+  'dragon flag': {
+    url: 'https://www.muscleandstrength.com/exercises/dragon-flag.html',
+    steps:
+      '1. Lie on a bench and grip the edges behind your head.\n' +
+      '2. Raise your entire body (from shoulders to toes) into a straight line.\n' +
+      '3. Slowly lower your body as a rigid plank toward the bench.\n' +
+      '4. Stop before your lower back touches and reverse the movement.',
+    tips:
+      '• An advanced exercise — start with negatives (lowering only) if needed.\n' +
+      '• Your body should stay in a straight line — don\'t pike at the hips.\n' +
+      '• Only your upper back/shoulders should remain on the bench.\n' +
+      '\n💡 Cue: "Squeeze every muscle from chest to toes" before lowering — total body tension is what makes this work.',
+  },
+  'decline situp': {
+    url: 'https://www.muscleandstrength.com/exercises/decline-sit-up.html',
+    steps:
+      '1. Secure your feet on a decline bench.\n' +
+      '2. Cross arms over your chest or hold a weight plate.\n' +
+      '3. Lower your torso under control until your back is just above the bench.\n' +
+      '4. Sit back up by contracting your abs.',
+    tips:
+      '• Maintain a slight round in your upper back — don\'t go with a flat back.\n' +
+      '• Don\'t use momentum to swing up.\n' +
+      '• Add weight plate for progressive overload once bodyweight is easy.',
+  },
+  'mountain climber': {
+    url: 'https://www.muscleandstrength.com/exercises/mountain-climbers.html',
+    steps:
+      '1. Get into a high plank position with hands under your shoulders.\n' +
+      '2. Drive one knee toward your chest.\n' +
+      '3. Quickly switch legs, driving the other knee forward.\n' +
+      '4. Continue alternating at the prescribed pace.',
+    tips:
+      '• Keep your hips level — don\'t let them bounce up and down.\n' +
+      '• The faster you go, the more it becomes a conditioning exercise.\n' +
+      '• Slow, controlled reps emphasize core stability.',
+  },
+
+  /* ═══════ ADDITIONAL CABLE EXERCISES ═══════ */
+  'cable upright row': {
+    url: 'https://www.muscleandstrength.com/exercises/cable-upright-row.html',
+    steps:
+      '1. Attach a straight bar or rope to a low cable.\n' +
+      '2. Stand upright, grip the handle with hands close together.\n' +
+      '3. Pull the handle up along your body to chin height, leading with your elbows.\n' +
+      '4. Lower under control.',
+    tips:
+      '• Lead with elbows, not hands — elbows should always be higher than your wrists.\n' +
+      '• Don\'t go above chin height if you feel shoulder impingement.\n' +
+      '• Rope attachment lets you flare elbows out for more side delt emphasis.\n' +
+      '\n💡 Cue: "Pull your elbows to the ceiling" — this keeps the tension on your delts and traps rather than your biceps.',
+  },
+  'cable reverse fly': {
+    url: 'https://www.muscleandstrength.com/exercises/cable-reverse-fly.html',
+    steps:
+      '1. Set cables to shoulder height with no attachment (use the ball stops) or single handles.\n' +
+      '2. Cross the cables — grab the left cable with your right hand and vice versa.\n' +
+      '3. Step back, arms crossed in front of you, slight elbow bend.\n' +
+      '4. Pull your arms apart in a reverse fly motion, squeezing your rear delts.',
+    tips:
+      '• Keep a slight bend in your elbows throughout.\n' +
+      '• Constant cable tension makes this superior to dumbbells for rear delts.\n' +
+      '• Control the return — don\'t let the cables snap back.',
+  },
+  'cable front raise': {
+    url: 'https://www.muscleandstrength.com/exercises/cable-front-raise.html',
+    steps:
+      '1. Stand facing away from a low cable, handle in one hand.\n' +
+      '2. With a slight elbow bend, raise your arm straight in front to shoulder height.\n' +
+      '3. Pause briefly at the top.\n' +
+      '4. Lower slowly. Complete all reps, then switch arms.',
+    tips:
+      '• Cable behind you provides resistance through the full range.\n' +
+      '• Don\'t swing — keep the movement strict and controlled.\n' +
+      '• Use light weight — front delts fatigue quickly.',
+  },
+  'cable overhead curl': {
+    url: 'https://www.muscleandstrength.com/exercises/overhead-cable-curl.html',
+    steps:
+      '1. Set cables to the highest position with single handles.\n' +
+      '2. Stand in the center, grab both handles with palms up.\n' +
+      '3. Curl the handles toward your ears, keeping upper arms level.\n' +
+      '4. Extend slowly back to the start.',
+    tips:
+      '• The arms-up position targets the bicep peak (short head).\n' +
+      '• Keep upper arms parallel to the floor throughout.\n' +
+      '• Great finisher — use lighter weight and squeeze hard.\n' +
+      '\n💡 Cue: Think of hitting a "front double bicep" pose at the end of each rep — hold the squeeze for a full second.',
+  },
+  'cable hammer curl': {
+    url: 'https://www.muscleandstrength.com/exercises/cable-rope-hammer-curl.html',
+    steps:
+      '1. Attach a rope to a low cable.\n' +
+      '2. Stand facing the machine, grab the rope with a neutral grip.\n' +
+      '3. Curl the rope toward your shoulders, keeping palms facing each other.\n' +
+      '4. Lower under control.',
+    tips:
+      '• The cable keeps constant tension — no rest at the top or bottom.\n' +
+      '• Keep elbows pinned at your sides.\n' +
+      '• At the top, try to pull the rope apart slightly for extra brachialis activation.',
+  },
+  'single arm cable row': {
+    url: 'https://www.muscleandstrength.com/exercises/one-arm-cable-row.html',
+    steps:
+      '1. Set a cable to about waist height with a single handle.\n' +
+      '2. Step back, hinge slightly, and grab the handle with one hand.\n' +
+      '3. Row the handle to your hip, squeezing your lat.\n' +
+      '4. Extend slowly. Complete all reps, then switch sides.',
+    tips:
+      '• Unilateral work helps fix muscle imbalances.\n' +
+      '• Let your shoulder blade protract (reach forward) at the stretch for extra ROM.\n' +
+      '• Keep your hips square — don\'t rotate to cheat the weight.\n' +
+      '\n💡 Cue: "Row to your hip pocket, not your chest" — this ensures your lats do the work instead of your upper traps.',
+  },
+  'cable shrug': {
+    url: 'https://www.muscleandstrength.com/exercises/cable-shrug.html',
+    steps:
+      '1. Stand between two low cables or facing a single cable with a bar attachment.\n' +
+      '2. Grip the handles/bar at arm\'s length.\n' +
+      '3. Shrug your shoulders straight up toward your ears.\n' +
+      '4. Hold briefly, then lower slowly.',
+    tips:
+      '• Cable provides constant tension unlike dumbbells/barbells.\n' +
+      '• Straight up and down — don\'t roll your shoulders.\n' +
+      '• Hold the top contraction for 2 seconds for better trap activation.',
+  },
+  'cable external rotation': {
+    url: 'https://www.muscleandstrength.com/exercises/cable-external-rotation.html',
+    steps:
+      '1. Set a cable to elbow height. Stand sideways to the machine.\n' +
+      '2. Grab the handle with the far hand, elbow at 90° pinned to your side.\n' +
+      '3. Rotate your forearm outward away from your body.\n' +
+      '4. Return slowly. Complete all reps, then switch sides.',
+    tips:
+      '• Use very light weight — this is a rehab/prehab exercise.\n' +
+      '• Keep your elbow glued to your side throughout.\n' +
+      '• Essential for shoulder health, especially for heavy pressers.\n' +
+      '\n💡 Cue: Tuck a rolled towel between your elbow and torso — if it drops, your elbow is moving too much.',
+  },
+  'cable internal rotation': {
+    url: 'https://www.muscleandstrength.com/exercises/cable-internal-rotation.html',
+    steps:
+      '1. Set a cable to elbow height. Stand sideways to the machine.\n' +
+      '2. Grab the handle with the near hand, elbow at 90° pinned to your side.\n' +
+      '3. Rotate your forearm inward across your body.\n' +
+      '4. Return slowly. Complete all reps, then switch sides.',
+    tips:
+      '• Use very light weight — this is a prehab/rehab movement.\n' +
+      '• Keep your elbow fixed at your side the entire time.\n' +
+      '• Pair with external rotation for balanced rotator cuff training.',
+  },
+  'cable ab crunch (standing)': {
+    url: 'https://www.muscleandstrength.com/exercises/standing-cable-crunch.html',
+    steps:
+      '1. Attach a rope to a high cable. Stand facing the machine.\n' +
+      '2. Hold the rope behind your head with both hands.\n' +
+      '3. Crunch your torso forward by flexing your abs.\n' +
+      '4. Return to upright under control.',
+    tips:
+      '• Don\'t pull with your arms — the motion comes from your abs.\n' +
+      '• Exhale hard as you crunch for a deeper contraction.\n' +
+      '• Standing version is less intense than kneeling — good for beginners.',
+  },
+
+  /* ═══════ ADDITIONAL DIP VARIATIONS ═══════ */
+  'weighted dip': {
+    url: 'https://www.muscleandstrength.com/exercises/weighted-dip.html',
+    steps:
+      '1. Attach weight using a dip belt, weighted vest, or dumbbell between your feet.\n' +
+      '2. Grip the parallel bars and lift yourself to full extension.\n' +
+      '3. Lower by bending your elbows until shoulders are below elbows.\n' +
+      '4. Press back up to full lockout.',
+    tips:
+      '• Lean forward for chest emphasis; stay upright for triceps.\n' +
+      '• Progress gradually — even small weight jumps feel significant on dips.\n' +
+      '• Don\'t go so deep that your shoulders protest.\n' +
+      '\n💡 Cue: "Push the bars together" at the top — this isometric squeeze activates inner chest fibers like a fly.',
+  },
+  'tricep dip': {
+    url: 'https://www.muscleandstrength.com/exercises/bench-dip.html',
+    steps:
+      '1. Place your hands on a bench behind you, fingers forward.\n' +
+      '2. Extend your legs out in front (or bend knees to make it easier).\n' +
+      '3. Lower your body by bending your elbows until they\'re at ~90°.\n' +
+      '4. Press back up to full extension.',
+    tips:
+      '• Keep your back close to the bench — don\'t drift forward.\n' +
+      '• Elevate your feet on another bench to increase difficulty.\n' +
+      '• Stop if you feel shoulder pain — this position can be stressful on the joint.',
+  },
+  'machine dip': {
+    url: 'https://www.muscleandstrength.com/exercises/machine-dip.html',
+    steps:
+      '1. Sit in the machine with your back against the pad.\n' +
+      '2. Grip the handles at your sides.\n' +
+      '3. Press the handles down by extending your arms.\n' +
+      '4. Return slowly to the starting position.',
+    tips:
+      '• The machine stabilizes the movement — great for isolating the press pattern.\n' +
+      '• On an assisted version, more weight = more help (counterweight).\n' +
+      '• Good stepping stone toward bodyweight and weighted dips.',
+  },
+  'ring dip': {
+    url: 'https://www.muscleandstrength.com/exercises/ring-dip.html',
+    steps:
+      '1. Grip the rings and press yourself up to full arm extension (support hold).\n' +
+      '2. Turn the rings out slightly (RTO) at the top.\n' +
+      '3. Lower by bending your elbows, keeping rings close to your body.\n' +
+      '4. Press back up to full lockout.',
+    tips:
+      '• Much harder than bar dips — the instability forces stabilizer muscles to work.\n' +
+      '• Master a solid support hold before attempting reps.\n' +
+      '• Keep the rings tight to your sides throughout.\n' +
+      '\n💡 Cue: "Crush the rings into your sides" — this engages your lats and stabilizes the movement.',
+  },
+
+  /* ═══════ ADDITIONAL MACHINE EXERCISES ═══════ */
+  'machine chest press': {
+    url: 'https://www.muscleandstrength.com/exercises/machine-chest-press.html',
+    steps:
+      '1. Sit with your back flat against the pad, grab the handles at chest height.\n' +
+      '2. Set the seat height so handles align with your mid-chest.\n' +
+      '3. Press the handles forward until arms are fully extended.\n' +
+      '4. Return slowly to the starting position.',
+    tips:
+      '• Great for chest isolation without needing to balance the weight.\n' +
+      '• Perfect for dropsets and high-rep burnout work.\n' +
+      '• Keep your shoulder blades pinched back for maximum chest engagement.',
+  },
+  'machine shoulder press': {
+    url: 'https://www.muscleandstrength.com/exercises/machine-shoulder-press.html',
+    steps:
+      '1. Sit with your back against the pad, grab the handles at shoulder height.\n' +
+      '2. Press the handles overhead until your arms are fully extended.\n' +
+      '3. Lower to the starting position under control.\n' +
+      '4. Repeat.',
+    tips:
+      '• Machine stabilizes the path — great for shoulder isolation.\n' +
+      '• Adjust the seat so handles start at ear level.\n' +
+      '• Don\'t arch your lower back — keep it pressed against the pad.',
+  },
+  'machine lat pulldown': {
+    url: 'https://www.muscleandstrength.com/exercises/machine-lat-pulldown.html',
+    steps:
+      '1. Sit at the plate-loaded or lever pulldown machine.\n' +
+      '2. Grip the handles above you.\n' +
+      '3. Pull the handles down until your elbows are at your sides.\n' +
+      '4. Return slowly to a full stretch.',
+    tips:
+      '• Plate-loaded version often has a smoother strength curve than cable.\n' +
+      '• Focus on driving elbows down, not pulling with your hands.\n' +
+      '• Full stretch at the top is essential — don\'t short the range of motion.',
+  },
+  'machine row': {
+    url: 'https://www.muscleandstrength.com/exercises/machine-row.html',
+    steps:
+      '1. Sit at the machine with your chest against the pad.\n' +
+      '2. Grip the handles with arms extended.\n' +
+      '3. Pull the handles back, squeezing your shoulder blades together.\n' +
+      '4. Return slowly to the stretched position.',
+    tips:
+      '• Chest pad eliminates momentum — great for strict back work.\n' +
+      '• Try different grip options if the machine offers them (wide, neutral, close).\n' +
+      '• Let your shoulders fully protract at the stretch for extra range of motion.',
+  },
+  'machine preacher curl': {
+    url: 'https://www.muscleandstrength.com/exercises/machine-preacher-curl.html',
+    steps:
+      '1. Sit at the machine, place your upper arms on the pad.\n' +
+      '2. Grip the handles with an underhand grip.\n' +
+      '3. Curl up, squeezing your biceps at the top.\n' +
+      '4. Lower slowly under control.',
+    tips:
+      '• Machine keeps constant tension — no dead spots at top or bottom.\n' +
+      '• Excellent for dropsets and high-rep finishers.\n' +
+      '• Adjust the seat so your armpits rest at the top of the pad.',
+  },
+  'seated row machine': {
+    url: 'https://www.muscleandstrength.com/exercises/seated-row-machine.html',
+    steps:
+      '1. Sit on the machine and place your chest against the pad.\n' +
+      '2. Grip the handles with arms extended.\n' +
+      '3. Row the handles back, squeezing your shoulder blades.\n' +
+      '4. Return to the starting position slowly.',
+    tips:
+      '• Similar to a cable row but with a fixed path — easier to isolate the back.\n' +
+      '• Keep your chest on the pad throughout — don\'t lean back.\n' +
+      '• A great option for beginners or for finishing back workouts.',
+  },
+
+  /* ═══════ ADDITIONAL BARBELL / DUMBBELL / BODYWEIGHT ═══════ */
+  'close grip bench press': {
+    url: 'https://www.muscleandstrength.com/exercises/close-grip-bench-press.html',
+    steps:
+      '1. Lie on a flat bench, grip the bar with hands about shoulder-width apart.\n' +
+      '2. Unrack and lower the bar to your lower chest, keeping elbows tight to your body.\n' +
+      '3. Press back up to full lockout.\n' +
+      '4. Keep your elbows tucked throughout.',
+    tips:
+      '• Hands should be shoulder-width — going too narrow stresses the wrists.\n' +
+      '• Elbows stay tight to your sides, not flared.\n' +
+      '• Great for both tricep strength and improving your bench lockout.\n' +
+      '\n💡 Cue: "Squeeze the bar like you\'re trying to break it" — this activates your triceps from the start and keeps elbows tucked naturally.',
+  },
+  'incline cable fly': {
+    url: 'https://www.muscleandstrength.com/exercises/incline-cable-fly.html',
+    steps:
+      '1. Set an incline bench (30-45°) between two low cables.\n' +
+      '2. Grab the handles, lie back with arms extended, slight elbow bend.\n' +
+      '3. Bring your hands together above your upper chest in an arc.\n' +
+      '4. Lower slowly back to the stretched position.',
+    tips:
+      '• Targets the upper chest with constant cable tension.\n' +
+      '• Keep the slight elbow bend constant — don\'t straighten or bend further.\n' +
+      '• Great finisher after heavy incline pressing.',
+  },
+  'dumbbell rdl': {
+    url: 'https://www.muscleandstrength.com/exercises/dumbbell-romanian-deadlift.html',
+    steps:
+      '1. Stand with feet hip-width, holding dumbbells in front of your thighs.\n' +
+      '2. Hinge at the hips, pushing them back while lowering the dumbbells.\n' +
+      '3. Go as low as your hamstring flexibility allows, keeping your back flat.\n' +
+      '4. Drive your hips forward to stand back up.',
+    tips:
+      '• Keep the dumbbells close to your legs throughout.\n' +
+      '• Feel the stretch in your hamstrings — that\'s the target.\n' +
+      '• Great alternative when barbells are unavailable or for higher-rep work.\n' +
+      '\n💡 Cue: Same as barbell RDL — "slide the dumbbells down your legs like they\'re on rails." This keeps the load close and protects your back.',
+  },
+  'reverse lunge': {
+    url: 'https://www.muscleandstrength.com/exercises/reverse-lunge.html',
+    steps:
+      '1. Stand tall with dumbbells at your sides (or barbell on your back).\n' +
+      '2. Step backward with one foot and lower until both knees are at ~90°.\n' +
+      '3. Push through your front foot to return to standing.\n' +
+      '4. Repeat on the other side or alternate.',
+    tips:
+      '• Easier on the knees than forward lunges — less shear force.\n' +
+      '• Keep your torso upright throughout.\n' +
+      '• The front leg does most of the work — focus on driving through the heel.',
+  },
+  'lateral lunge': {
+    url: 'https://www.muscleandstrength.com/exercises/dumbbell-side-lunge.html',
+    steps:
+      '1. Stand with feet together, holding a dumbbell at your chest or dumbbells at your sides.\n' +
+      '2. Take a wide step to one side, sitting your hips back.\n' +
+      '3. Keep the trailing leg straight as you lower into the lunge.\n' +
+      '4. Push off the bent leg to return to the starting position.',
+    tips:
+      '• Great for hip mobility and adductor flexibility.\n' +
+      '• Keep your chest up and hips pushed back.\n' +
+      '• The deeper you go, the more your glutes and adductors work.',
+  },
+  'sissy squat': {
+    url: 'https://www.muscleandstrength.com/exercises/sissy-squat.html',
+    steps:
+      '1. Stand upright, holding a rack or pole for balance.\n' +
+      '2. Rise onto your toes, then lean your torso back while bending your knees.\n' +
+      '3. Lower until your knees are well in front of your toes and your thighs burn.\n' +
+      '4. Drive through your toes to return to the start.',
+    tips:
+      '• Extreme quad isolation — not for those with knee issues.\n' +
+      '• A sissy squat machine makes balance much easier.\n' +
+      '• Start with bodyweight only and progress slowly.\n' +
+      '\n💡 Cue: "Push your knees as far forward as possible" — this is the opposite of a normal squat cue, but it\'s what makes the exercise work.',
+  },
+  'land mine press': {
+    url: 'https://www.muscleandstrength.com/exercises/landmine-press.html',
+    steps:
+      '1. Wedge one end of a barbell into a corner or landmine attachment.\n' +
+      '2. Hold the other end at shoulder height with one or both hands.\n' +
+      '3. Press the bar up and forward until your arm is fully extended.\n' +
+      '4. Lower under control.',
+    tips:
+      '• The angled path is often more shoulder-friendly than a straight overhead press.\n' +
+      '• One arm at a time works the core as an anti-rotation stabilizer.\n' +
+      '• Great for athletes who need pressing power without full overhead range.',
+  },
+  'incline hammer curl': {
+    url: 'https://www.muscleandstrength.com/exercises/incline-hammer-curl.html',
+    steps:
+      '1. Sit on an incline bench (45-60°) with dumbbells hanging at your sides.\n' +
+      '2. Curl the weights up with a neutral (palms facing each other) grip.\n' +
+      '3. Squeeze your biceps at the top.\n' +
+      '4. Lower slowly.',
+    tips:
+      '• The incline pre-stretches the biceps — more range of motion than standing.\n' +
+      '• Keep your back flat against the bench — don\'t lean forward.\n' +
+      '• Start lighter than your standing hammer curl weight.',
+  },
+  'spider curl': {
+    url: 'https://www.muscleandstrength.com/exercises/spider-curl.html',
+    steps:
+      '1. Lie face down on an incline bench (45°) with your arms hanging straight down.\n' +
+      '2. Hold dumbbells or an EZ bar with an underhand grip.\n' +
+      '3. Curl the weight up, squeezing your biceps hard at the top.\n' +
+      '4. Lower slowly under control.',
+    tips:
+      '• The prone position eliminates all momentum — pure bicep contraction.\n' +
+      '• Gravity provides maximum tension at the fully contracted position.\n' +
+      '• Great for building the bicep peak.\n' +
+      '\n💡 Cue: "Squeeze like you\'re crushing a walnut in your elbow crease" at the top — the prone position makes the peak contraction brutally effective.',
+  },
+  'smith machine bench press': {
+    url: 'https://www.muscleandstrength.com/exercises/smith-machine-bench-press.html',
+    steps:
+      '1. Position a flat bench under the Smith machine bar.\n' +
+      '2. Lie on the bench, grip the bar slightly wider than shoulder-width.\n' +
+      '3. Unrack and lower the bar to your mid-chest.\n' +
+      '4. Press back up to lockout.',
+    tips:
+      '• The fixed path lets you focus on chest contraction without stabilization demands.\n' +
+      '• Great for training to failure safely without a spotter.\n' +
+      '• Slightly different muscle activation than free-weight bench — use as a supplement, not a replacement.',
+  },
+  'smith machine incline bench': {
+    url: 'https://www.muscleandstrength.com/exercises/smith-machine-incline-bench-press.html',
+    steps:
+      '1. Set an incline bench (30-45°) under the Smith machine.\n' +
+      '2. Grip the bar slightly wider than shoulder-width.\n' +
+      '3. Lower the bar to your upper chest / collarbone area.\n' +
+      '4. Press back up to lockout.',
+    tips:
+      '• Fixed path lets you isolate the upper chest safely.\n' +
+      '• Great for high-rep hypertrophy sets or dropsets.\n' +
+      '• Adjust bench position so the bar path hits your upper chest naturally.',
+  },
+
+  /* ═══════ FOREARMS ═══════ */
+  'wrist curl': {
+    url: 'https://www.muscleandstrength.com/exercises/wrist-curl.html',
+    steps:
+      '1. Sit on a bench, forearms on your thighs or the bench, palms up.\n' +
+      '2. Hold a barbell or dumbbells, letting your wrists hang over the edge.\n' +
+      '3. Curl the weight up by flexing your wrists.\n' +
+      '4. Lower slowly back down.',
+    tips:
+      '• Use 15-25 rep ranges — forearms respond to high volume.\n' +
+      '• Let the bar roll to your fingertips at the bottom for extra range of motion.\n' +
+      '• Don\'t use heavy weight — forearm tendons are delicate.',
+  },
+  'reverse wrist curl': {
+    url: 'https://www.muscleandstrength.com/exercises/reverse-wrist-curl.html',
+    steps:
+      '1. Sit on a bench, forearms on your thighs, palms facing down.\n' +
+      '2. Hold a barbell or dumbbells, wrists hanging over the edge.\n' +
+      '3. Extend your wrists upward.\n' +
+      '4. Lower slowly.',
+    tips:
+      '• Targets the wrist extensors — important for balanced forearm development.\n' +
+      '• Use lighter weight than regular wrist curls.\n' +
+      '• Helps prevent conditions like tennis elbow.',
+  },
+
+  /* ═══════ ASSISTED EXERCISES ═══════ */
+  'assisted pull up': {
+    url: 'https://www.muscleandstrength.com/exercises/machine-assisted-pull-up.html',
+    steps:
+      '1. Select a counterweight — more weight means more assistance.\n' +
+      '2. Step or kneel onto the platform, grip the bar overhand (wider than shoulder-width).\n' +
+      '3. Pull yourself up until your chin clears the bar.\n' +
+      '4. Lower slowly to a full stretch.',
+    tips:
+      '• Reduce the counterweight over time as you get stronger.\n' +
+      '• Use the same form as a regular pull-up — drive elbows down and back.\n' +
+      '• Great stepping stone to unassisted pull-ups.\n' +
+      '\n💡 Cue: "Drive your elbows into your back pockets" — same cue as a real pull-up. The machine just takes off some bodyweight.',
+  },
+  'assisted chin up': {
+    url: 'https://www.muscleandstrength.com/exercises/machine-assisted-chin-up.html',
+    steps:
+      '1. Select a counterweight — more weight means more assistance.\n' +
+      '2. Step or kneel onto the platform, grip the bar underhand (shoulder-width).\n' +
+      '3. Pull yourself up until your chin clears the bar.\n' +
+      '4. Lower slowly to a full stretch.',
+    tips:
+      '• Supinated (underhand) grip recruits more biceps than a pull-up.\n' +
+      '• Reduce assist over time — track progress in the app.\n' +
+      '• Master 10+ reps at the lightest assistance before trying unassisted.\n' +
+      '\n💡 Cue: "Pull your chest to the bar, not your chin over it" — prevents neck craning and ensures your lats work through the full range.',
+  },
+  'assisted dip': {
+    url: 'https://www.muscleandstrength.com/exercises/machine-assisted-dip.html',
+    steps:
+      '1. Select a counterweight — more weight means more assistance.\n' +
+      '2. Step or kneel onto the platform, grip the parallel bars.\n' +
+      '3. Lower by bending your elbows until shoulders are below elbows.\n' +
+      '4. Press back up to full lockout.',
+    tips:
+      '• Lean forward for more chest; stay upright for more triceps.\n' +
+      '• Reduce counterweight progressively as you build strength.\n' +
+      '• Once you can handle the lightest setting easily, graduate to bodyweight dips.\n' +
+      '\n💡 Cue: Same rules as regular dips — "push the bars together" at the top for maximum chest activation.',
   },
 };
