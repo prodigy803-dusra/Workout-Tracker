@@ -26,7 +26,7 @@
 | Exercises | ExercisesHome → ExerciseDetail | `ExercisesScreen.tsx`, `ExerciseDetailScreen.tsx` |
 | Settings | (single screen) | `SettingsScreen.tsx` |
 
-### Data Model (37 migrations)
+### Data Model (41 migrations)
 ```
 exercises ──< exercise_options
 templates ──< template_slots ──< template_slot_options ──< template_prescribed_sets
@@ -75,6 +75,20 @@ Template for new entries:
 -->
 
 ### [2026-02-12] Add ARCHITECTURE.md — refactoring rules & state management contract
+
+### [2026-03-05] Feature batch — Resume prompt, rep-range targets, custom exercises, notifications, CSV export
+- **Files changed:** `src/db/migrations.ts`, `src/types.ts`, `src/db/repositories/sessionsRepo.ts`, `src/db/repositories/templatesRepo.ts`, `src/db/repositories/exercisesRepo.ts`, `src/screens/LogScreen.tsx`, `src/screens/ExercisesScreen.tsx`, `src/screens/TemplateEditorScreen.tsx`, `src/screens/SettingsScreen.tsx`, `src/components/SetRowEditor.tsx`, `src/components/SlotCard.tsx`, `App.tsx`, `src/utils/notifications.ts` (new), `src/utils/exportCsv.ts` (new)
+- **What:** Six user-facing features implemented in a single batch:
+  1. **Resume interrupted workout** — LogScreen detects stale drafts (>2 hrs old) on mount and shows a banner with Resume / Discard options. Prevents accidental data loss from mid-workout app closes.
+  2. **Session notes** — Already existed (DB column, store, UI in LogScreen, HistoryScreen, SessionDetailScreen). Verified working, no changes needed.
+  3. **Rep-range targets on templates** — Migrations 39–40 add `target_reps_min` / `target_reps_max` columns on `template_slots`. TemplateEditorScreen shows per-slot min/max inputs. During workout, SetRowEditor highlights reps green (in range) or red (out of range). SlotCard header displays target text ("Target: 8–12 reps").
+  4. **Custom exercise creation** — Migration 41 adds `is_custom` flag on `exercises`. ExercisesScreen now opens a full modal with name, primary muscle (15 options), equipment (10 options), and assisted toggle. `createExercise` expanded to accept metadata and mark custom exercises.
+  5. **Workout reminders** — New `src/utils/notifications.ts` utility: permission request, foreground handler, inactivity-based scheduling via `expo-notifications` TIME_INTERVAL trigger (configurable days, default 3). Settings UI card with enable switch + days picker. Reminder rescheduled after every finished workout and on app launch.
+  6. **Export to CSV** — New `src/utils/exportCsv.ts`: queries all finalized sessions with exercises/sets, writes CSV to cache, and shares via OS share sheet. Button added to Settings > Data section.
+- **Why:** User selected 6 features from brainstormed list to improve daily usability, data portability, and engagement
+- **Risk:** Low–Medium — 3 new migrations (additive only), new notification permission prompt; all existing tests unaffected
+- **Rollback:** Revert all listed files; migrations are additive ALTERs so no destructive rollback needed
+- **Tests:** 472 passing (no test changes needed — all new features are UI/integration layer)
 
 ### [2026-03-05] Quality — Exercise guides comprehensive overhaul
 - **Files changed:** `src/data/exerciseGuides.ts`

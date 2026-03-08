@@ -242,4 +242,9 @@ export const migrations: string[] = [
   `,
   // Migration 38: is_assisted flag on exercises (weight = assistance, not resistance)
   `ALTER TABLE exercises ADD COLUMN is_assisted INTEGER NOT NULL DEFAULT 0;`,
+  // Migration 39-40: target rep range per template slot
+  `ALTER TABLE template_slots ADD COLUMN target_reps_min INT NULL;`,
+  `ALTER TABLE template_slots ADD COLUMN target_reps_max INT NULL;`,
+  // Migration 41: is_custom flag for user-created exercises
+  `ALTER TABLE exercises ADD COLUMN is_custom INTEGER NOT NULL DEFAULT 0;`,
 ];

@@ -21,6 +21,9 @@ type Props = {
   choiceId: number;
   unit: string;
   drops: DropSegment[];
+  /** Target rep range from template slot. Null values = no target. */
+  targetRepsMin?: number | null;
+  targetRepsMax?: number | null;
   onToggleComplete: (setId: number, completed: boolean, rawWeight?: string, rawReps?: string) => void;
   onCommitWeight: (setId: number, raw: string) => void;
   onCommitReps: (setId: number, raw: string) => void;
@@ -38,6 +41,8 @@ function SetRowEditor({
   choiceId,
   unit,
   drops,
+  targetRepsMin,
+  targetRepsMax,
   onToggleComplete,
   onCommitWeight,
   onCommitReps,
@@ -156,6 +161,15 @@ function SetRowEditor({
               styles.setInput,
               { width: 64, color: c.text, backgroundColor: c.inputBg, borderColor: c.border },
               s.completed && { color: c.textTertiary, backgroundColor: c.completedBg, borderColor: c.completedBorder },
+              // Rep range feedback: green if in range, red if out
+              ...(targetRepsMin != null || targetRepsMax != null ? (() => {
+                const reps = parseInt(rawReps, 10);
+                if (!reps || reps <= 0 || s.is_warmup) return [];
+                const belowMin = targetRepsMin != null && reps < targetRepsMin;
+                const aboveMax = targetRepsMax != null && reps > targetRepsMax;
+                if (belowMin || aboveMax) return [{ borderColor: c.danger, borderWidth: 2 }];
+                return [{ borderColor: c.success, borderWidth: 2 }];
+              })() : []),
             ]}
           />
 

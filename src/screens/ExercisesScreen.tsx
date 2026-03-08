@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet, SectionList, Alert } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet, SectionList, Alert, Modal, ScrollView, Switch } from 'react-native';
 import { listExercises, createExercise, deleteExercise } from '../db/repositories/exercisesRepo';
 import { useColors } from '../contexts/ThemeContext';
 import { useDebouncedCallback } from '../utils/debounce';
@@ -69,6 +69,23 @@ export default function ExercisesScreen({ navigation }: Props) {
   const [newName, setNewName] = useState('');
   const c = useColors();
 
+  // Create exercise modal state
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createMuscle, setCreateMuscle] = useState<string | null>(null);
+  const [createEquipment, setCreateEquipment] = useState<string | null>(null);
+  const [createAssisted, setCreateAssisted] = useState(false);
+
+  const MUSCLE_CHOICES = [
+    'quads', 'hamstrings', 'glutes', 'calves', 'chest', 'lats',
+    'mid back', 'lower back', 'shoulders front', 'shoulders side',
+    'shoulders rear', 'traps', 'biceps', 'triceps', 'core',
+  ];
+  const EQUIP_CHOICES = [
+    'barbell', 'dumbbell', 'machine', 'cable', 'bodyweight',
+    'ez bar', 'trap bar', 'specialty bar', 'sled', 'band',
+  ];
+
   const applySearch = useDebouncedCallback((val: string) => {
     setDebouncedSearch(val);
   }, 250);
@@ -115,15 +132,31 @@ export default function ExercisesScreen({ navigation }: Props) {
   }, [filtered]);
 
   async function handleCreate() {
-    const name = newName.trim();
+    const name = createName.trim();
     if (!name) return;
     try {
-      await createExercise(name);
-      setNewName('');
+      await createExercise(name, {
+        primaryMuscle: createMuscle ?? undefined,
+        equipment: createEquipment ?? undefined,
+        isAssisted: createAssisted,
+      });
+      setCreateName('');
+      setCreateMuscle(null);
+      setCreateEquipment(null);
+      setCreateAssisted(false);
+      setCreateModalVisible(false);
       load();
     } catch {
       Alert.alert('Duplicate', 'An exercise with that name already exists.');
     }
+  }
+
+  function openCreateModal() {
+    setCreateName('');
+    setCreateMuscle(null);
+    setCreateEquipment(null);
+    setCreateAssisted(false);
+    setCreateModalVisible(true);
   }
 
   async function handleDelete(exercise: Exercise) {
@@ -171,18 +204,9 @@ export default function ExercisesScreen({ navigation }: Props) {
               placeholderTextColor={c.textTertiary}
               style={[s.searchInput, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
             />
-            <View style={s.newRow}>
-              <TextInput
-                value={newName}
-                onChangeText={setNewName}
-                placeholder="Add custom exercise"
-                placeholderTextColor={c.textTertiary}
-                style={[s.input, { backgroundColor: c.card, borderColor: c.border, color: c.text }]}
-              />
-              <Pressable style={[s.createBtn, { backgroundColor: c.primary }]} onPress={handleCreate}>
-                <Text style={[s.createBtnText, { color: c.primaryText }]}>Add</Text>
-              </Pressable>
-            </View>
+            <Pressable style={[s.createBtn, { backgroundColor: c.primary }]} onPress={openCreateModal}>
+              <Text style={[s.createBtnText, { color: c.primaryText }]}>＋ Create Exercise</Text>
+            </Pressable>
           </View>
         }
         renderSectionHeader={({ section: { title } }) => (
@@ -230,6 +254,95 @@ export default function ExercisesScreen({ navigation }: Props) {
           <Text style={[s.hintText, { color: c.textTertiary }]}>Long-press an exercise to delete it</Text>
         }
       />
+
+      {/* Create Exercise Modal */}
+      <Modal visible={createModalVisible} animationType="slide" transparent>
+        <View style={s.modalBackdrop}>
+          <View style={[s.modalContent, { backgroundColor: c.card }]}>
+            <View style={[s.modalHeader, { borderBottomColor: c.border }]}>
+              <Text style={[s.modalTitle, { color: c.text }]}>Create Exercise</Text>
+              <Pressable onPress={() => setCreateModalVisible(false)}>
+                <Text style={[s.modalClose, { color: c.textSecondary }]}>✕</Text>
+              </Pressable>
+            </View>
+            <ScrollView style={{ paddingHorizontal: 16, paddingVertical: 12 }} keyboardShouldPersistTaps="handled">
+              {/* Name */}
+              <Text style={[s.fieldLabel, { color: c.textSecondary }]}>Exercise Name *</Text>
+              <TextInput
+                value={createName}
+                onChangeText={setCreateName}
+                placeholder="e.g. Bulgarian Split Squat"
+                placeholderTextColor={c.textTertiary}
+                autoFocus
+                style={[s.fieldInput, { backgroundColor: c.inputBg, borderColor: c.border, color: c.text }]}
+              />
+
+              {/* Primary Muscle */}
+              <Text style={[s.fieldLabel, { color: c.textSecondary }]}>Primary Muscle</Text>
+              <View style={s.chipGrid}>
+                {MUSCLE_CHOICES.map((m) => (
+                  <Pressable
+                    key={m}
+                    onPress={() => setCreateMuscle(createMuscle === m ? null : m)}
+                    style={[
+                      s.chip,
+                      { borderColor: createMuscle === m ? c.primary : c.border },
+                      createMuscle === m && { backgroundColor: c.primary + '18' },
+                    ]}
+                  >
+                    <Text style={[s.chipText, { color: createMuscle === m ? c.primary : c.text }]}>
+                      {m.charAt(0).toUpperCase() + m.slice(1)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Equipment */}
+              <Text style={[s.fieldLabel, { color: c.textSecondary }]}>Equipment</Text>
+              <View style={s.chipGrid}>
+                {EQUIP_CHOICES.map((eq) => (
+                  <Pressable
+                    key={eq}
+                    onPress={() => setCreateEquipment(createEquipment === eq ? null : eq)}
+                    style={[
+                      s.chip,
+                      { borderColor: createEquipment === eq ? c.primary : c.border },
+                      createEquipment === eq && { backgroundColor: c.primary + '18' },
+                    ]}
+                  >
+                    <Text style={[s.chipText, { color: createEquipment === eq ? c.primary : c.text }]}>
+                      {eq.charAt(0).toUpperCase() + eq.slice(1)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Assisted toggle */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, marginBottom: 8 }}>
+                <View>
+                  <Text style={[s.fieldLabel, { color: c.textSecondary, marginBottom: 0 }]}>Assisted Exercise</Text>
+                  <Text style={{ fontSize: 11, color: c.textTertiary }}>Weight = counterweight (more = easier)</Text>
+                </View>
+                <Switch
+                  value={createAssisted}
+                  onValueChange={setCreateAssisted}
+                  trackColor={{ true: c.primary }}
+                />
+              </View>
+            </ScrollView>
+
+            <View style={[s.modalActions, { borderTopColor: c.border }]}>
+              <Pressable
+                onPress={handleCreate}
+                style={[s.saveBtn, { backgroundColor: c.primary }, !createName.trim() && { opacity: 0.5 }]}
+                disabled={!createName.trim()}
+              >
+                <Text style={[s.saveBtnText, { color: c.primaryText }]}>Create Exercise</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -310,4 +423,68 @@ const s = StyleSheet.create({
   empty: { padding: 32, alignItems: 'center' },
   emptyText: { color: '#999', fontSize: 15 },
   hintText: { textAlign: 'center', fontSize: 12, paddingVertical: 16, fontStyle: 'italic' },
+  // Create exercise modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingBottom: 32,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700' },
+  modalClose: { fontSize: 20, padding: 4 },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  fieldInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+  },
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1.5,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modalActions: {
+    padding: 16,
+    borderTopWidth: 1,
+  },
+  saveBtn: {
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  saveBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
 });

@@ -22,6 +22,7 @@ import type { NextSetInfo, NextExerciseInfo } from '../hooks/useRestTimer';
 import { useUnit } from '../contexts/UnitContext';
 import { useColors } from '../contexts/ThemeContext';
 import { haptic } from '../utils/haptics';
+import { scheduleInactivityReminder } from '../utils/notifications';
 import { discardDraft } from '../db/repositories/sessionsRepo';
 import IdleScreen from '../components/IdleScreen';
 import SessionSummaryHeader from '../components/SessionSummaryHeader';
@@ -51,6 +52,8 @@ export default function LogScreenV2() {
   const [plateCalcWeight, setPlateCalcWeight] = useState(0);
   const [exercisePickerVisible, setExercisePickerVisible] = useState(false);
   const [rawNotes, setRawNotes] = useState('');
+  /** Stale-draft resume prompt — shown when an orphan draft is older than 2 hours */
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
 
   /* ── Active injuries for warning banners ── */
   const [activeInjuries, setActiveInjuries] = useState<Injury[]>([]);
@@ -100,6 +103,17 @@ export default function LogScreenV2() {
   useEffect(() => {
     setRawNotes(state.sessionNotes);
   }, [state.sessionNotes]);
+
+  // Stale-draft detection: if a draft is older than 2 hours, prompt user to resume or discard
+  useEffect(() => {
+    if (state.draft && state.phase === 'active') {
+      const createdMs = new Date(state.draft.created_at).getTime();
+      const hoursOld = (Date.now() - createdMs) / (1000 * 60 * 60);
+      setShowResumePrompt(hoursOld >= 2);
+    } else {
+      setShowResumePrompt(false);
+    }
+  }, [state.draft?.id, state.phase]);
 
   // Hydrate on focus
   useFocusEffect(
@@ -419,6 +433,8 @@ export default function LogScreenV2() {
             const currentElapsed = elapsed;
             await persistFinish(sessionId, rawNotes);
             dispatch({ type: 'RESET' });
+            // Reschedule inactivity reminder from today
+            scheduleInactivityReminder().catch(() => {});
             navigation.navigate('WorkoutSummary', { sessionId, duration: currentElapsed });
           } catch (err) {
             console.error('Error finishing session:', err);
@@ -609,6 +625,63 @@ export default function LogScreenV2() {
           totalVolume={totalVolume}
           unit={unit}
         />
+
+        {/* Resume prompt for stale drafts */}
+        {showResumePrompt && state.draft && (
+          <View style={{
+            padding: 14,
+            marginBottom: 12,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: c.isDark ? '#5C4A00' : '#FFE082',
+            backgroundColor: c.isDark ? '#2A2200' : '#FFF8E1',
+          }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: c.isDark ? '#FFD54F' : '#F57F17', marginBottom: 4 }}>
+              ⏸️ Unfinished Workout
+            </Text>
+            <Text style={{ fontSize: 13, color: c.textSecondary, marginBottom: 10 }}>
+              You started this workout{' '}
+              {(() => {
+                const hrs = Math.floor((Date.now() - new Date(state.draft!.created_at).getTime()) / (1000 * 60 * 60));
+                return hrs >= 24 ? `${Math.floor(hrs / 24)}d ${hrs % 24}h` : `${hrs}h`;
+              })()}{' '}
+              ago. Continue where you left off or discard it?
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Pressable
+                onPress={() => setShowResumePrompt(false)}
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  backgroundColor: c.success,
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFF' }}>✓ Resume</Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  setShowResumePrompt(false);
+                  haptic('error');
+                  await persistDiscard(state.draft!.id);
+                  dispatch({ type: 'RESET' });
+                }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: c.danger,
+                  backgroundColor: c.isDark ? '#3A1A1A' : '#FFF0F0',
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '700', color: c.danger }}>✕ Discard</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         {/* Action buttons */}
         <View style={styles.actionRow}>

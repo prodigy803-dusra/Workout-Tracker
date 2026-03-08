@@ -222,6 +222,8 @@ function SlotCard({
           {sets.length > 0 && (
             <Text style={[styles.progressText, { color: c.success }]}>
               {completedCount}/{sets.length} sets done
+              {(slot.target_reps_min != null || slot.target_reps_max != null) &&
+                ` • Target: ${slot.target_reps_min ?? '?'}–${slot.target_reps_max ?? '?'} reps`}
             </Text>
           )}
         </View>
@@ -321,6 +323,8 @@ function SlotCard({
                   choiceId={selectedChoiceId}
                   unit={unit}
                   drops={drops[s.id] || []}
+                  targetRepsMin={slot.target_reps_min}
+                  targetRepsMax={slot.target_reps_max}
                   onToggleComplete={onToggleComplete}
                   onCommitWeight={onCommitWeight}
                   onCommitReps={onCommitReps}

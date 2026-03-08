@@ -13,8 +13,10 @@ import { UnitProvider } from './src/contexts/UnitContext';
 import { ThemeProvider, useColors } from './src/contexts/ThemeContext';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import RootNavigator from './src/navigation';
+import { configureNotificationHandler, scheduleInactivityReminder } from './src/utils/notifications';
 
 SplashScreen.preventAutoHideAsync();
+configureNotificationHandler();
 
 function AppInner() {
   const [ready, setReady] = useState(false);
@@ -24,7 +26,11 @@ function AppInner() {
   useEffect(() => {
     let mounted = true;
     initDb()
-      .then(() => mounted && setReady(true))
+      .then(() => {
+        if (mounted) setReady(true);
+        // Reschedule inactivity reminder (no-op if disabled)
+        scheduleInactivityReminder().catch(() => {});
+      })
       .catch((err) => {
         console.error('DB init failed', err);
         if (mounted) setInitError(String(err));

@@ -32,11 +32,26 @@ export async function listExerciseOptions(exerciseId: number): Promise<Pick<Exer
   return res.rows._array;
 }
 
-/** Create a new exercise with the given name. */
-export async function createExercise(name: string) {
+/** Create a new exercise with the given name and optional metadata. */
+export async function createExercise(
+  name: string,
+  meta?: {
+    primaryMuscle?: string;
+    equipment?: string;
+    isAssisted?: boolean;
+  }
+) {
   await executeSqlAsync(
-    `INSERT INTO exercises(name, name_norm, created_at) VALUES (?,?,?);`,
-    [name, normalizeName(name), now()]
+    `INSERT INTO exercises(name, name_norm, primary_muscle, equipment, is_assisted, is_custom, created_at)
+     VALUES (?,?,?,?,?,1,?);`,
+    [
+      name,
+      normalizeName(name),
+      meta?.primaryMuscle || null,
+      meta?.equipment || null,
+      meta?.isAssisted ? 1 : 0,
+      now(),
+    ]
   );
 }
 

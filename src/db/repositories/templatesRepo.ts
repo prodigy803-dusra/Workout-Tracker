@@ -28,7 +28,7 @@ export async function getTemplate(templateId: number) {
     [templateId]
   );
   const slots = await executeSqlAsync(
-    `SELECT id, slot_index, name FROM template_slots
+    `SELECT id, slot_index, name, target_reps_min, target_reps_max FROM template_slots
      WHERE template_id=? ORDER BY slot_index;`,
     [templateId]
   );
@@ -80,6 +80,17 @@ export async function updateSlotName(slotId: number, name: string | null) {
   await executeSqlAsync(
     `UPDATE template_slots SET name=? WHERE id=?;`,
     [name, slotId]
+  );
+}
+
+export async function updateSlotRepRange(
+  slotId: number,
+  min: number | null,
+  max: number | null
+) {
+  await executeSqlAsync(
+    `UPDATE template_slots SET target_reps_min=?, target_reps_max=? WHERE id=?;`,
+    [min, max, slotId]
   );
 }
 

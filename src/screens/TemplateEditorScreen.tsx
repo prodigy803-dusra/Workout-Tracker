@@ -17,6 +17,7 @@ import {
   getTemplate,
   addSlot,
   updateSlotName,
+  updateSlotRepRange,
   deleteSlot,
   addTemplateSlotOption,
   deleteTemplateSlotOption,
@@ -33,7 +34,7 @@ type Props = NativeStackScreenProps<TemplatesStackParamList, 'TemplateEditor'>;
 export default function TemplateEditorScreen({ route, navigation }: Props) {
   const { templateId } = route.params;
   const [tpl, setTpl] = useState<{ id: number; name: string } | null>(null);
-  const [slots, setSlots] = useState<Array<{ id: number; slot_index: number; name: string | null }>>([]);
+  const [slots, setSlots] = useState<Array<{ id: number; slot_index: number; name: string | null; target_reps_min: number | null; target_reps_max: number | null }>>([]);
   const [options, setOptions] = useState<Array<{ id: number; template_slot_id: number; order_index: number; exercise_name: string; option_name: string | null; exercise_id: number; exercise_option_id: number | null }>>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const c = useColors();
@@ -190,6 +191,35 @@ export default function TemplateEditorScreen({ route, navigation }: Props) {
               placeholderTextColor={c.textTertiary}
               style={[styles.slotNameInput, { color: c.text, borderBottomColor: c.border }]}
             />
+            {/* Target rep range */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: '600' }}>🎯 Target reps:</Text>
+              <TextInput
+                defaultValue={s.target_reps_min?.toString() || ''}
+                onEndEditing={(e) => {
+                  const v = e.nativeEvent.text ? parseInt(e.nativeEvent.text, 10) : null;
+                  updateSlotRepRange(s.id, v, s.target_reps_max).catch(() => {});
+                  setSlots((prev) => prev.map((sl) => sl.id === s.id ? { ...sl, target_reps_min: v } : sl));
+                }}
+                placeholder="min"
+                placeholderTextColor={c.textTertiary}
+                keyboardType="numeric"
+                style={{ width: 48, fontSize: 13, textAlign: 'center', borderWidth: 1, borderRadius: 6, borderColor: c.border, paddingVertical: 4, paddingHorizontal: 6, backgroundColor: c.inputBg, color: c.text }}
+              />
+              <Text style={{ fontSize: 13, color: c.textSecondary }}>–</Text>
+              <TextInput
+                defaultValue={s.target_reps_max?.toString() || ''}
+                onEndEditing={(e) => {
+                  const v = e.nativeEvent.text ? parseInt(e.nativeEvent.text, 10) : null;
+                  updateSlotRepRange(s.id, s.target_reps_min, v).catch(() => {});
+                  setSlots((prev) => prev.map((sl) => sl.id === s.id ? { ...sl, target_reps_max: v } : sl));
+                }}
+                placeholder="max"
+                placeholderTextColor={c.textTertiary}
+                keyboardType="numeric"
+                style={{ width: 48, fontSize: 13, textAlign: 'center', borderWidth: 1, borderRadius: 6, borderColor: c.border, paddingVertical: 4, paddingHorizontal: 6, backgroundColor: c.inputBg, color: c.text }}
+              />
+            </View>
             <Text style={[styles.optionsLabel, { color: c.textSecondary }]}>Options:</Text>
             {slotOpts.map((o) => (
               <View key={o.id} style={[styles.optionRow, { borderBottomColor: c.border }]}>

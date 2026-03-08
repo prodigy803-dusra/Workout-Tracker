@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, TextInput, Alert, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, Pressable, TextInput, Alert, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Switch } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Sharing from 'expo-sharing';
 import { Paths, File as ExpoFile } from 'expo-file-system';
@@ -25,6 +25,16 @@ import TrendChart from '../components/TrendChart';
 import InjuryModal from '../components/InjuryModal';
 import { haptic } from '../utils/haptics';
 import { shareWeeklySummary, currentWeekStart, weekEnd } from '../utils/weeklyPdf';
+import {
+  isRemindersEnabled,
+  setRemindersEnabled,
+  getInactivityDays,
+  setInactivityDays,
+  requestNotificationPermission,
+  scheduleInactivityReminder,
+  cancelAllReminders,
+} from '../utils/notifications';
+import { exportSessionsCsv } from '../utils/exportCsv';
 import Constants from 'expo-constants';
 
 /** Tables exported/restored in dependency order. */
@@ -78,6 +88,10 @@ export default function SettingsScreen() {
   const [editingInjury, setEditingInjury] = useState<Injury | null>(null);
   const [showResolved, setShowResolved] = useState(false);
 
+  // Notification settings state
+  const [remindersOn, setRemindersOn] = useState(false);
+  const [inactDays, setInactDays] = useState('3');
+
   const loadBodyWeight = useCallback(async () => {
     const trend = await bodyWeightTrend();
     setBwTrend(trend);
@@ -90,11 +104,19 @@ export default function SettingsScreen() {
     setInjuries(all);
   }, []);
 
+  const loadNotificationSettings = useCallback(async () => {
+    const en = await isRemindersEnabled();
+    setRemindersOn(en);
+    const d = await getInactivityDays();
+    setInactDays(String(d));
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       loadBodyWeight();
       loadInjuries();
-    }, [loadBodyWeight, loadInjuries])
+      loadNotificationSettings();
+    }, [loadBodyWeight, loadInjuries, loadNotificationSettings])
   );
 
   async function exportZip() {
@@ -583,6 +605,75 @@ export default function SettingsScreen() {
         }}
       />
 
+      <Text style={[styles.sectionTitle, { color: c.text }]}>Workout Reminders</Text>
+      <Text style={[styles.hint, { color: c.textSecondary, marginBottom: 8 }]}>
+        Get a push notification if you haven't trained in a while.
+      </Text>
+      <View style={[styles.bwCard, { backgroundColor: c.card, borderColor: c.border, paddingVertical: 14 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>Enable Reminders</Text>
+            <Text style={{ fontSize: 12, color: c.textSecondary, marginTop: 2 }}>
+              {remindersOn ? 'Active' : 'Off'}
+            </Text>
+          </View>
+          <Switch
+            value={remindersOn}
+            onValueChange={async (val) => {
+              if (val) {
+                const granted = await requestNotificationPermission();
+                if (!granted) {
+                  Alert.alert('Permission Required', 'Please enable notifications in your device settings.');
+                  return;
+                }
+              }
+              setRemindersOn(val);
+              await setRemindersEnabled(val);
+              if (val) {
+                await scheduleInactivityReminder();
+              } else {
+                await cancelAllReminders();
+              }
+            }}
+            trackColor={{ true: c.primary }}
+          />
+        </View>
+        {remindersOn && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 8 }}>
+            <Text style={{ fontSize: 14, color: c.text }}>Remind after</Text>
+            <TextInput
+              value={inactDays}
+              onChangeText={setInactDays}
+              onEndEditing={async () => {
+                const d = parseInt(inactDays, 10);
+                if (!d || d < 1) {
+                  setInactDays('3');
+                  await setInactivityDays(3);
+                } else {
+                  await setInactivityDays(d);
+                }
+                await scheduleInactivityReminder();
+              }}
+              keyboardType="number-pad"
+              style={{
+                width: 48,
+                textAlign: 'center',
+                fontSize: 16,
+                fontWeight: '700',
+                borderWidth: 1,
+                borderColor: c.border,
+                borderRadius: 8,
+                paddingVertical: 6,
+                paddingHorizontal: 8,
+                backgroundColor: c.inputBg,
+                color: c.text,
+              }}
+            />
+            <Text style={{ fontSize: 14, color: c.text }}>days of inactivity</Text>
+          </View>
+        )}
+      </View>
+
       <Text style={[styles.sectionTitle, { color: c.text }]}>Weekly Summary</Text>
       <Text style={[styles.hint, { color: c.textSecondary }]}>
         Generate a PDF report of this week's workouts — share it with your trainer or keep it for your records.
@@ -609,6 +700,19 @@ export default function SettingsScreen() {
       </Pressable>
       <Text style={[styles.hint, { color: c.textSecondary }]}>
         Exports your templates, sessions, sets, PRs, and settings as a zip file.  Exercise library data (guides, tips) is skipped — it reloads automatically.
+      </Text>
+
+      <Pressable
+        onPress={async () => {
+          try { await exportSessionsCsv(); }
+          catch (e: any) { Alert.alert('Export failed', e.message ?? String(e)); }
+        }}
+        style={[styles.button, { backgroundColor: c.card, borderWidth: 1, borderColor: c.border, marginTop: 10 }]}
+      >
+        <Text style={[styles.buttonText, { color: c.text }]}>📊  Export CSV</Text>
+      </Pressable>
+      <Text style={[styles.hint, { color: c.textSecondary }]}>
+        Exports all finished workouts as a spreadsheet-friendly CSV file.
       </Text>
 
       <Text style={[styles.sectionTitle, { marginTop: 24, color: c.text }]}>Restore Backup</Text>

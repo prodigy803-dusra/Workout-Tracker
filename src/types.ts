@@ -120,6 +120,9 @@ export type DraftSlot = {
   option_name: string | null;
   /** 1 = assisted machine (weight = counterweight, more weight = easier) */
   is_assisted: number;
+  /** Target rep range from the template slot (e.g. 8–12). Null = no target. */
+  target_reps_min: number | null;
+  target_reps_max: number | null;
 };
 
 export type SlotOption = {
