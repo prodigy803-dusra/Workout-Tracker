@@ -1,9 +1,8 @@
 /**
  * weeklyPdf — generates an HTML-based weekly workout summary and exports it
- * as a shareable PDF via expo-print + expo-sharing.
+ * via the system print dialog (which allows "Save as PDF" to Files/Downloads).
  */
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import {
   weeklyReportData,
   type WeeklyReportData,
@@ -182,7 +181,9 @@ function buildHtml(data: WeeklyReportData, unitLabel: string): string {
  * ═══════════════════════════════════════════════════════════ */
 
 /**
- * Generate a weekly summary PDF for the given week and open the share sheet.
+ * Generate a weekly summary PDF and open the system print dialog.
+ * The print dialog allows the user to "Save as PDF" directly to
+ * Files / Downloads without going through a share sheet.
  * @param startDate YYYY-MM-DD (Monday)
  * @param endDate   YYYY-MM-DD (Sunday)
  * @param unit      'kg' | 'lb'
@@ -194,10 +195,5 @@ export async function shareWeeklySummary(
 ): Promise<void> {
   const data = await weeklyReportData(startDate, endDate);
   const html = buildHtml(data, unit);
-  const { uri } = await Print.printToFileAsync({ html });
-  await Sharing.shareAsync(uri, {
-    mimeType: 'application/pdf',
-    dialogTitle: `Weekly Summary ${startDate} – ${endDate}`,
-    UTI: 'com.adobe.pdf',
-  });
+  await Print.printAsync({ html });
 }
