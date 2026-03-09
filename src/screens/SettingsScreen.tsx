@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, TextInput, Alert, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Switch } from 'react-native';
+import { View, Text, Pressable, TextInput, Alert, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Switch, LayoutAnimation, UIManager } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Sharing from 'expo-sharing';
 import { Paths, File as ExpoFile } from 'expo-file-system';
@@ -66,6 +66,42 @@ const EXERCISE_SKIP_COLS = new Set([
 ]);
 
 function pad2(n: number) { return n < 10 ? '0' + n : '' + n; }
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+/** Tappable accordion section — collapsed by default unless `defaultOpen`. */
+function CollapsibleSection({ title, icon, children, defaultOpen = false, c }: {
+  title: string;
+  icon: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  c: ReturnType<typeof useColors>;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <Pressable
+        onPress={() => {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setOpen(o => !o);
+        }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: 8,
+          paddingHorizontal: 2,
+        }}
+      >
+        <Text style={{ fontSize: 18 }}>{icon}</Text>
+        <Text style={{ flex: 1, fontSize: 17, fontWeight: '700', color: c.text, marginLeft: 8 }}>{title}</Text>
+        <Text style={{ fontSize: 12, color: c.textSecondary }}>{open ? '▲' : '▼'}</Text>
+      </Pressable>
+      {open && <View style={{ marginTop: 4 }}>{children}</View>}
+    </View>
+  );
+}
 
 export default function SettingsScreen() {
   const [json, setJson] = useState('');
@@ -340,46 +376,55 @@ export default function SettingsScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}>
     <ScrollView style={[styles.container, { backgroundColor: c.background }]} contentContainerStyle={{ paddingBottom: 80 }} keyboardShouldPersistTaps="handled">
-      <Text style={[styles.sectionTitle, { color: c.text }]}>Theme</Text>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-        {(['light', 'dark', 'system'] as ThemeMode[]).map((m) => (
-          <Pressable
-            key={m}
-            onPress={() => setMode(m)}
-            style={[
-              styles.button,
-              m === mode
-                ? { backgroundColor: c.primary }
-                : { backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
-              { flex: 1 },
-            ]}
-          >
-            <Text style={[styles.buttonText, m === mode ? { color: c.primaryText } : { color: c.text }]}>
-              {m === 'light' ? '☀️ Light' : m === 'dark' ? '🌙 Dark' : '📱 System'}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={[styles.sectionTitle, { color: c.text }]}>Unit</Text>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-        {(['kg', 'lb'] as const).map((u) => (
-          <Pressable
-            key={u}
-            onPress={() => setUnit(u)}
-            style={[
-              styles.button,
-              u === unit
-                ? { backgroundColor: c.primary }
-                : { backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
-              { flex: 1 },
-            ]}
-          >
-            <Text style={[styles.buttonText, u === unit ? { color: c.primaryText } : { color: c.text }]}>
-              {u.toUpperCase()}
-            </Text>
-          </Pressable>
-        ))}
+      <Text style={[styles.sectionTitle, { color: c.text }]}>Preferences</Text>
+      <View style={[styles.bwCard, { backgroundColor: c.card, borderColor: c.border, marginBottom: 20 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>Theme</Text>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {(['light', 'dark', 'system'] as ThemeMode[]).map((m) => (
+              <Pressable
+                key={m}
+                onPress={() => setMode(m)}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  ...(m === mode
+                    ? { backgroundColor: c.primary }
+                    : { backgroundColor: c.background, borderWidth: 1, borderColor: c.border }),
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '600', color: m === mode ? c.primaryText : c.text }}>
+                  {m === 'light' ? '☀️ Light' : m === 'dark' ? '🌙 Dark' : '📱 System'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+        <View style={{ height: 1, backgroundColor: c.border, marginBottom: 14 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>Units</Text>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {(['kg', 'lb'] as const).map((u) => (
+              <Pressable
+                key={u}
+                onPress={() => setUnit(u)}
+                style={{
+                  paddingHorizontal: 18,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  ...(u === unit
+                    ? { backgroundColor: c.primary }
+                    : { backgroundColor: c.background, borderWidth: 1, borderColor: c.border }),
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '600', color: u === unit ? c.primaryText : c.text }}>
+                  {u.toUpperCase()}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
       </View>
 
       <Text style={[styles.sectionTitle, { color: c.text }]}>Body Weight</Text>
@@ -444,8 +489,7 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      {/* ── Active Injuries ────────────────────────────────── */}
-      <Text style={[styles.sectionTitle, { color: c.text }]}>Active Injuries</Text>
+      <CollapsibleSection title="Injuries" icon="🩹" c={c}>
       <Text style={[styles.hint, { color: c.textSecondary, marginBottom: 10 }]}>
         Log injuries to get adjusted workout suggestions and lighter weight prefills.
       </Text>
@@ -604,6 +648,7 @@ export default function SettingsScreen() {
           await loadInjuries();
         }}
       />
+      </CollapsibleSection>
 
       <Text style={[styles.sectionTitle, { color: c.text }]}>Workout Reminders</Text>
       <Text style={[styles.hint, { color: c.textSecondary, marginBottom: 8 }]}>
@@ -674,11 +719,11 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      <Text style={[styles.sectionTitle, { color: c.text }]}>Weekly Summary</Text>
+      <Text style={[styles.sectionTitle, { color: c.text }]}>Export & Reports</Text>
       <Text style={[styles.hint, { color: c.textSecondary }]}>
-        Generate a PDF report of this week's workouts — share it with your trainer or keep it for your records.
+        Share PDF summaries or export your data for backup and analysis.
       </Text>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
         <Pressable
           onPress={handleShareThisWeek}
           style={[styles.button, { flex: 1, backgroundColor: c.primary }]}
@@ -692,8 +737,6 @@ export default function SettingsScreen() {
           <Text style={[styles.buttonText, { color: c.text }]}>📄  Last Week</Text>
         </Pressable>
       </View>
-
-      <Text style={[styles.sectionTitle, { color: c.text }]}>Data</Text>
 
       <Pressable onPress={exportZip} style={[styles.button, { backgroundColor: c.primary }]}>
         <Text style={[styles.buttonText, { color: c.primaryText }]}>Export Backup (.zip)</Text>
@@ -715,8 +758,8 @@ export default function SettingsScreen() {
         Exports all finished workouts as a spreadsheet-friendly CSV file.
       </Text>
 
-      <Text style={[styles.sectionTitle, { marginTop: 24, color: c.text }]}>Restore Backup</Text>
-      <Text style={[styles.hint, { color: c.textSecondary }]}>
+      <CollapsibleSection title="Restore & Reset" icon="💾" c={c}>
+      <Text style={[styles.hint, { color: c.textSecondary, marginTop: 4 }]}>
         Select a .zip or legacy .json backup file, or paste JSON contents manually.
       </Text>
 
@@ -760,7 +803,8 @@ export default function SettingsScreen() {
         </Text>
       </Pressable>
 
-      <Text style={[styles.sectionTitle, { marginTop: 24, color: c.text }]}>Danger Zone</Text>
+      <View style={{ height: 1, backgroundColor: c.border, marginVertical: 16 }} />
+      <Text style={{ fontSize: 14, fontWeight: '700', color: c.danger, marginBottom: 8, paddingHorizontal: 2 }}>⚠️  Danger Zone</Text>
       <Pressable
         onPress={handleReset}
         style={[styles.button, { backgroundColor: c.dangerBg, borderWidth: 1, borderColor: c.danger }]}
@@ -770,6 +814,7 @@ export default function SettingsScreen() {
           {resetting ? 'Resetting...' : 'Reset Database'}
         </Text>
       </Pressable>
+      </CollapsibleSection>
 
       <Text style={[styles.versionText, { color: c.textTertiary }]}>
         v{Constants.expoConfig?.version ?? '?'}

@@ -4,7 +4,7 @@
  * and comparison with the previous session (progression/regression badges).
  */
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Share, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Share, ActivityIndicator, BackHandler } from 'react-native';
 import { useColors, ThemeColors } from '../contexts/ThemeContext';
 import { useUnit } from '../contexts/UnitContext';
 import { getSessionDetail } from '../db/repositories/sessionsRepo';
@@ -41,6 +41,15 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
   const [prevComp, setPrevComp] = useState<PrevComparison>({ prevVolume: null, prevDurationSecs: null });
   const [effort, setEffort] = useState<SessionEffortStats | null>(null);
   const [activeInjuries, setActiveInjuries] = useState<Injury[]>([]);
+
+  // Intercept Android hardware back — redirect to LogHome instead of popping
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      navigation.replace('LogHome');
+      return true; // consumed
+    });
+    return () => sub.remove();
+  }, [navigation]);
 
   useEffect(() => {
     getSessionDetail(sessionId).then(setDetail);

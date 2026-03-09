@@ -2432,7 +2432,7 @@ describe('Injury awareness — SettingsScreen integration (source)', () => {
       path.join(__dirname, '..', 'screens', 'SettingsScreen.tsx'),
       'utf8'
     );
-    expect(source).toMatch(/Active Injuries/);
+    expect(source).toMatch(/Injuries/);
     expect(source).toMatch(/Log New Injury/);
     expect(source).toMatch(/InjuryModal/);
     expect(source).toMatch(/loadInjuries/);

@@ -69,14 +69,20 @@ export default function LogScreenV2() {
   useKeepAwake('active-workout');
 
   // Prevent accidental back-navigation
+  // Prevent accidental back navigation during active workout.
+  // On Android the hardware back on the root tab screen would exit the app.
+  // We let RESET, REPLACE, and NAVIGATE actions through (tab switches, finish flow),
+  // and only block POP / GO_BACK that would discard the visible workout UI.
   useEffect(() => {
     if (!state.draft) return;
     const unsub = navigation.addListener('beforeRemove', (e: any) => {
-      if (e.data.action.type === 'RESET' || e.data.action.type === 'REPLACE') return;
+      const type = e.data.action.type;
+      // Allow programmatic navigations (finish, tab switch, etc.)
+      if (type === 'RESET' || type === 'REPLACE' || type === 'NAVIGATE') return;
       e.preventDefault();
       Alert.alert(
         'Leave workout?',
-        'You have an active workout in progress. Are you sure you want to leave? Your workout will still be here when you come back.',
+        'Your in-progress workout is saved automatically. You can resume it when you come back.',
         [
           { text: 'Stay', style: 'cancel' },
           { text: 'Leave', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
