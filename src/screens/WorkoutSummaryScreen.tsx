@@ -367,7 +367,7 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
         </Pressable>
         <Pressable
           style={s.doneBtn}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.replace('LogHome')}
         >
           <Text style={s.doneBtnText}>Done</Text>
         </Pressable>

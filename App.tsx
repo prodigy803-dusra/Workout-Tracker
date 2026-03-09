@@ -12,6 +12,7 @@ import { initDb } from './src/db/db';
 import { UnitProvider } from './src/contexts/UnitContext';
 import { ThemeProvider, useColors } from './src/contexts/ThemeContext';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import OnboardingModal from './src/components/OnboardingModal';
 import RootNavigator from './src/navigation';
 import { configureNotificationHandler, scheduleInactivityReminder } from './src/utils/notifications';
 
@@ -85,6 +86,7 @@ function AppInner() {
         <NavigationContainer theme={navTheme}>
           <RootNavigator />
         </NavigationContainer>
+        <OnboardingModal />
       </ErrorBoundary>
     </>
   );

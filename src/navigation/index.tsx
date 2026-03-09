@@ -11,6 +11,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import LogScreen from '../screens/LogScreen';
@@ -52,7 +53,12 @@ function LogStack() {
       <LogStackNav.Screen
         name="WorkoutSummary"
         component={WorkoutSummaryScreen}
-        options={{ title: 'Summary', headerBackTitle: 'Back' }}
+        options={{
+          title: 'Summary',
+          gestureEnabled: false,
+          headerBackVisible: false,
+          animation: 'slide_from_bottom',
+        }}
       />
     </LogStackNav.Navigator>
   );
@@ -104,7 +110,19 @@ export default function RootNavigator() {
         headerTintColor: c.text,
       })}
     >
-      <Tab.Screen name="Log" component={LogStack} options={{ headerShown: false }} />
+      <Tab.Screen
+        name="Log"
+        component={LogStack}
+        options={({ route }) => {
+          const focused = getFocusedRouteNameFromRoute(route) ?? 'LogHome';
+          return {
+            headerShown: false,
+            tabBarStyle: focused === 'WorkoutSummary'
+              ? { display: 'none' as const }
+              : { backgroundColor: c.tabBarBg, borderTopColor: c.border },
+          };
+        }}
+      />
       <Tab.Screen name="History" component={HistoryStack} options={{ headerShown: false }} />
       <Tab.Screen name="Templates" component={TemplatesStack} options={{ headerShown: false }} />
       <Tab.Screen name="Exercises" component={ExercisesStack} options={{ headerShown: false }} />

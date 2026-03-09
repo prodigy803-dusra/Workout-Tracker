@@ -76,6 +76,16 @@ Template for new entries:
 
 ### [2026-02-12] Add ARCHITECTURE.md — refactoring rules & state management contract
 
+### [2026-03-08] Navigation hardening + onboarding walkthrough
+- **Files changed:** `src/navigation/index.tsx`, `src/screens/LogScreen.tsx`, `src/screens/WorkoutSummaryScreen.tsx`, `App.tsx`, `src/components/OnboardingModal.tsx` (new)
+- **What:** Two improvements:
+  1. **Navigation reliability** — Fixed post-workout jank: `handleFinish` now uses `navigation.replace()` instead of `navigate()`, eliminating the brief idle-screen flash and preventing back-swipe from the summary. WorkoutSummary gets `slide_from_bottom` animation, no back gesture, and the tab bar is hidden for an immersive feel. "Done" button uses `replace('LogHome')` for a clean return. Also fixed a stray `}` typo rendering as literal text on LogScreen.
+  2. **Onboarding walkthrough** — New `OnboardingModal` component: 5-step horizontal-paged intro (Welcome → Templates → Logging → Progress → Get Started) with animated dots, skip button, and swipe support. Persisted via `app_settings.onboarding_complete` key — shows once on first launch, never again.
+- **Why:** User reported "janky feeling" with navigation; onboarding needed for store-readiness
+- **Risk:** Low — navigation changes are isolated to 3 files, onboarding is a self-contained modal with no side-effects on existing logic
+- **Rollback:** Revert listed files; remove OnboardingModal import from App.tsx
+- **Tests:** 472 passing (no test changes needed)
+
 ### [2026-03-05] Feature batch — Resume prompt, rep-range targets, custom exercises, notifications, CSV export
 - **Files changed:** `src/db/migrations.ts`, `src/types.ts`, `src/db/repositories/sessionsRepo.ts`, `src/db/repositories/templatesRepo.ts`, `src/db/repositories/exercisesRepo.ts`, `src/screens/LogScreen.tsx`, `src/screens/ExercisesScreen.tsx`, `src/screens/TemplateEditorScreen.tsx`, `src/screens/SettingsScreen.tsx`, `src/components/SetRowEditor.tsx`, `src/components/SlotCard.tsx`, `App.tsx`, `src/utils/notifications.ts` (new), `src/utils/exportCsv.ts` (new)
 - **What:** Six user-facing features implemented in a single batch:

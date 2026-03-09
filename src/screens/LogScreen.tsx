@@ -432,10 +432,11 @@ export default function LogScreenV2() {
             const sessionId = state.draft!.id;
             const currentElapsed = elapsed;
             await persistFinish(sessionId, rawNotes);
-            dispatch({ type: 'RESET' });
             // Reschedule inactivity reminder from today
             scheduleInactivityReminder().catch(() => {});
-            navigation.navigate('WorkoutSummary', { sessionId, duration: currentElapsed });
+            // Replace (not push) so there's no back-gesture to a stale LogHome
+            navigation.replace('WorkoutSummary', { sessionId, duration: currentElapsed });
+            dispatch({ type: 'RESET' });
           } catch (err) {
             console.error('Error finishing session:', err);
             Alert.alert('Error', 'Failed to finish session: ' + (err as Error).message);
@@ -773,7 +774,7 @@ export default function LogScreenV2() {
           <Text style={[styles.addExerciseBtnText, { color: c.accent }]}>＋ Add Exercise</Text>
         </Pressable>
 
-        {/* Rest Timer */}}
+        {/* Rest Timer */}
         <RestTimerModal timer={timer} unit={unit} />
 
         {/* Plate Calculator */}
