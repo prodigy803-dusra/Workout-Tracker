@@ -65,12 +65,15 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 - Completed every set last time? A **suggestion banner** nudges you forward:
   *"Try 87.5 kg x 6"* (+2.5 on your heaviest set)
 - **Assisted machine awareness** — for exercises like dip assist and pull-up assist, progress means *less* assistance. The banner flips: *"Try reducing assist to 25 kg × 8"*
+- **Stagnation detection** — same weight for 3+ sessions triggers an orange nudge to push past the plateau
 - Estimated 1RM **trend chart** on each exercise detail page — watch your strength curve rise over weeks and months
+- **Resume interrupted workouts** — close the app mid-session? A banner offers to pick up where you left off
 
 ### 📑 Own Your Program
 - Create custom workout templates — your split, your way
 - Each template has **slots** (exercise positions) with one or more **exercise options**
 - Prescribe default sets (weight / reps / RPE / rest) per slot
+- Set **target rep ranges** per slot for real-time feedback during workouts
 - 11 built-in program templates from real training programs to get you started
 - **⏰ Workout Reminders** — schedule recurring weekly push notifications, your days, your time
 
@@ -109,12 +112,33 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 - **Pre-workout check-in** — log a new injury on the spot before any session. Your honesty, your safety.
 - Full injury lifecycle: log, heal, reactivate, delete — all from Settings
 
+### 🎯 Own Your Targets
+- Set **rep-range targets** per template slot — e.g. 8–12 reps
+- During your workout, reps flash **green** when in range, **red** when outside
+- Target displayed in slot header so you always know the goal
+
+### 🔔 Own Your Schedule
+- **Workout reminders** — schedule weekly push notifications per template (day + time)
+- **Inactivity nudge** — get a reminder if you haven't trained in X days (configurable)
+- All notifications local, no server, no tracking
+
+### 🆕 Own Your Library
+- **Create custom exercises** — name, muscle group (15 options), equipment (10 options), assisted toggle
+- Custom exercises are flagged and live alongside the built-in library
+- Full search across both built-in and custom exercises
+
+### 📤 Own Your Data
+- **Export to CSV** — all finalized workouts as a spreadsheet-friendly file
+- **Full ZIP backup** — every table, every row, compressed and shareable
+- **Restore from backup** — pick a .zip or legacy .json file to bring everything back
+- **Weekly PDF summary** — share this week's or last week's report with your trainer
+
 ### ⚙️ Own Your Setup
 - Toggle between **kg** and **lb** — your units, your preference
 - **Dark mode** — light / dark / system theme
 - **Injury management** — full lifecycle (log, edit, heal, reactivate, delete)
-- **Full JSON backup** — every table, every row, exportable. Your data leaves with you.
-- **Restore from backup** — pick a file or paste JSON to bring everything back
+- **Collapsible sections** — Injuries and Restore/Reset collapse to keep the screen clean
+- **Onboarding walkthrough** — 5-step first-launch guide covers templates, logging, and progress tracking
 - **Reset database** — start fresh whenever you want
 
 ---
@@ -125,11 +149,13 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 |-------|-----------|
 | Framework | React Native 0.81 + Expo 54 |
 | Language | TypeScript 5.9 (strict mode) |
-| Database | SQLite via `expo-sqlite` |
-| Navigation | React Navigation (bottom tabs + native stacks) |
+| Database | SQLite via `expo-sqlite` (41 migrations) |
+| Navigation | React Navigation 7 (bottom tabs + native stacks) |
+| Notifications | `expo-notifications` (rest timer + workout reminders) |
 | Charts | Custom SVG line chart (`react-native-svg`) |
+| Haptics | `expo-haptics` |
 | File sharing | `expo-file-system` + `expo-sharing` |
-| Testing | Jest + ts-jest |
+| Testing | Jest + ts-jest (472 tests, 5 suites) |
 
 ---
 
@@ -150,8 +176,10 @@ WorkoutApp/
 │   │   ├── TemplateEditorScreen.tsx # Edit slots, options, prescribed sets
 │   │   ├── ExercisesScreen.tsx      # Exercise library with search
 │   │   ├── ExerciseDetailScreen.tsx # Stats, muscle map, guide, trend chart, assisted toggle
-│   │   └── SettingsScreen.tsx       # Unit toggle, backup/restore, reset
+│   │   ├── SettingsScreen.tsx       # Preferences, body weight, injuries, reminders, export/restore
+│   │   └── WorkoutSummaryScreen.tsx  # Post-workout review with progression analysis
 │   ├── components/
+│   │   ├── CalendarHeatmap.tsx       # Activity heatmap calendar
 │   │   ├── ConfettiCannon.tsx       # Celebration animation for PRs
 │   │   ├── DropSegmentRow.tsx       # Drop-set segment row
 │   │   ├── ErrorBoundary.tsx        # App-level error boundary
@@ -160,6 +188,7 @@ WorkoutApp/
 │   │   ├── InjuryModal.tsx          # Add/edit injury bottom-sheet modal
 │   │   ├── LastTimePanel.tsx        # "Last time" data display
 │   │   ├── MuscleMap.tsx            # SVG front/back body diagram
+│   │   ├── OnboardingModal.tsx      # First-launch 5-step walkthrough
 │   │   ├── OptionChips.tsx          # Exercise variant selector pills
 │   │   ├── PlateCalculator.tsx      # Barbell plate breakdown
 │   │   ├── ProgressiveOverloadBanner.tsx  # Suggestion banner (normal + assisted modes)
@@ -180,7 +209,7 @@ WorkoutApp/
 │   │   └── useSessionStore.ts       # Central useReducer store for active session
 │   ├── db/
 │   │   ├── db.ts                    # SQLite wrapper, init, migrations runner
-│   │   ├── migrations.ts           # 37 sequential DDL migrations
+│   │   ├── migrations.ts           # 41 sequential DDL migrations
 │   │   ├── seed.ts                  # 139+ exercises, 11 templates, guides
 │   │   └── repositories/
 │   │       ├── exercisesRepo.ts     # Exercise + variant CRUD, assisted toggle
@@ -196,9 +225,13 @@ WorkoutApp/
 │   │   ├── muscleExerciseMap.ts     # Exercise -> muscle group mappings
 │   │   └── injuryRegionMap.ts       # Body region → muscle/severity mappings for injuries
 │   ├── utils/
-│   │   ├── normalize.ts             # Name normalisation for dedup
-│   │   ├── units.ts                 # kg <-> lb conversion helpers
 │   │   ├── debounce.ts              # useDebouncedCallback hook
+│   │   ├── exportCsv.ts             # Export finalized sessions to CSV
+│   │   ├── haptics.ts               # Haptic feedback helper
+│   │   ├── importBackup.ts          # Backup import utilities
+│   │   ├── normalize.ts             # Name normalisation for dedup
+│   │   ├── notifications.ts         # Local push notification scheduling
+│   │   ├── units.ts                 # kg <-> lb conversion helpers
 │   │   └── workoutReminders.ts      # Sync expo-notifications weekly triggers
 │   └── __tests__/
 │       ├── db.test.ts               # DB unit tests
@@ -257,7 +290,7 @@ npm test
 
 ## Database
 
-The app uses a local SQLite database with **37 migrations** applied sequentially on first launch. Key tables:
+The app uses a local SQLite database with **41 migrations** applied sequentially on first launch. Key tables:
 
 | Table | Purpose |
 |-------|---------|
@@ -267,6 +300,7 @@ The app uses a local SQLite database with **37 migrations** applied sequentially
 | `template_slots` | Exercise positions within a template (supports `is_hidden` for permanent removal) |
 | `template_slot_options` | Which exercises can fill each slot |
 | `template_prescribed_sets` | Default weight/reps/rest per slot |
+| `template_schedule` | Workout reminder schedule (template, day, time) |
 | `sessions` | Workout sessions (draft or finalized) |
 | `session_slots` | Slot instances within a session |
 | `session_slot_choices` | Which exercise option the user picked |
@@ -276,14 +310,14 @@ The app uses a local SQLite database with **37 migrations** applied sequentially
 | `body_weight` | Body weight logs |
 | `app_settings` | Key-value config (unit preference, theme, versions) |
 | `active_injuries` | Injury tracking (body region, severity, type, notes, resolved status) |
-| `schedule` | Workout reminder schedule (template, day, time) |
 
 ### Backup & Restore
 
-- **Export:** Settings -> Export Full Backup -> shares a JSON file
-- **Import:** Settings -> paste JSON -> Restore Backup
+- **Export:** Settings → Export Backup (.zip) → shares a compressed backup
+- **CSV:** Settings → Export CSV → spreadsheet-friendly workout log
+- **Import:** Settings → Pick Backup File or paste JSON → Restore Backup
 
-The backup includes all 16 tables and can fully restore the app's state.
+The backup includes all tables and can fully restore the app's state.
 
 ---
 
@@ -370,3 +404,54 @@ Assisted Pull Up, Assisted Chin Up, and Assisted Dip join the library. Machine D
 - Exercise library: 139+ exercises (up from 136+)
 - New PR type: `least_assisted` for counterweight machines
 - e1RM skipped for assisted exercises (Epley formula doesn't apply to counterweight)
+
+---
+
+### Alpha V 1.2 — "Own Your Routine"
+
+**Rep-range targets. Custom exercises. Workout reminders. CSV export.**
+
+#### What's New
+
+**🎯 Rep-Range Targets**
+Set a target rep range (e.g. 8–12) per template slot. During your workout, the reps input glows green when you're in range and red when you're not. The target also shows in the slot header so you always know what to aim for.
+
+**🆕 Custom Exercise Creation**
+Build your own exercises right from the library screen. Pick a name, primary muscle group (15 options), equipment type (10 options), and whether it's an assisted machine. Custom exercises appear alongside built-in ones and work everywhere — templates, sessions, stats.
+
+**🔔 Workout Reminders**
+Configurable inactivity-based push notifications. Set how many rest days before you get a nudge (default: 3). Fully local — no server, no tracking. Toggle on/off and adjust the threshold from Settings.
+
+**📊 Export to CSV**
+One tap exports every finalized workout as a spreadsheet-friendly CSV file (date, template, exercise, set#, weight, reps, RPE, rest, warmup, notes). Share it with your trainer, import it into Google Sheets, or just archive your numbers.
+
+**💾 Resume Interrupted Workouts**
+Close the app mid-session? Next time you open the Log tab, a banner detects the stale draft (>2 hours old) and lets you Resume or Discard. No more lost workouts.
+
+#### Under the Hood
+- Migrations 39–41 (rep range columns on `template_slots`, `is_custom` on `exercises`)
+- New utility files: `notifications.ts`, `exportCsv.ts`
+- 472 tests, all passing
+
+---
+
+### Alpha V 1.3 — "Own Your Experience"
+
+**Onboarding walkthrough. Navigation hardened. Settings redesigned.**
+
+#### What's New
+
+**👋 Onboarding Walkthrough**
+First launch now shows a swipeable 5-step intro: Welcome → Build Templates → Log Every Set → Track Your Progress → Get Started. Skip anytime, swipe or tap through, and it never shows again. Helps new users understand the app in 15 seconds.
+
+**🧭 Navigation Hardened**
+The post-workout flow is now bulletproof. Finishing a session uses `replace()` instead of `navigate()` — no more brief idle-screen flash. The WorkoutSummary screen locks out back-swipe (iOS) and hardware back (Android), hides the tab bar for an immersive feel, and slides up from the bottom. Tab switches during an active workout no longer trigger false "Leave workout?" alerts.
+
+**⚙️ Settings Redesigned**
+The Settings screen is less congested: Theme + Unit merged into a compact Preferences card, Injuries and Restore/Reset are collapsible accordion sections (tap to expand), and Weekly Summary + Data merged into one "Export & Reports" section. Smooth `LayoutAnimation` transitions on expand/collapse.
+
+#### Under the Hood
+- Android `BackHandler` intercepts hardware back on WorkoutSummary → clean redirect
+- `beforeRemove` guard refined to allow `NAVIGATE` while blocking `POP`/`GO_BACK`
+- `CollapsibleSection` component with `LayoutAnimation` for accordion behavior
+- 472 tests, all passing
