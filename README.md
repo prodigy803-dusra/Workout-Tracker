@@ -32,6 +32,7 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 - **Weights persist across templates** — your exercise numbers are global, not locked to one program
 - The active workout screen header shows the **template you're running today**, not a generic "Log" title
 - Mark sets complete, edit weight/reps/RPE inline
+- **Drop-set volume tracked everywhere** — drop segments are included in all stats, history, and summary screens
 - **Undo set completion** — changed your mind? Uncheck and adjust
 - Auto-advances to the next exercise when a slot is fully done
 - Session timer tracks total duration
@@ -39,9 +40,11 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 
 ### ✏️ Own Your Session
 - **Add exercises** mid-workout — searchable picker, no planning required
+- **Switch exercise options** mid-workout — injury weight reductions are applied automatically
 - **Remove exercises** — drop one for today or hide it permanently
 - **Reorder exercises** — move up / move down, your flow your call
 - **Add extra sets** to any exercise on the fly
+- **Delete sets** mid-workout — remaining sets re-index automatically (no gaps)
 - **Warmup controls** — regenerate, clear all, or fine-tune individual warmup sets
 - Exercise switching and warmup controls are split into separate **"Exercise Option"** and **"Warm-up Prep"** sections so the slot card reads clearly
 - **Visual warmup badge** — warmup sets show "W" prefix with blue tint
@@ -68,6 +71,7 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 - Completed every set last time? A **suggestion banner** nudges you forward:
   *"Try 87.5 kg x 6"* (+2.5 on your heaviest set)
 - **Assisted machine awareness** — for exercises like dip assist and pull-up assist, progress means *less* assistance. The banner flips: *"Try reducing assist to 25 kg × 8"*
+- **Smart suggestion suppression** — if your current session already meets or exceeds the suggested weight, the banner hides automatically
 - **Stagnation detection** — same weight for 3+ sessions triggers an orange nudge to push past the plateau
 - Estimated 1RM **trend chart** on each exercise detail page — watch your strength curve rise over weeks and months
 - **Resume interrupted workouts** — close the app mid-session? A banner offers to pick up where you left off
@@ -105,7 +109,7 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 
 ### 📋 Own Your History
 - Full session history — every workout you've ever done, searchable
-- Tap any session for a detailed breakdown of every set you logged
+- Tap any session for a detailed breakdown of every set you logged — **completed vs skipped** sets are visually distinguished
 
 ### 🩹 Own Your Recovery
 - Log injuries with **body region** (10 regions), **severity** (mild / moderate / severe), **type**, and notes
@@ -164,7 +168,7 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 | Charts | Custom SVG line chart (`react-native-svg`) |
 | Haptics | `expo-haptics` |
 | File sharing | `expo-file-system` + `expo-sharing` |
-| Testing | Jest + ts-jest (472 tests, 5 suites) |
+| Testing | Jest + ts-jest (483 tests, 5 suites) |
 
 ---
 
@@ -195,7 +199,6 @@ WorkoutApp/
 │   │   ├── ExercisePickerModal.tsx   # Searchable exercise picker (mid-workout)
 │   │   ├── IdleScreen.tsx           # Idle dashboard with stats + pre-workout check-in
 │   │   ├── InjuryModal.tsx          # Add/edit injury bottom-sheet modal
-│   │   ├── LastTimePanel.tsx        # "Last time" data display
 │   │   ├── MuscleMap.tsx            # SVG front/back body diagram
 │   │   ├── OnboardingModal.tsx      # First-launch 5-step walkthrough
 │   │   ├── OptionChips.tsx          # Exercise variant selector pills
@@ -294,7 +297,7 @@ EAS will give you a download link for the `.apk` when the build finishes.
 npm test
 ```
 
-472 tests across 5 suites: DB unit tests, DB integration, session store reducer, feature interactions, and mid-workout editing.
+483 tests across 5 suites: DB unit tests, DB integration, session store reducer, feature interactions, and mid-workout editing.
 
 ---
 
@@ -344,6 +347,7 @@ The backup includes all tables and can fully restore the app's state.
    - First time? The **template's prescribed sets** get you started
 4. Log your sets, mark them complete — the progress bar tracks every rep
 5. Tap **Finish** — your review screen breaks down everything you just did
+   - Finishing requires at least one completed working set
 
 ### Progressive Overload
 

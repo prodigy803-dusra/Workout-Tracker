@@ -101,9 +101,12 @@ export default function SessionDetailScreen({ route }: Props) {
                 <React.Fragment key={s.id}>
                   <View style={[styles.setRow, { borderBottomColor: c.border }]}>
                     <Text style={[styles.setIndex, { color: c.textTertiary }]}>#{s.set_index}</Text>
-                    <Text style={[styles.setText, { color: c.text }]}>
+                    <Text style={[styles.setText, { color: s.completed ? c.text : c.textTertiary, opacity: s.completed ? 1 : 0.6 }]}>
                       {formatWeight(s.weight, unit)} {unit} × {s.reps}
                     </Text>
+                    {!s.completed && !s.is_warmup && (
+                      <Text style={{ fontSize: 11, color: c.textTertiary, fontStyle: 'italic' }}>skipped</Text>
+                    )}
                     {s.rpe != null && (
                       <Text
                         style={[

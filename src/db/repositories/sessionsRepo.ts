@@ -411,6 +411,31 @@ export async function selectSlotChoice(
     ) : null;
     const prescribedSets = prescribedRes?.rows._array ?? [];
 
+    // Injury-aware weight reduction (mirrors createDraftFromTemplate logic)
+    let weightFactor = 1;
+    {
+      const { listActiveInjuries } = await import('./injuryRepo');
+      const { isExerciseAffected, SEVERITY_WEIGHT_FACTOR } = await import('../../data/injuryRegionMap');
+      const activeInjuries = await listActiveInjuries();
+      if (activeInjuries.length > 0) {
+        const exMetaRes = await executeSqlAsync(
+          `SELECT e.primary_muscle, e.secondary_muscle, e.movement_pattern
+           FROM exercises e JOIN template_slot_options tco ON tco.exercise_id = e.id
+           WHERE tco.id = ?;`,
+          [templateSlotOptionId]
+        );
+        if (exMetaRes.rows.length) {
+          const { primary_muscle, secondary_muscle, movement_pattern } = exMetaRes.rows.item(0);
+          for (const injury of activeInjuries) {
+            if (isExerciseAffected(primary_muscle, secondary_muscle, movement_pattern, injury.body_region)) {
+              const factor = SEVERITY_WEIGHT_FACTOR[injury.severity as keyof typeof SEVERITY_WEIGHT_FACTOR] ?? 1;
+              weightFactor = Math.min(weightFactor, factor);
+            }
+          }
+        }
+      }
+    }
+
     if (prescribedSets.length > 0) {
       // Template prescribed sets define the structure
       const workingHistory = historicalSets.length > 0
@@ -426,7 +451,9 @@ export async function selectSlotChoice(
           [
             choiceId,
             i + 1,
-            hist?.weight ?? ps.weight ?? 0,
+            weightFactor < 1
+              ? Math.round((hist?.weight ?? ps.weight ?? 0) * weightFactor * 4) / 4
+              : (hist?.weight ?? ps.weight ?? 0),
             hist?.reps ?? ps.reps ?? 0,
             hist?.rpe ?? ps.rpe,
             ps.notes,
@@ -446,7 +473,9 @@ export async function selectSlotChoice(
           [
             choiceId,
             i + 1,
-            hist.weight ?? 0,
+            weightFactor < 1
+              ? Math.round((hist.weight ?? 0) * weightFactor * 4) / 4
+              : (hist.weight ?? 0),
             hist.reps ?? 0,
             hist.rpe,
             null,
@@ -478,7 +507,7 @@ export async function listHistory(): Promise<HistoryItem[]> {
             JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
             JOIN session_slots ss ON ss.id = ssc.session_slot_id
             WHERE ss.session_id = s.id AND (se.is_warmup = 0 OR se.is_warmup IS NULL)) as sets_count,
-           (SELECT COALESCE(SUM(se.weight * se.reps),0) FROM sets se
+           (SELECT COALESCE(SUM(se.weight * se.reps + COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0)),0) FROM sets se
             JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
             JOIN session_slots ss ON ss.id = ssc.session_slot_id
             WHERE ss.session_id = s.id AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL)) as total_volume,

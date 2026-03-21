@@ -13,7 +13,7 @@ type Props = {
   suggestedWeight: number;
   suggestedReps: number;
   unit: string;
-  /** Weight has been roughly the same for 3+ sessions */
+  /** Top weight has stalled and volume has not improved for 2+ sessions */
   stagnant?: boolean;
   /** How many consecutive sessions at the same weight */
   stagnantCount?: number;
@@ -33,30 +33,22 @@ function ProgressiveOverloadBanner({ suggestedWeight, suggestedReps, unit, stagn
         <Text style={styles.suggestionIcon}>⚠️</Text>
         <View style={{ flex: 1 }}>
           <Text style={[styles.suggestionText, { color: c.isDark ? '#FFB74D' : '#E65100' }]}>
-            Same {assisted ? 'assist level' : 'top weight'} for {stagnantCount} sessions — {action}
+            Same {assisted ? 'assist level' : 'top weight'} with no volume improvement for {stagnantCount} sessions — {action}
           </Text>
         </View>
       </View>
     );
   }
 
-  if (assisted) {
-    return (
-      <View style={[styles.suggestionBanner, { backgroundColor: c.warningBg, borderColor: c.isDark ? '#665A00' : '#F5D76E' }]}>
-        <Text style={styles.suggestionIcon}>💪</Text>
-        <Text style={[styles.suggestionText, { color: c.warningText }]}>
-          You completed all sets last time — try reducing assist to {suggestedWeight} {unit} × {suggestedReps}
-        </Text>
-      </View>
-    );
-  }
-
+  // Non-stagnant: should not reach here since callers only set stagnant=true,
+  // but keep a minimal fallback for safety
+  const label = assisted
+    ? `Try reducing assist to ${suggestedWeight} ${unit} × ${suggestedReps}`
+    : `Try ${suggestedWeight} ${unit} × ${suggestedReps}`;
   return (
     <View style={[styles.suggestionBanner, { backgroundColor: c.warningBg, borderColor: c.isDark ? '#665A00' : '#F5D76E' }]}>
-      <Text style={styles.suggestionIcon}>📈</Text>
-      <Text style={[styles.suggestionText, { color: c.warningText }]}>
-        You completed all sets last session — try {suggestedWeight} {unit} × {suggestedReps}
-      </Text>
+      <Text style={styles.suggestionIcon}>{assisted ? '💪' : '📈'}</Text>
+      <Text style={[styles.suggestionText, { color: c.warningText }]}>{label}</Text>
     </View>
   );
 }

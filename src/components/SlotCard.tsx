@@ -17,6 +17,7 @@ import ProgressiveOverloadBanner from './ProgressiveOverloadBanner';
 import WarmupGeneratorButton from './WarmupGeneratorButton';
 import type { DraftSlot, SlotOption, SetData, LastTimeData } from '../types';
 import type { DropSegment } from '../hooks/useSessionStore';
+import type { ExercisePerformanceStatus } from '../db/repositories/statsRepo';
 
 export type InjuryWarning = {
   icon: string;
@@ -32,6 +33,7 @@ type Props = {
   sets: SetData[];
   drops: Record<number, DropSegment[]>;
   lastTime: LastTimeData;
+  lastPerformanceStatus?: ExercisePerformanceStatus | null;
   isExpanded: boolean;
   unit: string;
   onToggleExpand: (slotId: number) => void;
@@ -73,6 +75,7 @@ function SlotCard({
   sets,
   drops,
   lastTime,
+  lastPerformanceStatus,
   isExpanded,
   unit,
   onToggleExpand,
@@ -113,6 +116,8 @@ function SlotCard({
   // §4: Pre-compute progressive overload suggestion
   const overloadSuggestion = (() => {
     if (!lastTime || lastTime.sets.length === 0) return null;
+    if (lastPerformanceStatus === 'regressed' || lastPerformanceStatus === 'skipped') return null;
+    if (stagnantSessions < 2) return null;
     const allCompleted = lastTime.sets.every((s) => s.completed);
     if (!allCompleted) return null;
     const increment = unit === 'lb' ? 5 : 2.5;
@@ -123,10 +128,13 @@ function SlotCard({
         lastTime.sets[0],
       );
       const nextWeight = Math.max(0, lightest.weight - increment);
+      // Suppress if current session already meets/exceeds suggestion (lower = harder for assisted)
+      const currentMin = sets.reduce((min, s) => (s.weight < min ? s.weight : min), sets[0]?.weight ?? Infinity);
+      if (currentMin <= nextWeight) return null;
       return {
         suggestedWeight: nextWeight,
         suggestedReps: lightest.reps,
-        stagnant: stagnantSessions >= 3,
+        stagnant: true,
         stagnantCount: stagnantSessions,
         assisted: true,
       };
@@ -135,10 +143,14 @@ function SlotCard({
       (max, s) => (s.weight > max.weight ? s : max),
       lastTime.sets[0],
     );
+    const suggestedWeight = heaviest.weight + increment;
+    // Suppress if current session already meets/exceeds suggestion
+    const currentTop = sets.reduce((max, s) => (s.weight > max ? s.weight : max), 0);
+    if (currentTop >= suggestedWeight) return null;
     return {
-      suggestedWeight: heaviest.weight + increment,
+      suggestedWeight,
       suggestedReps: heaviest.reps,
-      stagnant: stagnantSessions >= 3,
+      stagnant: true,
       stagnantCount: stagnantSessions,
       assisted: false,
     };
@@ -327,7 +339,7 @@ function SlotCard({
 
               {sets.map((s) => (
                 <SetRowEditor
-                  key={s.set_index}
+                  key={s.id}
                   set={s}
                   choiceId={selectedChoiceId}
                   unit={unit}

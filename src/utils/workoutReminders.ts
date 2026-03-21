@@ -56,19 +56,4 @@ export async function syncWorkoutReminders(): Promise<void> {
   }
 }
 
-/**
- * Cancel all workout reminder notifications.
- * Used when clearing all schedules or resetting the app.
- */
-export async function cancelAllWorkoutReminders(): Promise<void> {
-  try {
-    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-    for (const n of scheduled) {
-      if (n.identifier.startsWith('reminder-')) {
-        await Notifications.cancelScheduledNotificationAsync(n.identifier);
-      }
-    }
-  } catch (e) {
-    console.warn('Failed to cancel workout reminders:', e);
-  }
-}
+

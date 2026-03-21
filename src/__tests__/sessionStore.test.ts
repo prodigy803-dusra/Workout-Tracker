@@ -38,6 +38,8 @@ import {
   SessionState,
   SessionAction,
   DropSegment,
+  pickMostRecentHistory,
+  countStagnantSessions,
 } from '../hooks/useSessionStore';
 import type { SetData } from '../types';
 
@@ -160,6 +162,61 @@ describe('HYDRATE / RESET', () => {
     expect(result.draft).toBeNull();
     expect(result.slots).toEqual([]);
     expect(result.setsByChoice).toEqual({});
+  });
+});
+
+describe('pickMostRecentHistory', () => {
+  test('prefers exercise history when it is newer than option history', () => {
+    const optionHistory = {
+      performed_at: '2026-01-01T00:00:00.000Z',
+      sets: [{ id: 1, session_slot_choice_id: 1, set_index: 1, weight: 80, reps: 8, rpe: null, notes: null, rest_seconds: 90, completed: 1, created_at: '2026-01-01T00:00:00.000Z' }],
+    };
+    const exerciseHistory = {
+      performed_at: '2026-01-08T00:00:00.000Z',
+      sets: [{ id: 2, session_slot_choice_id: 2, set_index: 1, weight: 85, reps: 8, rpe: null, notes: null, rest_seconds: 90, completed: 1, created_at: '2026-01-08T00:00:00.000Z' }],
+    };
+
+    expect(pickMostRecentHistory(optionHistory as any, exerciseHistory as any)).toBe(exerciseHistory);
+  });
+
+  test('keeps option history when no newer exercise history exists', () => {
+    const optionHistory = {
+      performed_at: '2026-01-08T00:00:00.000Z',
+      sets: [{ id: 1, session_slot_choice_id: 1, set_index: 1, weight: 85, reps: 8, rpe: null, notes: null, rest_seconds: 90, completed: 1, created_at: '2026-01-08T00:00:00.000Z' }],
+    };
+
+    expect(pickMostRecentHistory(optionHistory as any, null)).toBe(optionHistory);
+  });
+});
+
+describe('countStagnantSessions', () => {
+  test('counts same top weight with no volume improvement as stalled', () => {
+    const history = [
+      { top_weight: 100, total_volume: 1500 },
+      { top_weight: 100, total_volume: 1500 },
+      { top_weight: 100, total_volume: 1600 },
+    ];
+
+    expect(countStagnantSessions(history)).toBe(2);
+  });
+
+  test('breaks when same top weight still improved volume', () => {
+    const history = [
+      { top_weight: 100, total_volume: 1600 },
+      { top_weight: 100, total_volume: 1500 },
+      { top_weight: 100, total_volume: 1400 },
+    ];
+
+    expect(countStagnantSessions(history)).toBe(0);
+  });
+
+  test('breaks when top weight changes beyond tolerance', () => {
+    const history = [
+      { top_weight: 120, total_volume: 1500 },
+      { top_weight: 100, total_volume: 1700 },
+    ];
+
+    expect(countStagnantSessions(history)).toBe(0);
   });
 });
 
@@ -423,11 +480,12 @@ describe('CYCLE_RPE', () => {
  * ═══════════════════════════════════════════════════════════ */
 
 describe('DELETE_SET', () => {
-  test('removes set by set_index', () => {
+  test('removes set by set_index and re-indexes remaining', () => {
     const state = activeState();
     const result = sessionReducer(state, { type: 'DELETE_SET', choiceId: 100, setIndex: 2 });
     expect(result.setsByChoice[100]).toHaveLength(2);
-    expect(result.setsByChoice[100].find((s) => s.set_index === 2)).toBeUndefined();
+    // After deleting set_index 2, remaining sets should be re-indexed 1, 2
+    expect(result.setsByChoice[100].map((s) => s.set_index)).toEqual([1, 2]);
   });
 
   test('delete non-existent set_index is a no-op', () => {

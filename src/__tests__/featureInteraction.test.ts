@@ -89,6 +89,7 @@ import {
   INITIAL_STATE,
   SessionState,
 } from '../hooks/useSessionStore';
+import { latestPerformanceStatusForExercise } from '../db/repositories/statsRepo';
 
 import type { SetData } from '../types';
 
@@ -294,6 +295,46 @@ describe('Cross-template weight persistence', () => {
     expect(lt).toBeNull();
   });
 
+  test('latestPerformanceStatusForExercise marks a lower completed session as regressed', async () => {
+    const draftId = await createDraftFromTemplate(tplPush);
+    const slots = await listDraftSlots(draftId);
+    const benchSlot = slots.find((s) => s.exercise_name === 'Bench Press');
+    const ohpSlot = slots.find((s) => s.exercise_name === 'Overhead Press');
+    expect(benchSlot).toBeDefined();
+
+    const choiceId = benchSlot!.selected_session_slot_choice_id!;
+    await upsertSet(choiceId, 1, 75, 8, null, null, 90);
+    await upsertSet(choiceId, 2, 80, 6, null, null, 90);
+    await upsertSet(choiceId, 3, 85, 5, null, null, 90);
+
+    for (const s of await listSetsForChoice(choiceId)) {
+      await toggleSetCompleted(s.id, true);
+    }
+    if (ohpSlot?.selected_session_slot_choice_id) {
+      for (const s of await listSetsForChoice(ohpSlot.selected_session_slot_choice_id)) {
+        await toggleSetCompleted(s.id, true);
+      }
+    }
+    await finalizeSession(draftId);
+
+    expect(await latestPerformanceStatusForExercise(exBench)).toBe('regressed');
+  });
+
+  test('latestPerformanceStatusForExercise marks an unperformed latest session as skipped', async () => {
+    const draftId = await createDraftFromTemplate(tplPush);
+    const slots = await listDraftSlots(draftId);
+    const ohpSlot = slots.find((s) => s.exercise_name === 'Overhead Press');
+
+    if (ohpSlot?.selected_session_slot_choice_id) {
+      for (const s of await listSetsForChoice(ohpSlot.selected_session_slot_choice_id)) {
+        await toggleSetCompleted(s.id, true);
+      }
+    }
+    await finalizeSession(draftId);
+
+    expect(await latestPerformanceStatusForExercise(exBench)).toBe('skipped');
+  });
+
   test('lastTimeForOption returns null for Upper Body Bench (no template-specific history)', async () => {
     // The Bench option in Upper Body template has never been used in a finalized session
     const optionRes = await executeSqlAsync(
@@ -354,6 +395,61 @@ describe('Cross-template weight persistence', () => {
     expect(sets[0].weight).toBe(82.5);
     expect(sets[1].weight).toBe(87.5);
     expect(sets[2].weight).toBe(92.5);
+
+    await discardDraft(draftId);
+  });
+
+  test('brand-new template inherits global Bench history even without template-specific history', async () => {
+    const freshTemplateId = await rawInsert(
+      `INSERT INTO templates(name, name_norm, created_at) VALUES (?,?,?);`,
+      ['Fresh Bench Day', 'fresh bench day', TS]
+    );
+    const freshSlotId = await rawInsert(
+      `INSERT INTO template_slots(template_id, slot_index, name, created_at) VALUES (?,?,?,?);`,
+      [freshTemplateId, 1, 'Bench', TS]
+    );
+    await rawInsert(
+      `INSERT INTO template_slot_options(template_slot_id, exercise_id, order_index, created_at) VALUES (?,?,?,?);`,
+      [freshSlotId, exBench, 1, TS]
+    );
+
+    const draftId = await createDraftFromTemplate(freshTemplateId);
+    const slots = await listDraftSlots(draftId);
+    const benchSlot = slots.find((s) => s.exercise_name === 'Bench Press');
+    expect(benchSlot).toBeDefined();
+
+    const sets = await listSetsForChoice(benchSlot!.selected_session_slot_choice_id!);
+    expect(sets).toHaveLength(3);
+    expect(sets[0].weight).toBe(82.5);
+    expect(sets[1].weight).toBe(87.5);
+    expect(sets[2].weight).toBe(92.5);
+
+    await discardDraft(draftId);
+  });
+
+  test('brand-new template without prescribed sets still seeds working sets from exercise history', async () => {
+    const flexibleTemplateId = await rawInsert(
+      `INSERT INTO templates(name, name_norm, created_at) VALUES (?,?,?);`,
+      ['Flexible Bench Day', 'flexible bench day', TS]
+    );
+    const flexibleSlotId = await rawInsert(
+      `INSERT INTO template_slots(template_id, slot_index, name, created_at) VALUES (?,?,?,?);`,
+      [flexibleTemplateId, 1, 'Bench', TS]
+    );
+    await rawInsert(
+      `INSERT INTO template_slot_options(template_slot_id, exercise_id, order_index, created_at) VALUES (?,?,?,?);`,
+      [flexibleSlotId, exBench, 1, TS]
+    );
+
+    const draftId = await createDraftFromTemplate(flexibleTemplateId);
+    const slots = await listDraftSlots(draftId);
+    const benchSlot = slots.find((s) => s.exercise_name === 'Bench Press');
+    expect(benchSlot).toBeDefined();
+
+    const sets = await listSetsForChoice(benchSlot!.selected_session_slot_choice_id!);
+    expect(sets).toHaveLength(3);
+    expect(sets.map((set) => set.weight)).toEqual([82.5, 87.5, 92.5]);
+    expect(sets.map((set) => set.reps)).toEqual([8, 6, 5]);
 
     await discardDraft(draftId);
   });

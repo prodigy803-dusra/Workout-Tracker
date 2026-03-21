@@ -473,6 +473,12 @@ export default function LogScreenV2() {
 
   const handleFinish = useCallback(() => {
     if (!state.draft) return;
+    const allSets = Object.values(state.setsByChoice).flat();
+    const completedCount = allSets.filter(s => s.completed && !s.is_warmup).length;
+    if (completedCount === 0) {
+      Alert.alert('No Completed Sets', 'Complete at least one working set before finishing.');
+      return;
+    }
     Alert.alert('Finish Session', 'Save and finalize this workout?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -814,6 +820,7 @@ export default function LogScreenV2() {
             sets={state.setsByChoice[slot.selected_session_slot_choice_id!] || []}
             drops={state.dropsBySet}
             lastTime={state.lastTimeBySlot[slot.session_slot_id]}
+            lastPerformanceStatus={state.lastPerformanceStatusBySlot[slot.session_slot_id]}
             stagnantSessions={state.stagnationBySlot[slot.session_slot_id] ?? 0}
             isExpanded={expandedSlots.has(slot.session_slot_id)}
             isAssisted={!!slot.is_assisted}

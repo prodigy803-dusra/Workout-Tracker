@@ -212,7 +212,7 @@ const RAW: Array<[string, string, string | null]> = [
   ['smith machine incline bench', 'chest', 'triceps'],
 ];
 
-export const exerciseMuscleMap: Record<string, MuscleInfo> = {};
+const exerciseMuscleMap: Record<string, MuscleInfo> = {};
 for (const [name, primary, secondary] of RAW) {
   exerciseMuscleMap[name] = {
     primary: norm(primary) ?? primary,

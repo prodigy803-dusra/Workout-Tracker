@@ -2678,6 +2678,26 @@ describe('Assisted exercises — ProgressiveOverloadBanner', () => {
     expect(source).toMatch(/assisted/);
     expect(source).toMatch(/reducing assist/i);
   });
+
+  test('SlotCard only suggests overload after 2 stalled sessions', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'SlotCard.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/stagnantSessions\s*<\s*2\) return null/);
+  });
+
+  test('SlotCard suppresses overload suggestion for regressed or skipped latest performance', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'SlotCard.tsx'),
+      'utf8'
+    );
+    expect(source).toMatch(/lastPerformanceStatus === 'regressed' \|\| lastPerformanceStatus === 'skipped'/);
+  });
 });
 
 describe('Assisted exercises — ExerciseDetailScreen', () => {

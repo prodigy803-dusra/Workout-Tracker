@@ -29,6 +29,7 @@ import {
   lastTimeForOption,
   lastTimeForExercise,
   recentMaxWeights,
+  recentExercisePerformance,
   deleteSet,
   generateWarmupSets,
   clearWarmupSets,
@@ -36,7 +37,7 @@ import {
   updateDropSegment,
   deleteDropSegment,
 } from '../db/repositories/setsRepo';
-import { detectAndRecordPRs } from '../db/repositories/statsRepo';
+import { detectAndRecordPRs, latestPerformanceStatusForExercise } from '../db/repositories/statsRepo';
 import type {
   Session,
   DraftSlot,
@@ -44,6 +45,7 @@ import type {
   SetData,
   LastTimeData,
 } from '../types';
+import type { ExercisePerformanceStatus } from '../db/repositories/statsRepo';
 
 /* ═══════════════════════════════════════════════════════════
  *  Types
@@ -64,6 +66,7 @@ export type SessionState = {
   setsByChoice: Record<number, SetData[]>;
   dropsBySet: Record<number, DropSegment[]>;
   lastTimeBySlot: Record<number, LastTimeData>;
+  lastPerformanceStatusBySlot: Record<number, ExercisePerformanceStatus | null>;
   /** Number of consecutive sessions at roughly the same top weight, per slot. 0 = no stagnation. */
   stagnationBySlot: Record<number, number>;
   sessionNotes: string;
@@ -98,6 +101,7 @@ const INITIAL_STATE: SessionState = {
   setsByChoice: {},
   dropsBySet: {},
   lastTimeBySlot: {},
+  lastPerformanceStatusBySlot: {},
   stagnationBySlot: {},
   sessionNotes: '',
 };
@@ -107,6 +111,41 @@ const INITIAL_STATE: SessionState = {
  * ═══════════════════════════════════════════════════════════ */
 
 const RPE_ORDER: (number | null)[] = [null, 6, 7, 8, 9, 10];
+
+function pickMostRecentHistory(
+  optionHistory: LastTimeData,
+  exerciseHistory: LastTimeData,
+): LastTimeData {
+  if (!optionHistory) return exerciseHistory;
+  if (!exerciseHistory) return optionHistory;
+
+  return new Date(exerciseHistory.performed_at).getTime() >= new Date(optionHistory.performed_at).getTime()
+    ? exerciseHistory
+    : optionHistory;
+}
+
+function countStagnantSessions(
+  history: Array<{ top_weight: number; total_volume: number }>,
+): number {
+  let stagnantCount = 0;
+  if (history.length < 2) return stagnantCount;
+
+  const latest = history[0];
+  const weightThreshold = Math.max(latest.top_weight * 0.02, 2.5);
+
+  for (let i = 1; i < history.length; i++) {
+    const entry = history[i];
+    const sameTopWeight = Math.abs(entry.top_weight - latest.top_weight) <= weightThreshold;
+    const noVolumeImprovement = entry.total_volume >= latest.total_volume;
+    if (sameTopWeight && noVolumeImprovement) {
+      stagnantCount++;
+    } else {
+      break;
+    }
+  }
+
+  return stagnantCount;
+}
 
 function updateSetInChoice(
   state: SessionState,
@@ -181,11 +220,14 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
     case 'DELETE_SET': {
       const sets = state.setsByChoice[action.choiceId];
       if (!sets) return state;
+      const remaining = sets.filter((s) => s.set_index !== action.setIndex);
+      // Re-index: renumber sequentially so there are no gaps
+      const reindexed = remaining.map((s, i) => ({ ...s, set_index: i + 1 }));
       return {
         ...state,
         setsByChoice: {
           ...state.setsByChoice,
-          [action.choiceId]: sets.filter((s) => s.set_index !== action.setIndex),
+          [action.choiceId]: reindexed,
         },
       };
     }
@@ -259,7 +301,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
  * ═══════════════════════════════════════════════════════════ */
 
 /* Exported for unit testing */
-export { sessionReducer, INITIAL_STATE };
+export { sessionReducer, INITIAL_STATE, pickMostRecentHistory, countStagnantSessions };
 
 export function useSessionStore() {
   const [state, dispatch] = useReducer(sessionReducer, INITIAL_STATE);
@@ -337,39 +379,37 @@ export function useSessionStore() {
       }
     }
 
-    // Last-time data per slot — template-specific first, then global exercise fallback
+    // Last-time data per slot — use the most recent relevant history so the
+    // banner and "Last time" panel stay aligned with globally seeded weights.
     const lastTimeEntries: (readonly [number, Awaited<ReturnType<typeof lastTimeForOption>>])[] = [];
     for (const s of slotRows) {
       if (s.template_slot_option_id != null) {
-        let lt = await lastTimeForOption(s.template_slot_option_id);
-        // Fallback: if no history for this specific template option, try the
-        // exercise globally across all templates
-        if (!lt && s.exercise_id != null) {
-          lt = await lastTimeForExercise(s.exercise_id);
-        }
+        const optionHistory = await lastTimeForOption(s.template_slot_option_id);
+        const exerciseHistory = s.exercise_id != null
+          ? await lastTimeForExercise(s.exercise_id)
+          : null;
+        const lt = pickMostRecentHistory(optionHistory, exerciseHistory);
         lastTimeEntries.push([s.session_slot_id, lt] as const);
       }
     }
     const lastTimeBySlot = Object.fromEntries(lastTimeEntries);
 
-    // Stagnation detection per slot: count consecutive sessions at roughly the same top weight
+    const performanceStatusEntries: (readonly [number, ExercisePerformanceStatus | null])[] = [];
+    for (const s of slotRows) {
+      if (s.exercise_id != null) {
+        const status = await latestPerformanceStatusForExercise(s.exercise_id);
+        performanceStatusEntries.push([s.session_slot_id, status] as const);
+      }
+    }
+    const lastPerformanceStatusBySlot = Object.fromEntries(performanceStatusEntries);
+
+    // Stagnation detection per slot: same top weight with no volume improvement.
     const stagnationEntries: (readonly [number, number])[] = [];
     for (const s of slotRows) {
       if (s.exercise_id != null) {
-        const assisted = !!(s as any).is_assisted;
-        const history = await recentMaxWeights(s.exercise_id, 5, assisted);
-        let stagnantCount = 0;
-        if (history.length >= 2) {
-          const latest = history[0].max_weight;
-          // Count how many consecutive sessions match within ~2% or 2.5 units
-          for (let i = 1; i < history.length; i++) {
-            if (Math.abs(history[i].max_weight - latest) <= Math.max(latest * 0.02, 2.5)) {
-              stagnantCount++;
-            } else {
-              break;
-            }
-          }
-        }
+        const assisted = !!s.is_assisted;
+        const history = await recentExercisePerformance(s.exercise_id, 5, assisted);
+        const stagnantCount = countStagnantSessions(history);
         stagnationEntries.push([s.session_slot_id, stagnantCount] as const);
       }
     }
@@ -385,6 +425,7 @@ export function useSessionStore() {
         setsByChoice: setsMap,
         dropsBySet: dropsMap,
         lastTimeBySlot,
+        lastPerformanceStatusBySlot,
         stagnationBySlot,
         sessionNotes: d.notes || '',
       },

@@ -93,8 +93,21 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
   );
 
   const completedSets = detail.sets.filter((s: any) => s.completed && !s.is_warmup);
+  const dropsBySetId: Record<number, Array<{ weight: number; reps: number }>> = {};
+  if (detail.drops) {
+    for (const d of detail.drops) {
+      if (!dropsBySetId[d.set_id]) dropsBySetId[d.set_id] = [];
+      dropsBySetId[d.set_id].push(d);
+    }
+  }
   const totalVolume = completedSets.reduce(
-    (sum: number, s: any) => sum + (s.weight || 0) * (s.reps || 0),
+    (sum: number, s: any) => {
+      let vol = (s.weight || 0) * (s.reps || 0);
+      for (const d of dropsBySetId[s.id] || []) {
+        vol += (d.weight || 0) * (d.reps || 0);
+      }
+      return sum + vol;
+    },
     0
   );
   const exerciseNames = [...new Set(detail.slots.map((s) => s.exercise_name))];
@@ -146,7 +159,7 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
       `📑 ${detail!.session.template_name || 'Session'}`,
       `⏱️ Duration: ${formatDuration(duration || 0)}`,
       `💪 Exercises: ${exerciseNames.length}`,
-      `✅ Sets: ${completedSets.length}/${detail!.sets.length}`,
+      `✅ Sets: ${completedSets.length}/${detail!.sets.filter((s: any) => !s.is_warmup).length}`,
       `📦 Volume: ${totalVolume >= 1000 ? `${(totalVolume / 1000).toFixed(1)}k` : totalVolume} ${unit}`,
     ];
     if (volumeDiffPct != null) {

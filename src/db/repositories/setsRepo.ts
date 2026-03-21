@@ -47,6 +47,16 @@ export async function deleteSet(choiceId: number, setIndex: number) {
     `DELETE FROM sets WHERE session_slot_choice_id=? AND set_index=?;`,
     [choiceId, setIndex]
   );
+  // Re-index remaining sets so numbers stay sequential
+  await executeSqlAsync(
+    `UPDATE sets SET set_index = (
+       SELECT COUNT(*) FROM sets s2
+       WHERE s2.session_slot_choice_id = sets.session_slot_choice_id
+         AND s2.id <= sets.id
+     )
+     WHERE session_slot_choice_id = ?;`,
+    [choiceId]
+  );
 }
 
 /** Replace all sets for a choice with new rows (validates input). */
@@ -147,6 +157,35 @@ export async function recentMaxWeights(
   const res = await executeSqlAsync(
     `
     SELECT s.performed_at, ${agg}(se.weight) AS max_weight
+    FROM sets se
+    JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+    JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    JOIN sessions s ON s.id = ss.session_id
+    WHERE s.status = 'final'
+      AND tso.exercise_id = ?
+      AND se.is_warmup = 0
+      AND se.completed = 1
+    GROUP BY s.id
+    ORDER BY s.performed_at DESC, s.id DESC
+    LIMIT ?;
+    `,
+    [exerciseId, limit]
+  );
+  return res.rows._array;
+}
+
+export async function recentExercisePerformance(
+  exerciseId: number,
+  limit: number = 4,
+  assisted: boolean = false,
+): Promise<{ performed_at: string; top_weight: number; total_volume: number }[]> {
+  const agg = assisted ? 'MIN' : 'MAX';
+  const res = await executeSqlAsync(
+    `
+    SELECT s.performed_at,
+           ${agg}(se.weight) AS top_weight,
+           COALESCE(SUM(se.weight * se.reps + COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0)), 0) AS total_volume
     FROM sets se
     JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
     JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id

@@ -40,7 +40,8 @@ export async function sessionEffortStats(
   // Get all completed working sets with timestamps, ordered chronologically
   const res = await executeSqlAsync(
     `
-    SELECT se.completed_at, se.weight, se.reps
+    SELECT se.completed_at, se.weight, se.reps,
+           COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0) as drop_volume
     FROM sets se
     JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
@@ -74,7 +75,7 @@ export async function sessionEffortStats(
   const avgRestSecs = Math.round(totalRestSecs / gapCount);
 
   // Density: use provided duration if available, otherwise span of timestamps
-  const totalVolume = rows.reduce((sum: number, r: any) => sum + (r.weight || 0) * (r.reps || 0), 0);
+  const totalVolume = rows.reduce((sum: number, r: any) => sum + (r.weight || 0) * (r.reps || 0) + (r.drop_volume || 0), 0);
   const spanSecs = durationSecs
     || Math.max(1, Math.round(
         (new Date(rows[rows.length - 1].completed_at).getTime() -
@@ -127,7 +128,7 @@ export async function overallStats(): Promise<OverallStats> {
     SELECT
       COUNT(DISTINCT s.id) as sessionsCount,
       COUNT(CASE WHEN se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL) THEN se.id END) as setsCount,
-      COALESCE(SUM(CASE WHEN se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL) THEN se.weight * se.reps ELSE 0 END),0) as totalVolume
+      COALESCE(SUM(CASE WHEN se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL) THEN se.weight * se.reps + COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0) ELSE 0 END),0) as totalVolume
     FROM sessions s
     LEFT JOIN session_slots ss ON ss.session_id = s.id
     LEFT JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
@@ -148,7 +149,7 @@ export async function perTemplateStats() {
     SELECT t.id, t.name,
            COUNT(DISTINCT s.id) as sessionsCount,
            COUNT(CASE WHEN (se.is_warmup = 0 OR se.is_warmup IS NULL) THEN se.id END) as totalSets,
-           COALESCE(SUM(CASE WHEN (se.is_warmup = 0 OR se.is_warmup IS NULL) AND se.completed = 1 THEN se.weight * se.reps ELSE 0 END),0) as totalVolume
+           COALESCE(SUM(CASE WHEN (se.is_warmup = 0 OR se.is_warmup IS NULL) AND se.completed = 1 THEN se.weight * se.reps + COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0) ELSE 0 END),0) as totalVolume
     FROM templates t
     LEFT JOIN sessions s ON s.template_id = t.id AND s.status='final'
     LEFT JOIN session_slots ss ON ss.session_id = s.id
@@ -343,7 +344,7 @@ export async function weeklyVolumeByMuscle(): Promise<MuscleVolumeRow[]> {
     `
     SELECT e.primary_muscle as muscle,
            COUNT(se.id) as sets,
-           COALESCE(SUM(se.weight * se.reps), 0) as volume
+           COALESCE(SUM(se.weight * se.reps + COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0)), 0) as volume
     FROM sets se
     JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
     JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
@@ -448,6 +449,116 @@ export type ExerciseDelta = {
   status: 'progressed' | 'regressed' | 'maintained' | 'new' | 'skipped';
 };
 
+export type ExercisePerformanceStatus = ExerciseDelta['status'];
+
+export async function latestPerformanceStatusForExercise(
+  exerciseId: number,
+): Promise<ExercisePerformanceStatus | null> {
+  const exerciseRes = await executeSqlAsync(
+    `
+    SELECT e.name as exercise_name, COALESCE(e.is_assisted, 0) as is_assisted
+    FROM exercises e
+    WHERE e.id = ?
+    LIMIT 1;
+    `,
+    [exerciseId]
+  );
+  if (!exerciseRes.rows.length) return null;
+
+  const assisted = !!exerciseRes.rows.item(0).is_assisted;
+  const aggFn = assisted ? 'MIN' : 'MAX';
+
+  const latestSessionRes = await executeSqlAsync(
+    `
+    SELECT s.id
+    FROM sessions s
+    JOIN session_slots ss ON ss.session_id = s.id
+    JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
+    JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+    WHERE s.status = 'final' AND tco.exercise_id = ?
+    GROUP BY s.id
+    ORDER BY s.performed_at DESC, s.id DESC
+    LIMIT 1;
+    `,
+    [exerciseId]
+  );
+  if (!latestSessionRes.rows.length) return null;
+
+  const latestSessionId = latestSessionRes.rows.item(0).id;
+  const latestStatsRes = await executeSqlAsync(
+    `
+    SELECT ${aggFn}(se.weight) as top_weight,
+           COALESCE(SUM(se.weight * se.reps + COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0)), 0) as total_volume,
+           COALESCE(SUM(se.reps), 0) as total_reps,
+           COUNT(*) as completed_sets
+    FROM sets se
+    JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+    JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    WHERE ss.session_id = ? AND tco.exercise_id = ?
+      AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
+    `,
+    [latestSessionId, exerciseId]
+  );
+  const latest = latestStatsRes.rows.item(0);
+
+  if (!latest.completed_sets || latest.completed_sets === 0) {
+    return 'skipped';
+  }
+
+  const prevSessionRes = await executeSqlAsync(
+    `
+    SELECT s.id
+    FROM sessions s
+    JOIN session_slots ss ON ss.session_id = s.id
+    JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
+    JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+    JOIN sets se ON se.session_slot_choice_id = ssc.id
+                AND se.completed = 1
+                AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+    WHERE s.status = 'final' AND s.id != ? AND tco.exercise_id = ?
+    GROUP BY s.id
+    HAVING COUNT(se.id) > 0
+    ORDER BY s.performed_at DESC, s.id DESC
+    LIMIT 1;
+    `,
+    [latestSessionId, exerciseId]
+  );
+
+  if (!prevSessionRes.rows.length) {
+    return 'new';
+  }
+
+  const prevSessionId = prevSessionRes.rows.item(0).id;
+  const prevStatsRes = await executeSqlAsync(
+    `
+    SELECT ${aggFn}(se.weight) as top_weight,
+           COALESCE(SUM(se.weight * se.reps + COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0)), 0) as total_volume
+    FROM sets se
+    JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+    JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    WHERE ss.session_id = ? AND tco.exercise_id = ?
+      AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
+    `,
+    [prevSessionId, exerciseId]
+  );
+  const prev = prevStatsRes.rows.item(0);
+
+  const volumeDiff = (latest.total_volume || 0) - (prev?.total_volume || 0);
+  const weightDiff = (latest.top_weight || 0) - (prev?.top_weight || 0);
+
+  if (assisted) {
+    if (weightDiff < 0 || volumeDiff < 0) return 'progressed';
+    if (weightDiff > 0 || volumeDiff > 0) return 'regressed';
+    return 'maintained';
+  }
+
+  if (weightDiff > 0 || volumeDiff > 0) return 'progressed';
+  if (weightDiff < 0 || volumeDiff < 0) return 'regressed';
+  return 'maintained';
+}
+
 /**
  * Compare each exercise in sessionId to the last time it was performed.
  * Returns per-exercise deltas with progression/regression status.
@@ -477,7 +588,7 @@ export async function sessionExerciseDeltas(sessionId: number): Promise<Exercise
     const thisRes = await executeSqlAsync(
       `
       SELECT ${aggFn}(se.weight) as top_weight,
-             COALESCE(SUM(se.weight * se.reps), 0) as total_volume,
+             COALESCE(SUM(se.weight * se.reps + COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0)), 0) as total_volume,
              COALESCE(SUM(se.reps), 0) as total_reps,
              COUNT(*) as completed_sets
       FROM sets se
@@ -536,7 +647,7 @@ export async function sessionExerciseDeltas(sessionId: number): Promise<Exercise
       const prevRes = await executeSqlAsync(
         `
         SELECT ${aggFn}(se.weight) as top_weight,
-               COALESCE(SUM(se.weight * se.reps), 0) as total_volume,
+               COALESCE(SUM(se.weight * se.reps + COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0)), 0) as total_volume,
                COALESCE(SUM(se.reps), 0) as total_reps,
                COUNT(*) as completed_sets
         FROM sets se
@@ -627,7 +738,7 @@ export async function previousSessionComparison(sessionId: number): Promise<{
   // Volume
   const volRes = await executeSqlAsync(
     `
-    SELECT COALESCE(SUM(se.weight * se.reps), 0) as vol
+    SELECT COALESCE(SUM(se.weight * se.reps + COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0)), 0) as vol
     FROM sets se
     JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
