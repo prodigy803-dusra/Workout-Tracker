@@ -33,12 +33,23 @@ type TimerState = {
   skip: () => void;
 };
 
+type WorkoutProgress = {
+  completedSets: number;
+  totalSets: number;
+  exercisesRemaining: number;
+  totalExercises: number;
+  estimatedMinutesLeft: number;
+  totalVolume: number;
+  elapsedMinutes: number;
+};
+
 type Props = {
   timer: TimerState;
   unit: string;
+  workoutProgress?: WorkoutProgress;
 };
 
-function RestTimerModal({ timer, unit }: Props) {
+function RestTimerModal({ timer, unit, workoutProgress }: Props) {
   const c = useColors();
 
   /* Auto-dismiss progress bar (3s countdown when timer expires) */
@@ -122,6 +133,49 @@ function RestTimerModal({ timer, unit }: Props) {
               ) : null}
             </View>
           )}
+
+          {/* Workout progress */}
+          {workoutProgress && workoutProgress.totalSets > 0 && (() => {
+            const pct = Math.round((workoutProgress.completedSets / workoutProgress.totalSets) * 100);
+            return (
+              <View style={[styles.workoutProgressSection, { backgroundColor: c.sectionHeaderBg, borderColor: c.border }]}>
+                <View style={styles.workoutProgressHeader}>
+                  <Text style={[styles.workoutProgressTitle, { color: c.textSecondary }]}>
+                    WORKOUT PROGRESS
+                  </Text>
+                  <Text style={[styles.workoutProgressPct, { color: c.accent }]}>
+                    {pct}%
+                  </Text>
+                </View>
+                <View style={[styles.workoutProgressBarBg, { backgroundColor: c.isDark ? '#333' : '#E0E0E0' }]}>
+                  <View
+                    style={[
+                      styles.workoutProgressBarFill,
+                      { width: `${pct}%`, backgroundColor: c.accent },
+                    ]}
+                  />
+                </View>
+                <View style={styles.workoutProgressStats}>
+                  <Text style={[styles.workoutProgressStat, { color: c.text }]}>
+                    💪 {workoutProgress.completedSets}/{workoutProgress.totalSets} sets
+                  </Text>
+                  <Text style={[styles.workoutProgressStat, { color: c.text }]}>
+                    🏋️ {workoutProgress.exercisesRemaining} exercise{workoutProgress.exercisesRemaining !== 1 ? 's' : ''} left
+                  </Text>
+                </View>
+                <View style={styles.workoutProgressStats}>
+                  {workoutProgress.completedSets > 0 && (
+                    <Text style={[styles.workoutProgressStat, { color: c.text }]}>
+                      ⏱ ~{workoutProgress.estimatedMinutesLeft} min left
+                    </Text>
+                  )}
+                  <Text style={[styles.workoutProgressStat, { color: c.text }]}>
+                    📊 {Math.round(workoutProgress.totalVolume).toLocaleString()} {unit}
+                  </Text>
+                </View>
+              </View>
+            );
+          })()}
 
           {timer.remaining > 0 ? (
             <View style={styles.timerControls}>

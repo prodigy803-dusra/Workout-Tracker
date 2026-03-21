@@ -85,7 +85,14 @@ async function getLastPerformedSetsForExercise(exerciseId: number) {
 /** Get the current in-progress draft session, or null if none exists. */
 export async function getActiveDraft(): Promise<Session | null> {
   const res = await executeSqlAsync(
-    `SELECT * FROM sessions WHERE status='draft' ORDER BY id DESC LIMIT 1;`
+    `
+    SELECT s.*, t.name as template_name
+    FROM sessions s
+    LEFT JOIN templates t ON t.id = s.template_id
+    WHERE s.status='draft'
+    ORDER BY s.id DESC
+    LIMIT 1;
+    `
   );
   if (!res.rows.length) return null;
   return res.rows.item(0);

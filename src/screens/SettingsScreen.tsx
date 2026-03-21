@@ -35,6 +35,8 @@ import {
   cancelAllReminders,
 } from '../utils/notifications';
 import { exportSessionsCsv } from '../utils/exportCsv';
+import { getDeloadSettings, setDeloadEnabled, setDeloadFrequency, setDeloadIntensity } from '../db/repositories/deloadRepo';
+import type { DeloadSettings } from '../db/repositories/deloadRepo';
 import Constants from 'expo-constants';
 
 /** Tables exported/restored in dependency order. */
@@ -128,6 +130,11 @@ export default function SettingsScreen() {
   const [remindersOn, setRemindersOn] = useState(false);
   const [inactDays, setInactDays] = useState('3');
 
+  // Deload settings state
+  const [deloadSettings, setDeloadSettings] = useState<DeloadSettings>({ enabled: true, frequencyWeeks: 5, intensityPct: 60 });
+  const [deloadFreqInput, setDeloadFreqInput] = useState('5');
+  const [deloadIntensityInput, setDeloadIntensityInput] = useState('60');
+
   const loadBodyWeight = useCallback(async () => {
     const trend = await bodyWeightTrend();
     setBwTrend(trend);
@@ -147,12 +154,20 @@ export default function SettingsScreen() {
     setInactDays(String(d));
   }, []);
 
+  const loadDeloadSettings = useCallback(async () => {
+    const s = await getDeloadSettings();
+    setDeloadSettings(s);
+    setDeloadFreqInput(String(s.frequencyWeeks));
+    setDeloadIntensityInput(String(s.intensityPct));
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       loadBodyWeight();
       loadInjuries();
       loadNotificationSettings();
-    }, [loadBodyWeight, loadInjuries, loadNotificationSettings])
+      loadDeloadSettings();
+    }, [loadBodyWeight, loadInjuries, loadNotificationSettings, loadDeloadSettings])
   );
 
   async function exportZip() {
@@ -718,6 +733,81 @@ export default function SettingsScreen() {
           </View>
         )}
       </View>
+
+      <CollapsibleSection title="Deload Week" icon="🔄" c={c}>
+      <Text style={[styles.hint, { color: c.textSecondary, marginBottom: 8 }]}>
+        Automatic deload suggestions based on training frequency, performance regression, and injury status.
+      </Text>
+      <View style={[styles.bwCard, { backgroundColor: c.card, borderColor: c.border, paddingVertical: 14 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>Auto-detect Deload</Text>
+            <Text style={{ fontSize: 12, color: c.textSecondary, marginTop: 2 }}>
+              {deloadSettings.enabled ? 'Suggests deload when signals are detected' : 'Off'}
+            </Text>
+          </View>
+          <Switch
+            value={deloadSettings.enabled}
+            onValueChange={async (val) => {
+              await setDeloadEnabled(val);
+              setDeloadSettings(s => ({ ...s, enabled: val }));
+            }}
+            trackColor={{ true: c.primary }}
+          />
+        </View>
+        {deloadSettings.enabled && (
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 8 }}>
+              <Text style={{ fontSize: 14, color: c.text }}>Suggest every</Text>
+              <TextInput
+                value={deloadFreqInput}
+                onChangeText={setDeloadFreqInput}
+                onEndEditing={async () => {
+                  const w = parseInt(deloadFreqInput, 10);
+                  const clamped = Math.max(2, Math.min(12, w || 5));
+                  setDeloadFreqInput(String(clamped));
+                  await setDeloadFrequency(clamped);
+                  setDeloadSettings(s => ({ ...s, frequencyWeeks: clamped }));
+                }}
+                keyboardType="number-pad"
+                style={{
+                  width: 48, textAlign: 'center', fontSize: 16, fontWeight: '700',
+                  borderWidth: 1, borderColor: c.border, borderRadius: 8,
+                  paddingVertical: 6, paddingHorizontal: 8,
+                  backgroundColor: c.inputBg, color: c.text,
+                }}
+              />
+              <Text style={{ fontSize: 14, color: c.text }}>weeks</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 }}>
+              <Text style={{ fontSize: 14, color: c.text }}>Deload intensity</Text>
+              <TextInput
+                value={deloadIntensityInput}
+                onChangeText={setDeloadIntensityInput}
+                onEndEditing={async () => {
+                  const p = parseInt(deloadIntensityInput, 10);
+                  const clamped = Math.max(30, Math.min(90, p || 60));
+                  setDeloadIntensityInput(String(clamped));
+                  await setDeloadIntensity(clamped);
+                  setDeloadSettings(s => ({ ...s, intensityPct: clamped }));
+                }}
+                keyboardType="number-pad"
+                style={{
+                  width: 48, textAlign: 'center', fontSize: 16, fontWeight: '700',
+                  borderWidth: 1, borderColor: c.border, borderRadius: 8,
+                  paddingVertical: 6, paddingHorizontal: 8,
+                  backgroundColor: c.inputBg, color: c.text,
+                }}
+              />
+              <Text style={{ fontSize: 14, color: c.text }}>% of normal weight</Text>
+            </View>
+            <Text style={{ fontSize: 11, color: c.textSecondary, marginTop: 8, lineHeight: 16 }}>
+              Triggers: ≥{deloadSettings.frequencyWeeks} weeks since last deload, performance regression across sessions, active moderate/severe injury. Suggestion shown when multiple signals are detected.
+            </Text>
+          </>
+        )}
+      </View>
+      </CollapsibleSection>
 
       <Text style={[styles.sectionTitle, { color: c.text }]}>Export & Reports</Text>
       <Text style={[styles.hint, { color: c.textSecondary }]}>

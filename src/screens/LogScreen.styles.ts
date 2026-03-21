@@ -219,6 +219,20 @@ export const styles = StyleSheet.create({
   suggestionIcon: { fontSize: 16 },
   suggestionText: { fontSize: 13, color: '#7A6B00', flex: 1 },
 
+  slotSection: {
+    marginBottom: 10,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  slotSectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+
   // Warm-up generator
   warmupBtn: {
     flexDirection: 'row',
@@ -233,6 +247,11 @@ export const styles = StyleSheet.create({
   warmupBtnText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  warmupActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
   },
 
   // RPE chip
@@ -371,6 +390,49 @@ export const styles = StyleSheet.create({
   },
   nextSetDetail: {
     fontSize: 14,
+  },
+
+  // Workout progress section in timer modal
+  workoutProgressSection: {
+    width: '100%',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  workoutProgressHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 8,
+  },
+  workoutProgressTitle: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    letterSpacing: 1,
+  },
+  workoutProgressPct: {
+    fontSize: 15,
+    fontWeight: '800' as const,
+  },
+  workoutProgressStats: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    marginTop: 6,
+  },
+  workoutProgressStat: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  workoutProgressBarBg: {
+    height: 8,
+    borderRadius: 4,
+    width: '100%',
+    overflow: 'hidden' as const,
+  },
+  workoutProgressBarFill: {
+    height: 8,
+    borderRadius: 4,
   },
 
   // Drop-set segments

@@ -11,6 +11,7 @@ import { getSessionDetail } from '../db/repositories/sessionsRepo';
 import { getSessionPRs, sessionExerciseDeltas, previousSessionComparison, sessionEffortStats } from '../db/repositories/statsRepo';
 import type { ExerciseDelta, SessionEffortStats } from '../db/repositories/statsRepo';
 import { listActiveInjuries } from '../db/repositories/injuryRepo';
+import { isDeloadSession } from '../db/repositories/deloadRepo';
 import type { Injury } from '../db/repositories/injuryRepo';
 import { isExerciseAffected, INJURY_REGIONS, SEVERITIES } from '../data/injuryRegionMap';
 import { getMuscleInfo } from '../data/muscleExerciseMap';
@@ -41,6 +42,7 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
   const [prevComp, setPrevComp] = useState<PrevComparison>({ prevVolume: null, prevDurationSecs: null });
   const [effort, setEffort] = useState<SessionEffortStats | null>(null);
   const [activeInjuries, setActiveInjuries] = useState<Injury[]>([]);
+  const [isDeload, setIsDeload] = useState(false);
 
   // Intercept Android hardware back — redirect to LogHome instead of popping
   useEffect(() => {
@@ -64,6 +66,7 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
     previousSessionComparison(sessionId).then(setPrevComp);
     sessionEffortStats(sessionId, duration || undefined).then(setEffort);
     listActiveInjuries().then(setActiveInjuries);
+    isDeloadSession(sessionId).then(setIsDeload);
   }, [sessionId]);
 
   // Determine which exercises were done under injury — override 'regressed' to 'recovery'
@@ -116,11 +119,17 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
   const newExercises = deltas.filter(d => d.status === 'new').length;
   const skipped = deltas.filter(d => d.status === 'skipped').length;
 
-  const recoveryCount = deltas.filter(d => d.status === 'regressed' && injuryAffectedExercises.has(d.exercise_name)).length;
-  const regressed = deltas.filter(d => d.status === 'regressed').length - recoveryCount;
-  const hasReviewData = progressed + regressed + recoveryCount + maintained + newExercises > 0;
+  const recoveryCount = !isDeload
+    ? deltas.filter(d => d.status === 'regressed' && injuryAffectedExercises.has(d.exercise_name)).length
+    : 0;
+  const deloadCount = isDeload
+    ? deltas.filter(d => d.status === 'regressed').length
+    : 0;
+  const regressed = deltas.filter(d => d.status === 'regressed').length - recoveryCount - deloadCount;
+  const hasReviewData = progressed + regressed + recoveryCount + deloadCount + maintained + newExercises > 0;
 
   const statusBadge = (status: ExerciseDelta['status'], exerciseName?: string) => {
+    if (status === 'regressed' && isDeload) return '🔄';
     if (status === 'regressed' && exerciseName && injuryAffectedExercises.has(exerciseName)) return '🛡️';
     switch (status) {
       case 'progressed': return '📈';
@@ -159,6 +168,7 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
       lines.push('');
       if (progressed > 0) lines.push(`📈 Progressed: ${progressed}`);
       if (regressed > 0) lines.push(`📉 Regressed: ${regressed}`);
+      if (deloadCount > 0) lines.push(`🔄 Deload: ${deloadCount}`);
       if (recoveryCount > 0) lines.push(`🛡️ Recovery: ${recoveryCount}`);
       if (maintained > 0) lines.push(`➡️ Maintained: ${maintained}`);
       if (skipped > 0) lines.push(`⏭️ Skipped: ${skipped}`);
@@ -181,6 +191,15 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
           {detail.session.template_name || 'Session'}
         </Text>
       </View>
+
+      {isDeload && (
+        <View style={[s.progressionBanner, { marginTop: 0, backgroundColor: c.isDark ? '#1A1A2E' : '#E8EAF6', borderColor: c.isDark ? '#3949AB' : '#7986CB', borderWidth: 1 }]}>
+          <Text style={[s.progressionTitle, { color: c.isDark ? '#7986CB' : '#283593' }]}>🔄 Deload Session</Text>
+          <Text style={{ fontSize: 13, color: c.textSecondary }}>
+            Lighter session logged intentionally. Reduced performance is treated as recovery, not regression.
+          </Text>
+        </View>
+      )}
 
       {/* Stats grid */}
       <View style={s.statsGrid}>
@@ -240,6 +259,11 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
             {regressed > 0 && (
               <View style={[s.progressionChip, { backgroundColor: c.isDark ? '#3A1A1A' : '#FFEBEE' }]}>
                 <Text style={s.progressionChipText}>📉 {regressed} regressed</Text>
+              </View>
+            )}
+            {deloadCount > 0 && (
+              <View style={[s.progressionChip, { backgroundColor: c.isDark ? '#1A1A2E' : '#E8EAF6' }]}>
+                <Text style={s.progressionChipText}>🔄 {deloadCount} deload</Text>
               </View>
             )}
             {recoveryCount > 0 && (

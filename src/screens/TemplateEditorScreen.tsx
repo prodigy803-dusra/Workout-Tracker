@@ -251,38 +251,38 @@ export default function TemplateEditorScreen({ route, navigation }: Props) {
               </View>
             ))}
             <View style={styles.slotActions}>
-              <Pressable style={[styles.actionBtn, { backgroundColor: c.inputBg }]} onPress={() => openPicker(s.id)}>
+              <Pressable style={[styles.actionBtn, { backgroundColor: c.inputBg, flex: 1 }]} onPress={() => openPicker(s.id)}>
                 <Text style={[styles.actionBtnText, { color: c.text }]}>+ Add Exercise</Text>
               </Pressable>
               <Pressable
-                style={[styles.setsBtn, { backgroundColor: c.accentBg }]}
+                style={[styles.setsBtn, { backgroundColor: c.accentBg, flex: 1 }]}
                 onPress={() => openPrescribedSetsEditor(s.id)}
               >
-                <Text style={[styles.setsBtnText, { color: c.accent }]}>📋 Prescribed Sets</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.actionBtn, { backgroundColor: c.dangerBg }]}
-                onPress={() => {
-                  Alert.alert(
-                    'Delete Slot',
-                    `Delete "${s.name || `Slot ${s.slot_index}`}" and all its exercises?`,
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Delete',
-                        style: 'destructive',
-                        onPress: async () => {
-                          await deleteSlot(s.id);
-                          await load();
-                        },
-                      },
-                    ]
-                  );
-                }}
-              >
-                <Text style={[styles.actionBtnText, { color: c.danger }]}>Delete Slot</Text>
+                <Text style={[styles.setsBtnText, { color: c.accent, textAlign: 'center' }]}>📋 Prescribed Sets</Text>
               </Pressable>
             </View>
+            <Pressable
+              style={{ alignSelf: 'flex-end', paddingVertical: 6, paddingHorizontal: 4, marginTop: 6 }}
+              onPress={() => {
+                Alert.alert(
+                  'Delete Slot',
+                  `Delete "${s.name || `Slot ${s.slot_index}`}" and all its exercises?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: async () => {
+                        await deleteSlot(s.id);
+                        await load();
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '600', color: c.danger }}>Delete Slot</Text>
+            </Pressable>
           </View>
         );
       })}
@@ -497,18 +497,18 @@ const styles = StyleSheet.create({
   removeBtnText: { color: '#C00', fontSize: 16 },
   setsBtn: {
     backgroundColor: '#F0F7FF',
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 10,
-    borderRadius: 6,
-    marginTop: 4,
-    alignSelf: 'flex-start',
+    borderRadius: 8,
+    alignItems: 'center',
   },
   setsBtnText: { fontSize: 13, color: '#1E90FF', fontWeight: '600' },
-  slotActions: { flexDirection: 'row', gap: 12, marginTop: 10 },
+  slotActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
   actionBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
+    alignItems: 'center',
     backgroundColor: '#F0F0F0',
   },
   actionBtnText: { fontSize: 14, fontWeight: '600', color: '#333' },

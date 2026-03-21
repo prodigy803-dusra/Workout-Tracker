@@ -233,11 +233,16 @@ function SlotCard({
       {/* Expanded content */}
       {isExpanded && (
         <View style={styles.slotContent}>
-          <OptionChips
-            options={options}
-            selectedTemplateOptionId={slot.template_slot_option_id ?? 0}
-            onSelect={(templateSlotOptionId) => onSelectChoice(slot.session_slot_id, templateSlotOptionId)}
-          />
+          {options.length > 1 && (
+            <View style={[styles.slotSection, { backgroundColor: c.sectionHeaderBg, borderColor: c.border }]}>
+              <Text style={[styles.slotSectionLabel, { color: c.textSecondary }]}>Exercise Option</Text>
+              <OptionChips
+                options={options}
+                selectedTemplateOptionId={slot.template_slot_option_id ?? 0}
+                onSelect={(templateSlotOptionId) => onSelectChoice(slot.session_slot_id, templateSlotOptionId)}
+              />
+            </View>
+          )}
 
           {/* Injury warning banners */}
           {injuryWarnings && injuryWarnings.length > 0 && injuryWarnings.map((w, idx) => (
@@ -272,33 +277,37 @@ function SlotCard({
             />
           )}
 
-          {showWarmupGenerate && (
-            <WarmupGeneratorButton
-              onGenerate={() => onGenerateWarmups(selectedChoiceId, heaviestWeight)}
-            />
-          )}
+          {(showWarmupGenerate || hasWarmups) && (
+            <View style={[styles.slotSection, { backgroundColor: c.sectionHeaderBg, borderColor: c.border }]}>
+              <Text style={[styles.slotSectionLabel, { color: c.textSecondary }]}>Warm-up Prep</Text>
+              {showWarmupGenerate && (
+                <WarmupGeneratorButton
+                  onGenerate={() => onGenerateWarmups(selectedChoiceId, heaviestWeight)}
+                />
+              )}
 
-          {/* Warmup management: regenerate + clear */}
-          {hasWarmups && (
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-              <Pressable
-                onPress={() => {
-                  haptic('light');
-                  onGenerateWarmups(selectedChoiceId, heaviestWeight);
-                }}
-                style={[styles.warmupBtn, { flex: 1, borderColor: c.accent, backgroundColor: c.accentBg }]}
-              >
-                <Text style={[styles.warmupBtnText, { color: c.accent }]}>🔄 Regenerate</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  haptic('light');
-                  onClearWarmups(selectedChoiceId);
-                }}
-                style={[styles.warmupBtn, { flex: 1, borderColor: c.danger, backgroundColor: c.card }]}
-              >
-                <Text style={[styles.warmupBtnText, { color: c.danger }]}>✕ Clear Warmups</Text>
-              </Pressable>
+              {hasWarmups && (
+                <View style={styles.warmupActionsRow}>
+                  <Pressable
+                    onPress={() => {
+                      haptic('light');
+                      onGenerateWarmups(selectedChoiceId, heaviestWeight);
+                    }}
+                    style={[styles.warmupBtn, { flex: 1, borderColor: c.accent, backgroundColor: c.accentBg }]}
+                  >
+                    <Text style={[styles.warmupBtnText, { color: c.accent }]}>🔄 Regenerate</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      haptic('light');
+                      onClearWarmups(selectedChoiceId);
+                    }}
+                    style={[styles.warmupBtn, { flex: 1, borderColor: c.danger, backgroundColor: c.card }]}
+                  >
+                    <Text style={[styles.warmupBtnText, { color: c.danger }]}>✕ Clear Warmups</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
           )}
 

@@ -247,4 +247,6 @@ export const migrations: string[] = [
   `ALTER TABLE template_slots ADD COLUMN target_reps_max INT NULL;`,
   // Migration 41: is_custom flag for user-created exercises
   `ALTER TABLE exercises ADD COLUMN is_custom INTEGER NOT NULL DEFAULT 0;`,
+  // Migration 42: deload flag on sessions
+  `ALTER TABLE sessions ADD COLUMN is_deload INTEGER NOT NULL DEFAULT 0;`,
 ];

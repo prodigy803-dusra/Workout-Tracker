@@ -74,6 +74,7 @@ export type Session = {
   notes: string | null;
   status: 'draft' | 'final';
   template_id: number | null;
+  template_name?: string | null;
   created_at: string;
 };
 

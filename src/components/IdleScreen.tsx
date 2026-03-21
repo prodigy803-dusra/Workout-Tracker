@@ -18,6 +18,8 @@ import InjuryModal from './InjuryModal';
 import { useUnit } from '../contexts/UnitContext';
 import { useColors } from '../contexts/ThemeContext';
 import WeeklyVolumeCard from './WeeklyVolumeCard';
+import { evaluateDeload, getDeloadSettings, dismissDeloadSuggestion, markSessionAsDeload, applyDeloadWeights } from '../db/repositories/deloadRepo';
+import type { DeloadSuggestion } from '../db/repositories/deloadRepo';
 import type { OverallStats, Template, MuscleVolumeRow } from '../types';
 import { idle } from '../screens/LogScreen.styles';
 
@@ -46,6 +48,11 @@ function IdleScreen({ onSessionStarted }: Props) {
   const [readiness, setReadiness] = useState<'great' | 'good' | 'sore' | null>(null);
   const [injuryModalVisible, setInjuryModalVisible] = useState(false);
 
+  // Deload state
+  const [deloadSuggestion, setDeloadSuggestion] = useState<DeloadSuggestion | null>(null);
+  const [deloadEnabled, setDeloadEnabled] = useState(false);
+  const [wantsDeload, setWantsDeload] = useState(false);
+
   useEffect(() => {
     const h = new Date().getHours();
     if (h < 12) setGreeting('Good morning');
@@ -59,6 +66,15 @@ function IdleScreen({ onSessionStarted }: Props) {
       overallStats().then(setStats);
       weeklyVolumeByMuscle().then(setMuscleVolume);
       listActiveInjuries().then(setActiveInjuries);
+      // Evaluate deload suggestion
+      getDeloadSettings().then(s => {
+        setDeloadEnabled(s.enabled);
+        if (s.enabled) {
+          evaluateDeload().then(setDeloadSuggestion);
+        } else {
+          setDeloadSuggestion(null);
+        }
+      });
     }, []),
   );
 
@@ -80,7 +96,14 @@ function IdleScreen({ onSessionStarted }: Props) {
     setCheckInVisible(false);
     setPendingTemplateId(null);
     try {
-      await createDraftFromTemplate(templateId);
+      const sessionId = await createDraftFromTemplate(templateId);
+      // If user chose deload, mark the session and reduce weights
+      if (wantsDeload && sessionId) {
+        const settings = await getDeloadSettings();
+        await markSessionAsDeload(sessionId);
+        await applyDeloadWeights(sessionId, settings.intensityPct);
+      }
+      setWantsDeload(false);
       onSessionStarted();
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to start session');
@@ -93,6 +116,7 @@ function IdleScreen({ onSessionStarted }: Props) {
     setCheckInVisible(false);
     setPendingTemplateId(null);
     setReadiness(null);
+    setWantsDeload(false);
   }
 
   /** Save a new injury logged from the pre-workout check-in */
@@ -114,6 +138,45 @@ function IdleScreen({ onSessionStarted }: Props) {
         <Text style={[idle.greeting, { color: c.textSecondary }]}>{greeting} 👋</Text>
         <Text style={[idle.heroTitle, { color: c.text }]}>Ready to train?</Text>
       </View>
+
+      {/* Deload suggestion banner */}
+      {deloadSuggestion?.shouldDeload && (
+        <View style={{
+          marginHorizontal: 0,
+          marginBottom: 16,
+          padding: 14,
+          borderRadius: 12,
+          backgroundColor: c.isDark ? '#1A1A2E' : '#E8EAF6',
+          borderWidth: 1,
+          borderColor: c.isDark ? '#3949AB' : '#7986CB',
+        }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: c.isDark ? '#7986CB' : '#283593', marginBottom: 4 }}>
+            🔄 Deload Week Recommended
+          </Text>
+          <Text style={{ fontSize: 13, color: c.text, marginBottom: 6, lineHeight: 18 }}>
+            {deloadSuggestion.signals.scheduleOverdue
+              ? `It's been ${deloadSuggestion.signals.weeksSinceDeload} weeks since your last deload.`
+              : [
+                  deloadSuggestion.signals.schedule && `${deloadSuggestion.signals.weeksSinceDeload} weeks since last deload`,
+                  deloadSuggestion.signals.regression && 'performance regression detected',
+                  deloadSuggestion.signals.injury && 'active injury',
+                ].filter(Boolean).join(' • ')}
+          </Text>
+          <Text style={{ fontSize: 12, color: c.textSecondary, marginBottom: 10 }}>
+            A deload week reduces intensity to let your body recover. Choose a template below and toggle "Deload Session" in the check-in.
+          </Text>
+          <Pressable
+            onPress={async () => {
+              await dismissDeloadSuggestion();
+              setDeloadSuggestion(null);
+            }}
+          >
+            <Text style={{ fontSize: 13, color: c.textSecondary, textDecorationLine: 'underline' }}>
+              Dismiss for 1 week
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Active injury notice */}
       {activeInjuries.length > 0 && (
@@ -309,6 +372,24 @@ function IdleScreen({ onSessionStarted }: Props) {
                   </Text>
                 </View>
               )}
+
+              {/* Deload toggle — always available */}
+              <Pressable
+                style={[
+                  checkInStyles.logInjuryBtn,
+                  {
+                    borderColor: wantsDeload ? (c.isDark ? '#3949AB' : '#7986CB') : c.border,
+                    backgroundColor: wantsDeload
+                      ? (c.isDark ? 'rgba(57,73,171,0.15)' : 'rgba(121,134,203,0.08)')
+                      : 'transparent',
+                  },
+                ]}
+                onPress={() => setWantsDeload(d => !d)}
+              >
+                <Text style={[checkInStyles.logInjuryBtnText, { color: wantsDeload ? (c.isDark ? '#7986CB' : '#283593') : c.accent }]}>
+                  {wantsDeload ? '✅ Deload session — weights will be reduced' : '🔄 Make this a deload session'}
+                </Text>
+              </Pressable>
 
               {/* Log an injury option — always available */}
               <Pressable

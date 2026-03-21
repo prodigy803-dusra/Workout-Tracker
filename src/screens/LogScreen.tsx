@@ -32,6 +32,7 @@ import PlateCalculator from '../components/PlateCalculator';
 import ExercisePickerModal from '../components/ExercisePickerModal';
 import { listActiveInjuries } from '../db/repositories/injuryRepo';
 import type { Injury } from '../db/repositories/injuryRepo';
+import { isDeloadSession } from '../db/repositories/deloadRepo';
 import { isExerciseAffected, INJURY_REGIONS, SEVERITIES } from '../data/injuryRegionMap';
 import { getMuscleInfo } from '../data/muscleExerciseMap';
 import type { InjuryWarning } from '../components/SlotCard';
@@ -57,6 +58,7 @@ export default function LogScreenV2() {
 
   /* ── Active injuries for warning banners ── */
   const [activeInjuries, setActiveInjuries] = useState<Injury[]>([]);
+  const [isDeload, setIsDeload] = useState(false);
 
   /* Ref to suppress auto-expand after warmup gen / drop add (bug fix) */
   const suppressAutoExpandRef = useRef(false);
@@ -121,6 +123,12 @@ export default function LogScreenV2() {
     }
   }, [state.draft?.id, state.phase]);
 
+  useEffect(() => {
+    navigation.setOptions({
+      title: state.draft?.template_name?.trim() || 'Log',
+    });
+  }, [navigation, state.draft?.template_name]);
+
   // Hydrate on focus
   useFocusEffect(
     useCallback(() => {
@@ -128,6 +136,14 @@ export default function LogScreenV2() {
       listActiveInjuries().then(setActiveInjuries);
     }, [hydrate]),
   );
+
+  useEffect(() => {
+    if (!state.draft?.id) {
+      setIsDeload(false);
+      return;
+    }
+    isDeloadSession(state.draft.id).then(setIsDeload).catch(() => setIsDeload(false));
+  }, [state.draft?.id]);
 
   // Auto-expand first incomplete slot after hydrate
   useEffect(() => {
@@ -166,6 +182,35 @@ export default function LogScreenV2() {
     }
     return { totalSets: total, completedSets: completed, totalVolume: volume };
   }, [state.setsByChoice, state.dropsBySet]);
+
+  /* ── Workout progress for rest timer overlay ── */
+  const workoutProgress = useMemo(() => {
+    if (!state.draft || totalSets === 0) return undefined;
+    // Count exercises with at least one incomplete set
+    let exercisesRemaining = 0;
+    const totalExercises = state.slots.length;
+    for (const slot of state.slots) {
+      const choiceId = slot.selected_session_slot_choice_id;
+      if (!choiceId) { exercisesRemaining++; continue; }
+      const sets = state.setsByChoice[choiceId] || [];
+      if (sets.length === 0 || sets.some(s => !s.completed)) exercisesRemaining++;
+    }
+    const elapsedMinutes = Math.max(1, Math.round(elapsed / 60));
+    // Estimate remaining time from pace
+    const setsRemaining = totalSets - completedSets;
+    const estimatedMinutesLeft = completedSets > 0
+      ? Math.round((elapsedMinutes / completedSets) * setsRemaining)
+      : 0;
+    return {
+      completedSets,
+      totalSets,
+      exercisesRemaining,
+      totalExercises,
+      estimatedMinutesLeft,
+      totalVolume,
+      elapsedMinutes,
+    };
+  }, [state.draft, state.slots, state.setsByChoice, totalSets, completedSets, totalVolume, elapsed]);
 
   /* ── Action handlers (§3: dispatch + side effect) ── */
 
@@ -633,6 +678,31 @@ export default function LogScreenV2() {
           unit={unit}
         />
 
+        {/* Deload session banner */}
+        {isDeload && (
+          <View style={{
+            padding: 12,
+            marginBottom: 12,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: c.isDark ? '#3949AB' : '#7986CB',
+            backgroundColor: c.isDark ? '#1A1A2E' : '#E8EAF6',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+          }}>
+            <Text style={{ fontSize: 20 }}>🔄</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: c.isDark ? '#7986CB' : '#283593' }}>
+                Deload Session
+              </Text>
+              <Text style={{ fontSize: 12, color: c.textSecondary }}>
+                Weights reduced — focus on form and recovery
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Resume prompt for stale drafts */}
         {showResumePrompt && state.draft && (
           <View style={{
@@ -707,7 +777,7 @@ export default function LogScreenV2() {
             onPress={() => { setPlateCalcWeight(0); setPlateCalcVisible(true); }}
             style={[styles.secondaryBtn, { borderColor: c.border, backgroundColor: c.card }]}
           >
-            <Text style={[styles.secondaryBtnText, { color: c.accent }]}>📐 Plates</Text>
+            <Text style={[styles.secondaryBtnText, { color: c.accent }]}>📐 Load Bar</Text>
           </Pressable>
           <Pressable onPress={handleDiscard} style={[styles.secondaryBtn, { backgroundColor: c.card, borderColor: c.border }]}>
             <Text style={[styles.secondaryBtnText, { color: c.danger }]}>✕ Discard</Text>
@@ -781,7 +851,7 @@ export default function LogScreenV2() {
         </Pressable>
 
         {/* Rest Timer */}
-        <RestTimerModal timer={timer} unit={unit} />
+        <RestTimerModal timer={timer} unit={unit} workoutProgress={workoutProgress} />
 
         {/* Plate Calculator */}
         <PlateCalculator
