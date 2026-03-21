@@ -967,3 +967,173 @@ export async function weeklyReportData(
       : 0,
   };
 }
+
+/* ═══════════════════════════════════════════════════════════
+ *  Training Insights — body focus, balance, patterns
+ * ═══════════════════════════════════════════════════════════ */
+
+export type MuscleBreakdown = { muscle: string; sets: number; pct: number };
+
+export type TrainingInsights = {
+  /** All-time sets per muscle group with percentages */
+  muscleBreakdown: MuscleBreakdown[];
+  /** Push / Pull / Legs set counts + percentages */
+  balance: { push: number; pull: number; legs: number; core: number; total: number };
+  /** Top 5 most-trained exercises by session count */
+  topExercises: Array<{ name: string; sessionCount: number; totalSets: number }>;
+  /** Average sessions per week (all-time) */
+  avgSessionsPerWeek: number;
+  /** Most common training day (0=Sun..6=Sat), null if no data */
+  favoriteDayOfWeek: number | null;
+  /** Muscles with zero sets in the last 30 days */
+  neglectedMuscles: string[];
+  /** Week-over-week volume totals for the last 8 weeks */
+  weeklyVolumeTrend: Array<{ week: string; volume: number }>;
+};
+
+const PUSH_MUSCLES = new Set(['chest', 'shoulders', 'shoulders front', 'shoulders side', 'triceps']);
+const PULL_MUSCLES = new Set(['lats', 'mid back', 'upper back', 'lower back', 'biceps', 'forearms', 'rear delt', 'traps']);
+const LEG_MUSCLES  = new Set(['quads', 'hamstrings', 'glutes', 'calves', 'adductors', 'tibialis']);
+const CORE_MUSCLES = new Set(['core', 'abs', 'obliques']);
+
+export async function trainingInsights(): Promise<TrainingInsights> {
+  // 1. All-time muscle distribution
+  const muscleRes = await executeSqlAsync(
+    `
+    SELECT e.primary_muscle AS muscle, COUNT(se.id) AS sets
+    FROM sets se
+    JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+    JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+    JOIN exercises e ON e.id = tco.exercise_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    JOIN sessions s ON s.id = ss.session_id
+    WHERE s.status = 'final'
+      AND se.completed = 1
+      AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+      AND e.primary_muscle IS NOT NULL
+    GROUP BY e.primary_muscle
+    ORDER BY sets DESC;
+    `
+  );
+  const muscleRows: Array<{ muscle: string; sets: number }> = muscleRes.rows._array;
+  const totalMuscleSets = muscleRows.reduce((s, r) => s + r.sets, 0);
+  const muscleBreakdown: MuscleBreakdown[] = muscleRows.map(r => ({
+    muscle: r.muscle,
+    sets: r.sets,
+    pct: totalMuscleSets > 0 ? Math.round((r.sets / totalMuscleSets) * 100) : 0,
+  }));
+
+  // 2. Push / Pull / Legs balance
+  let push = 0, pull = 0, legs = 0, core = 0;
+  for (const r of muscleRows) {
+    const m = r.muscle.toLowerCase();
+    if (PUSH_MUSCLES.has(m)) push += r.sets;
+    else if (PULL_MUSCLES.has(m)) pull += r.sets;
+    else if (LEG_MUSCLES.has(m)) legs += r.sets;
+    else if (CORE_MUSCLES.has(m)) core += r.sets;
+  }
+
+  // 3. Top exercises by session count
+  const topRes = await executeSqlAsync(
+    `
+    SELECT e.name, COUNT(DISTINCT s.id) AS session_count, COUNT(se.id) AS total_sets
+    FROM sets se
+    JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+    JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+    JOIN exercises e ON e.id = tco.exercise_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    JOIN sessions s ON s.id = ss.session_id
+    WHERE s.status = 'final'
+      AND se.completed = 1
+      AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+    GROUP BY e.id
+    ORDER BY session_count DESC, total_sets DESC
+    LIMIT 5;
+    `
+  );
+  const topExercises = topRes.rows._array.map((r: any) => ({
+    name: r.name,
+    sessionCount: r.session_count,
+    totalSets: r.total_sets,
+  }));
+
+  // 4. Average sessions per week
+  const freqRes = await executeSqlAsync(
+    `
+    SELECT COUNT(*) AS total,
+           MIN(performed_at) AS first_date
+    FROM sessions WHERE status = 'final';
+    `
+  );
+  const { total, first_date } = freqRes.rows.item(0);
+  let avgSessionsPerWeek = 0;
+  if (total > 0 && first_date) {
+    const weeks = Math.max(1, (Date.now() - new Date(first_date).getTime()) / (7 * 24 * 60 * 60 * 1000));
+    avgSessionsPerWeek = Math.round((total / weeks) * 10) / 10;
+  }
+
+  // 5. Most common training day
+  const dayRes = await executeSqlAsync(
+    `
+    SELECT CAST(strftime('%w', performed_at) AS INTEGER) AS dow, COUNT(*) AS cnt
+    FROM sessions WHERE status = 'final'
+    GROUP BY dow ORDER BY cnt DESC LIMIT 1;
+    `
+  );
+  const favoriteDayOfWeek = dayRes.rows.length > 0 ? dayRes.rows.item(0).dow : null;
+
+  // 6. Neglected muscles (trained at least once ever, but zero sets in last 30 days)
+  const recentRes = await executeSqlAsync(
+    `
+    SELECT DISTINCT e.primary_muscle AS muscle
+    FROM sets se
+    JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+    JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
+    JOIN exercises e ON e.id = tco.exercise_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    JOIN sessions s ON s.id = ss.session_id
+    WHERE s.status = 'final'
+      AND s.performed_at >= datetime('now', '-30 days')
+      AND se.completed = 1
+      AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+      AND e.primary_muscle IS NOT NULL;
+    `
+  );
+  const recentMuscles = new Set(recentRes.rows._array.map((r: any) => r.muscle));
+  const allTrainedMuscles = muscleRows.map(r => r.muscle);
+  const neglectedMuscles = allTrainedMuscles.filter(m => !recentMuscles.has(m));
+
+  // 7. Weekly volume trend (last 8 weeks)
+  const volTrendRes = await executeSqlAsync(
+    `
+    SELECT strftime('%Y-%W', s.performed_at) AS week,
+           COALESCE(SUM(
+             CASE WHEN se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+               THEN se.weight * se.reps + COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0)
+               ELSE 0 END
+           ), 0) AS volume
+    FROM sessions s
+    JOIN session_slots ss ON ss.session_id = s.id
+    JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
+    JOIN sets se ON se.session_slot_choice_id = ssc.id
+    WHERE s.status = 'final'
+      AND s.performed_at >= datetime('now', '-56 days')
+    GROUP BY week
+    ORDER BY week;
+    `
+  );
+  const weeklyVolumeTrend = volTrendRes.rows._array.map((r: any) => ({
+    week: r.week,
+    volume: r.volume,
+  }));
+
+  return {
+    muscleBreakdown,
+    balance: { push, pull, legs, core, total: totalMuscleSets },
+    topExercises,
+    avgSessionsPerWeek,
+    favoriteDayOfWeek,
+    neglectedMuscles,
+    weeklyVolumeTrend,
+  };
+}

@@ -78,7 +78,9 @@ export function useRestTimer() {
     try {
       if (notifIdRef.current) {
         await Notifications.cancelScheduledNotificationAsync(notifIdRef.current).catch(() => {});
+        notifIdRef.current = null;
       }
+      const fireDate = new Date(Date.now() + Math.max(1, Math.round(seconds)) * 1000);
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: '⏱️ Rest Complete!',
@@ -87,8 +89,8 @@ export function useRestTimer() {
           ...(Platform.OS === 'android' ? { vibrate: [0, 250, 250, 250] } : {}),
         },
         trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: Math.max(1, Math.round(seconds)),
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: fireDate,
         },
       });
       notifIdRef.current = id;
@@ -215,7 +217,8 @@ export function useRestTimer() {
           onRestAdjustedRef.current?.(newTotal);
           return newTotal;
         });
-        cancelNotif().then(() => scheduleNotif(rem));
+        // Cancel then reschedule with the new remaining time
+        cancelNotif().then(() => { if (rem > 0) scheduleNotif(rem); });
       } else {
         setRemaining((prev) => Math.max(0, prev + delta));
       }

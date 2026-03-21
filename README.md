@@ -66,6 +66,7 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 - **Workout progress in the timer** — sets completed, exercises left, and a rough minutes-left estimate without leaving the rest screen
 - **Ad-hoc timer** — manual "⏱ Rest" button with preset durations (30s / 60s / 90s / 2min / 3min)
 - Uses absolute timestamps + expo-notifications for **background accuracy**
+- **Exact-time notifications** — uses DATE triggers instead of interval-based, so the "Rest Complete" alert fires precisely when the timer ends
 
 ### 📈 Own Your Progress
 - Completed every set last time? A **suggestion banner** nudges you forward:
@@ -109,7 +110,9 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 
 ### 📋 Own Your History
 - Full session history — every workout you've ever done, searchable
+- **Collapsible session list** — shows 3 most recent sessions by default with expand/collapse toggle to see all
 - Tap any session for a detailed breakdown of every set you logged — **completed vs skipped** sets are visually distinguished
+- **Month-based calendar heatmap** — proper calendar grid showing workout days, with ‹ › arrows to navigate previous months
 
 ### 🩹 Own Your Recovery
 - Log injuries with **body region** (10 regions), **severity** (mild / moderate / severe), **type**, and notes
@@ -192,7 +195,7 @@ WorkoutApp/
 │   │   ├── SettingsScreen.tsx       # Preferences, body weight, injuries, deload, reminders, export/restore
 │   │   └── WorkoutSummaryScreen.tsx  # Post-workout review with progression analysis
 │   ├── components/
-│   │   ├── CalendarHeatmap.tsx       # Activity heatmap calendar
+│   │   ├── CalendarHeatmap.tsx       # Month-based calendar heatmap with navigation
 │   │   ├── ConfettiCannon.tsx       # Celebration animation for PRs
 │   │   ├── DropSegmentRow.tsx       # Drop-set segment row
 │   │   ├── ErrorBoundary.tsx        # App-level error boundary
