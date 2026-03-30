@@ -159,8 +159,12 @@ export default function TemplateEditorScreen({ route, navigation }: Props) {
       rpe: s.rpe ? parseFloat(s.rpe) : null,
       rest_seconds: s.rest ? parseInt(s.rest, 10) : 90,
     }));
-    await replacePrescribedSets(editingSetsForSlot, toSave);
-    closePrescribedSetsEditor();
+    try {
+      await replacePrescribedSets(editingSetsForSlot, toSave);
+      closePrescribedSetsEditor();
+    } catch {
+      Alert.alert('Error', 'Failed to save prescribed sets.');
+    }
   }
 
   if (!tpl) return (
@@ -273,8 +277,12 @@ export default function TemplateEditorScreen({ route, navigation }: Props) {
                       text: 'Delete',
                       style: 'destructive',
                       onPress: async () => {
-                        await deleteSlot(s.id);
-                        await load();
+                        try {
+                          await deleteSlot(s.id);
+                          await load();
+                        } catch {
+                          Alert.alert('Error', 'Failed to delete slot.');
+                        }
                       },
                     },
                   ]

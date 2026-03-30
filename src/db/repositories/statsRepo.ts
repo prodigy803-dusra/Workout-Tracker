@@ -46,6 +46,7 @@ export async function sessionEffortStats(
     JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     WHERE ss.session_id = ?
+      AND ss.selected_session_slot_choice_id = ssc.id
       AND se.completed = 1
       AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
       AND se.completed_at IS NOT NULL
@@ -110,6 +111,7 @@ export async function e1rmHistory(exerciseId: number): Promise<DataPoint[]> {
     WHERE tco.exercise_id = ? AND s.status='final'
       AND se.reps BETWEEN 1 AND 12 AND se.weight > 0 AND se.completed = 1
       AND se.is_warmup = 0
+      AND ss.selected_session_slot_choice_id = ssc.id
     GROUP BY s.id
     ORDER BY s.performed_at ASC;
     `,
@@ -131,7 +133,7 @@ export async function overallStats(): Promise<OverallStats> {
       COALESCE(SUM(CASE WHEN se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL) THEN se.weight * se.reps + COALESCE((SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0) ELSE 0 END),0) as totalVolume
     FROM sessions s
     LEFT JOIN session_slots ss ON ss.session_id = s.id
-    LEFT JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
+    LEFT JOIN session_slot_choices ssc ON ssc.id = ss.selected_session_slot_choice_id
     LEFT JOIN sets se ON se.session_slot_choice_id = ssc.id
     WHERE s.status='final' AND s.performed_at >= datetime('now','-7 days');
     `
@@ -153,7 +155,7 @@ export async function perTemplateStats() {
     FROM templates t
     LEFT JOIN sessions s ON s.template_id = t.id AND s.status='final'
     LEFT JOIN session_slots ss ON ss.session_id = s.id
-    LEFT JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
+    LEFT JOIN session_slot_choices ssc ON ssc.id = ss.selected_session_slot_choice_id
     LEFT JOIN sets se ON se.session_slot_choice_id = ssc.id
     GROUP BY t.id, t.name
     ORDER BY t.name;
@@ -180,7 +182,7 @@ export async function detectAndRecordPRs(sessionId: number) {
     SELECT DISTINCT tco.exercise_id, e.name as exercise_name,
            COALESCE(e.is_assisted, 0) as is_assisted
     FROM session_slots ss
-    JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
+    JOIN session_slot_choices ssc ON ssc.id = ss.selected_session_slot_choice_id
     JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
     JOIN exercises e ON e.id = tco.exercise_id
     WHERE ss.session_id = ?;
@@ -203,6 +205,7 @@ export async function detectAndRecordPRs(sessionId: number) {
         JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
         JOIN session_slots ss ON ss.id = ssc.session_slot_id
         WHERE ss.session_id = ? AND tco.exercise_id = ?
+          AND ss.selected_session_slot_choice_id = ssc.id
           AND se.completed = 1 AND se.reps BETWEEN 1 AND 12 AND se.weight > 0
           AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
         `,
@@ -219,6 +222,7 @@ export async function detectAndRecordPRs(sessionId: number) {
         JOIN session_slots ss ON ss.id = ssc.session_slot_id
         JOIN sessions s ON s.id = ss.session_id
         WHERE s.status = 'final' AND s.id != ? AND tco.exercise_id = ?
+          AND ss.selected_session_slot_choice_id = ssc.id
           AND se.completed = 1 AND se.reps BETWEEN 1 AND 12 AND se.weight > 0
           AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
         `,
@@ -256,6 +260,7 @@ export async function detectAndRecordPRs(sessionId: number) {
       JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
       JOIN session_slots ss ON ss.id = ssc.session_slot_id
       WHERE ss.session_id = ? AND tco.exercise_id = ?
+        AND ss.selected_session_slot_choice_id = ssc.id
         AND se.completed = 1 AND se.weight > 0
         AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
       `,
@@ -272,6 +277,7 @@ export async function detectAndRecordPRs(sessionId: number) {
       JOIN session_slots ss ON ss.id = ssc.session_slot_id
       JOIN sessions s ON s.id = ss.session_id
       WHERE s.status = 'final' AND s.id != ? AND tco.exercise_id = ?
+        AND ss.selected_session_slot_choice_id = ssc.id
         AND se.completed = 1 AND se.weight > 0
         AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
       `,
@@ -353,6 +359,7 @@ export async function weeklyVolumeByMuscle(): Promise<MuscleVolumeRow[]> {
     JOIN sessions s ON s.id = ss.session_id
     WHERE s.status = 'final'
       AND s.performed_at >= datetime('now', '-7 days')
+      AND ss.selected_session_slot_choice_id = ssc.id
       AND se.completed = 1
       AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
       AND e.primary_muscle IS NOT NULL
@@ -476,6 +483,7 @@ export async function latestPerformanceStatusForExercise(
     JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
     JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
     WHERE s.status = 'final' AND tco.exercise_id = ?
+      AND ss.selected_session_slot_choice_id = ssc.id
     GROUP BY s.id
     ORDER BY s.performed_at DESC, s.id DESC
     LIMIT 1;
@@ -496,6 +504,7 @@ export async function latestPerformanceStatusForExercise(
     JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     WHERE ss.session_id = ? AND tco.exercise_id = ?
+      AND ss.selected_session_slot_choice_id = ssc.id
       AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
     `,
     [latestSessionId, exerciseId]
@@ -517,6 +526,7 @@ export async function latestPerformanceStatusForExercise(
                 AND se.completed = 1
                 AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
     WHERE s.status = 'final' AND s.id != ? AND tco.exercise_id = ?
+      AND ss.selected_session_slot_choice_id = ssc.id
     GROUP BY s.id
     HAVING COUNT(se.id) > 0
     ORDER BY s.performed_at DESC, s.id DESC
@@ -539,6 +549,7 @@ export async function latestPerformanceStatusForExercise(
     JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     WHERE ss.session_id = ? AND tco.exercise_id = ?
+      AND ss.selected_session_slot_choice_id = ssc.id
       AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
     `,
     [prevSessionId, exerciseId]
@@ -570,7 +581,7 @@ export async function sessionExerciseDeltas(sessionId: number): Promise<Exercise
     SELECT DISTINCT tco.exercise_id, e.name as exercise_name,
            COALESCE(e.is_assisted, 0) as is_assisted
     FROM session_slots ss
-    JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
+    JOIN session_slot_choices ssc ON ssc.id = ss.selected_session_slot_choice_id
     JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
     JOIN exercises e ON e.id = tco.exercise_id
     WHERE ss.session_id = ?;
@@ -596,6 +607,7 @@ export async function sessionExerciseDeltas(sessionId: number): Promise<Exercise
       JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
       JOIN session_slots ss ON ss.id = ssc.session_slot_id
       WHERE ss.session_id = ? AND tco.exercise_id = ?
+        AND ss.selected_session_slot_choice_id = ssc.id
         AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
       `,
       [sessionId, ex.exercise_id]
@@ -633,6 +645,7 @@ export async function sessionExerciseDeltas(sessionId: number): Promise<Exercise
                   AND se.completed = 1
                   AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
       WHERE s.status = 'final' AND s.id != ? AND tco.exercise_id = ?
+        AND ss.selected_session_slot_choice_id = ssc.id
       GROUP BY s.id
       HAVING COUNT(se.id) > 0
       ORDER BY s.performed_at DESC, s.id DESC
@@ -655,6 +668,7 @@ export async function sessionExerciseDeltas(sessionId: number): Promise<Exercise
         JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
         JOIN session_slots ss ON ss.id = ssc.session_slot_id
         WHERE ss.session_id = ? AND tco.exercise_id = ?
+          AND ss.selected_session_slot_choice_id = ssc.id
           AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
         `,
         [prevId, ex.exercise_id]
@@ -743,6 +757,7 @@ export async function previousSessionComparison(sessionId: number): Promise<{
     JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     WHERE ss.session_id = ? AND se.completed = 1
+      AND ss.selected_session_slot_choice_id = ssc.id
       AND (se.is_warmup = 0 OR se.is_warmup IS NULL);
     `,
     [prev.id]
@@ -763,6 +778,20 @@ export async function previousSessionComparison(sessionId: number): Promise<{
  *  Weekly Report — data for the shareable PDF summary
  * ═══════════════════════════════════════════════════════════ */
 
+/** One set for the detailed per-session exercise breakdown. */
+export type SessionExerciseSet = {
+  weight: number;
+  reps: number;
+  rpe: number | null;
+};
+
+/** Per-exercise detail within a session (for trainer view). */
+export type SessionExerciseDetail = {
+  exercise_name: string;
+  primary_muscle: string | null;
+  sets: SessionExerciseSet[];
+};
+
 /** One session's summary for the weekly report. */
 export type WeeklySessionSummary = {
   id: number;
@@ -772,7 +801,10 @@ export type WeeklySessionSummary = {
   total_volume: number;
   completed_sets: number;
   exercises: string[];
+  /** Detailed exercise + set breakdown for trainer view */
+  exerciseDetails: SessionExerciseDetail[];
   prs: number;
+  notes: string | null;
 };
 
 /** Per-exercise breakdown row within the weekly report. */
@@ -812,18 +844,20 @@ export async function weeklyReportData(
   /* ── Sessions ── */
   const sessRes = await executeSqlAsync(
     `
-    SELECT s.id, s.performed_at, s.created_at, t.name AS template_name,
+    SELECT s.id, s.performed_at, s.created_at, s.notes, t.name AS template_name,
            (SELECT COALESCE(SUM(se.weight * se.reps), 0)
             FROM sets se
             JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
             JOIN session_slots ss ON ss.id = ssc.session_slot_id
             WHERE ss.session_id = s.id AND se.completed = 1
+              AND ss.selected_session_slot_choice_id = ssc.id
               AND (se.is_warmup = 0 OR se.is_warmup IS NULL)) AS total_volume,
            (SELECT COUNT(*)
             FROM sets se
             JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
             JOIN session_slots ss ON ss.id = ssc.session_slot_id
             WHERE ss.session_id = s.id AND se.completed = 1
+              AND ss.selected_session_slot_choice_id = ssc.id
               AND (se.is_warmup = 0 OR se.is_warmup IS NULL)) AS completed_sets
     FROM sessions s
     LEFT JOIN templates t ON t.id = s.template_id
@@ -855,6 +889,35 @@ export async function weeklyReportData(
     );
     const exercises = exRes.rows._array.map((r: any) => r.name as string);
 
+    // Detailed exercise + sets breakdown
+    const detailRes = await executeSqlAsync(
+      `
+      SELECT e.name AS exercise_name, e.primary_muscle,
+             se.weight, se.reps, se.rpe, se.set_index
+      FROM session_slots ss
+      JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
+        AND ss.selected_session_slot_choice_id = ssc.id
+      JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+      JOIN exercises e ON e.id = tso.exercise_id
+      JOIN sets se ON se.session_slot_choice_id = ssc.id
+      WHERE ss.session_id = ? AND se.completed = 1
+        AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+      ORDER BY ss.slot_index, se.set_index;
+      `,
+      [row.id],
+    );
+    const exerciseDetails: SessionExerciseDetail[] = [];
+    const exMap = new Map<string, SessionExerciseDetail>();
+    for (const r of detailRes.rows._array) {
+      let detail = exMap.get(r.exercise_name);
+      if (!detail) {
+        detail = { exercise_name: r.exercise_name, primary_muscle: r.primary_muscle, sets: [] };
+        exMap.set(r.exercise_name, detail);
+        exerciseDetails.push(detail);
+      }
+      detail.sets.push({ weight: r.weight, reps: r.reps, rpe: r.rpe });
+    }
+
     // PRs
     const prRes = await executeSqlAsync(
       `SELECT COUNT(*) AS cnt FROM personal_records WHERE session_id = ?;`,
@@ -874,7 +937,9 @@ export async function weeklyReportData(
       total_volume: row.total_volume,
       completed_sets: row.completed_sets,
       exercises,
+      exerciseDetails,
       prs,
+      notes: row.notes ?? null,
     });
 
     totalVolume += row.total_volume;
@@ -897,6 +962,7 @@ export async function weeklyReportData(
             JOIN sessions s2 ON s2.id = ss2.session_id
             WHERE tso2.exercise_id = e.id AND s2.status = 'final'
               AND s2.performed_at BETWEEN ? AND ?
+              AND ss2.selected_session_slot_choice_id = ssc2.id
               AND se2.completed = 1 AND (se2.is_warmup = 0 OR se2.is_warmup IS NULL)
             ORDER BY se2.weight DESC, se2.reps DESC LIMIT 1
            ) AS best_reps
@@ -907,6 +973,7 @@ export async function weeklyReportData(
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     JOIN sessions s ON s.id = ss.session_id
     WHERE s.status = 'final' AND s.performed_at BETWEEN ? AND ?
+      AND ss.selected_session_slot_choice_id = ssc.id
       AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
     GROUP BY e.id
     ORDER BY total_volume DESC;
@@ -936,6 +1003,7 @@ export async function weeklyReportData(
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     JOIN sessions s ON s.id = ss.session_id
     WHERE s.status = 'final' AND s.performed_at BETWEEN ? AND ?
+      AND ss.selected_session_slot_choice_id = ssc.id
       AND se.completed = 1 AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
       AND e.primary_muscle IS NOT NULL
     GROUP BY e.primary_muscle ORDER BY volume DESC;
@@ -965,6 +1033,160 @@ export async function weeklyReportData(
     avgDurationMins: sessions.length > 0
       ? Math.round(totalDuration / sessions.length / 60)
       : 0,
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+ *  Overall Report — all-time / custom range data for PDF
+ * ═══════════════════════════════════════════════════════════ */
+
+export type OverallReportData = {
+  totalSessions: number;
+  totalVolume: number;
+  totalSets: number;
+  totalPrs: number;
+  totalTimeSecs: number;
+  firstSessionDate: string | null;
+  lastSessionDate: string | null;
+  avgSessionsPerWeek: number;
+  /** Push / Pull / Legs / Core balance */
+  balance: { push: number; pull: number; legs: number; core: number; total: number };
+  muscleBreakdown: MuscleBreakdown[];
+  topExercises: Array<{ name: string; sessionCount: number; totalSets: number; totalVolume: number }>;
+  /** Top PRs by e1RM */
+  topPRs: Array<{ exercise_name: string; e1rm: number | null; best_weight: number | null; best_reps: number | null }>;
+  /** 8-week volume trend */
+  weeklyVolumeTrend: Array<{ week: string; volume: number }>;
+  /** Body weight entries (last 12) */
+  bodyWeightTrend: Array<{ date: string; value: number; unit: string }>;
+};
+
+export async function overallReportData(): Promise<OverallReportData> {
+  const insights = await trainingInsights();
+
+  /* ── Totals ── */
+  const totals = await executeSqlAsync(
+    `SELECT COUNT(*) AS cnt,
+            COALESCE(SUM(
+              (SELECT COALESCE(SUM(se.weight * se.reps), 0)
+               FROM sets se
+               JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+               JOIN session_slots ss ON ss.id = ssc.session_slot_id
+               WHERE ss.session_id = s.id AND se.completed = 1
+                 AND ss.selected_session_slot_choice_id = ssc.id
+                 AND (se.is_warmup = 0 OR se.is_warmup IS NULL))
+            ), 0) AS total_volume,
+            COALESCE(SUM(
+              (SELECT COUNT(*)
+               FROM sets se
+               JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+               JOIN session_slots ss ON ss.id = ssc.session_slot_id
+               WHERE ss.session_id = s.id AND se.completed = 1
+                 AND ss.selected_session_slot_choice_id = ssc.id
+                 AND (se.is_warmup = 0 OR se.is_warmup IS NULL))
+            ), 0) AS total_sets,
+            MIN(s.performed_at) AS first_date,
+            MAX(s.performed_at) AS last_date
+     FROM sessions s WHERE s.status = 'final';`,
+    [],
+  );
+  const t = totals.rows.item(0);
+
+  /* ── Total time ── */
+  const timeRes = await executeSqlAsync(
+    `SELECT COALESCE(SUM(
+       MAX(0, CAST((julianday(s.performed_at) - julianday(s.created_at)) * 86400 AS INTEGER))
+     ), 0) AS total_secs
+     FROM sessions s WHERE s.status = 'final';`,
+    [],
+  );
+
+  /* ── PR count ── */
+  const prRes = await executeSqlAsync(
+    `SELECT COUNT(*) AS cnt FROM personal_records;`,
+    [],
+  );
+
+  /* ── Top exercises by volume ── */
+  const topExRes = await executeSqlAsync(
+    `SELECT e.name, COUNT(DISTINCT s.id) AS session_count,
+            COUNT(se.id) AS total_sets,
+            COALESCE(SUM(se.weight * se.reps), 0) AS total_volume
+     FROM sets se
+     JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+     JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+     JOIN exercises e ON e.id = tso.exercise_id
+     JOIN session_slots ss ON ss.id = ssc.session_slot_id
+     JOIN sessions s ON s.id = ss.session_id
+     WHERE s.status = 'final' AND se.completed = 1
+       AND ss.selected_session_slot_choice_id = ssc.id
+       AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+     GROUP BY e.id ORDER BY total_volume DESC LIMIT 10;`,
+    [],
+  );
+
+  /* ── Top PRs ── */
+  const prTopRes = await executeSqlAsync(
+    `SELECT e.name AS exercise_name,
+            MAX(se.weight * (1 + se.reps / 30.0)) AS e1rm,
+            MAX(se.weight) AS best_weight,
+            (SELECT se2.reps FROM sets se2
+             JOIN session_slot_choices ssc2 ON ssc2.id = se2.session_slot_choice_id
+             JOIN template_slot_options tso2 ON tso2.id = ssc2.template_slot_option_id
+             JOIN session_slots ss2 ON ss2.id = ssc2.session_slot_id
+             JOIN sessions s2 ON s2.id = ss2.session_id
+             WHERE tso2.exercise_id = e.id AND s2.status = 'final'
+               AND ss2.selected_session_slot_choice_id = ssc2.id
+               AND se2.completed = 1 AND (se2.is_warmup = 0 OR se2.is_warmup IS NULL)
+               AND se2.weight > 0 AND se2.reps BETWEEN 1 AND 12
+             ORDER BY se2.weight * (1 + se2.reps / 30.0) DESC LIMIT 1
+            ) AS best_reps
+     FROM sets se
+     JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+     JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+     JOIN exercises e ON e.id = tso.exercise_id
+     JOIN session_slots ss ON ss.id = ssc.session_slot_id
+     JOIN sessions s ON s.id = ss.session_id
+     WHERE s.status = 'final' AND se.completed = 1 AND se.weight > 0
+       AND ss.selected_session_slot_choice_id = ssc.id
+       AND se.reps BETWEEN 1 AND 12
+       AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+       AND COALESCE(e.is_assisted, 0) = 0
+     GROUP BY e.id ORDER BY e1rm DESC LIMIT 10;`,
+    [],
+  );
+
+  /* ── Body weight trend ── */
+  const bwRes = await executeSqlAsync(
+    `SELECT measured_at AS date, weight AS value, unit FROM body_weight ORDER BY measured_at DESC LIMIT 12;`,
+    [],
+  );
+
+  return {
+    totalSessions: t.cnt,
+    totalVolume: t.total_volume,
+    totalSets: t.total_sets,
+    totalPrs: prRes.rows.item(0).cnt,
+    totalTimeSecs: timeRes.rows.item(0).total_secs,
+    firstSessionDate: t.first_date?.slice(0, 10) ?? null,
+    lastSessionDate: t.last_date?.slice(0, 10) ?? null,
+    avgSessionsPerWeek: insights.avgSessionsPerWeek,
+    balance: insights.balance,
+    muscleBreakdown: insights.muscleBreakdown,
+    topExercises: topExRes.rows._array.map((r: any) => ({
+      name: r.name,
+      sessionCount: r.session_count,
+      totalSets: r.total_sets,
+      totalVolume: r.total_volume,
+    })),
+    topPRs: prTopRes.rows._array.map((r: any) => ({
+      exercise_name: r.exercise_name,
+      e1rm: r.e1rm ? Math.round(r.e1rm * 10) / 10 : null,
+      best_weight: r.best_weight,
+      best_reps: r.best_reps,
+    })),
+    weeklyVolumeTrend: insights.weeklyVolumeTrend,
+    bodyWeightTrend: bwRes.rows._array.reverse(),
   };
 }
 
@@ -1008,6 +1230,7 @@ export async function trainingInsights(): Promise<TrainingInsights> {
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     JOIN sessions s ON s.id = ss.session_id
     WHERE s.status = 'final'
+      AND ss.selected_session_slot_choice_id = ssc.id
       AND se.completed = 1
       AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
       AND e.primary_muscle IS NOT NULL
@@ -1044,6 +1267,7 @@ export async function trainingInsights(): Promise<TrainingInsights> {
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     JOIN sessions s ON s.id = ss.session_id
     WHERE s.status = 'final'
+      AND ss.selected_session_slot_choice_id = ssc.id
       AND se.completed = 1
       AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
     GROUP BY e.id
@@ -1094,6 +1318,7 @@ export async function trainingInsights(): Promise<TrainingInsights> {
     JOIN sessions s ON s.id = ss.session_id
     WHERE s.status = 'final'
       AND s.performed_at >= datetime('now', '-30 days')
+      AND ss.selected_session_slot_choice_id = ssc.id
       AND se.completed = 1
       AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
       AND e.primary_muscle IS NOT NULL;
@@ -1114,7 +1339,7 @@ export async function trainingInsights(): Promise<TrainingInsights> {
            ), 0) AS volume
     FROM sessions s
     JOIN session_slots ss ON ss.session_id = s.id
-    JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
+    JOIN session_slot_choices ssc ON ssc.id = ss.selected_session_slot_choice_id
     JOIN sets se ON se.session_slot_choice_id = ssc.id
     WHERE s.status = 'final'
       AND s.performed_at >= datetime('now', '-56 days')
@@ -1136,4 +1361,143 @@ export async function trainingInsights(): Promise<TrainingInsights> {
     neglectedMuscles,
     weeklyVolumeTrend,
   };
+}
+
+/* ═══════════════════════════════════════════════════════════
+ *  PR Wall — all-time bests per exercise
+ * ═══════════════════════════════════════════════════════════ */
+
+export type PRWallEntry = {
+  exercise_id: number;
+  exercise_name: string;
+  is_assisted: boolean;
+  primary_muscle: string | null;
+  /** Best estimated 1RM (null for assisted exercises) */
+  best_e1rm: number | null;
+  best_e1rm_date: string | null;
+  /** Heaviest weight lifted (or least assist for assisted) */
+  best_weight: number | null;
+  best_weight_date: string | null;
+  /** Best single-session volume */
+  best_volume: number | null;
+  best_volume_date: string | null;
+  /** Total number of finalized sessions with this exercise */
+  session_count: number;
+};
+
+export async function allTimePRs(): Promise<PRWallEntry[]> {
+  // Get all exercises that have been performed in finalized sessions
+  const exercisesRes = await executeSqlAsync(`
+    SELECT DISTINCT e.id as exercise_id, e.name as exercise_name,
+           COALESCE(e.is_assisted, 0) as is_assisted,
+           e.primary_muscle
+    FROM exercises e
+    JOIN template_slot_options tso ON tso.exercise_id = e.id
+    JOIN session_slot_choices ssc ON ssc.template_slot_option_id = tso.id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    JOIN sessions s ON s.id = ss.session_id
+    WHERE s.status = 'final'
+      AND ss.selected_session_slot_choice_id = ssc.id
+    ORDER BY e.name;
+  `);
+
+  const results: PRWallEntry[] = [];
+
+  for (const ex of exercisesRes.rows._array) {
+    const assisted = ex.is_assisted === 1;
+
+    // Best e1RM (skip for assisted)
+    let best_e1rm: number | null = null;
+    let best_e1rm_date: string | null = null;
+    if (!assisted) {
+      const e1rmRes = await executeSqlAsync(`
+        SELECT MAX(se.weight * (1 + se.reps / 30.0)) as best, s.performed_at
+        FROM sets se
+        JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+        JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+        JOIN session_slots ss ON ss.id = ssc.session_slot_id
+        JOIN sessions s ON s.id = ss.session_id
+        WHERE s.status = 'final' AND tso.exercise_id = ?
+          AND ss.selected_session_slot_choice_id = ssc.id
+          AND se.completed = 1 AND se.reps BETWEEN 1 AND 12 AND se.weight > 0
+          AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+        GROUP BY s.id
+        ORDER BY best DESC
+        LIMIT 1;
+      `, [ex.exercise_id]);
+      if (e1rmRes.rows.length) {
+        best_e1rm = Math.round(e1rmRes.rows.item(0).best * 10) / 10;
+        best_e1rm_date = e1rmRes.rows.item(0).performed_at;
+      }
+    }
+
+    // Best weight (MAX for normal, MIN for assisted)
+    const aggFn = assisted ? 'MIN' : 'MAX';
+    const weightOrder = assisted ? 'ASC' : 'DESC';
+    const weightRes = await executeSqlAsync(`
+      SELECT ${aggFn}(se.weight) as best, s.performed_at
+      FROM sets se
+      JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+      JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+      JOIN session_slots ss ON ss.id = ssc.session_slot_id
+      JOIN sessions s ON s.id = ss.session_id
+      WHERE s.status = 'final' AND tso.exercise_id = ?
+        AND ss.selected_session_slot_choice_id = ssc.id
+        AND se.completed = 1 AND se.weight > 0
+        AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+      GROUP BY s.id
+      ORDER BY best ${weightOrder}
+      LIMIT 1;
+    `, [ex.exercise_id]);
+    const best_weight = weightRes.rows.length ? weightRes.rows.item(0).best : null;
+    const best_weight_date = weightRes.rows.length ? weightRes.rows.item(0).performed_at : null;
+
+    // Best single-session volume
+    const volRes = await executeSqlAsync(`
+      SELECT COALESCE(SUM(se.weight * se.reps + COALESCE(
+        (SELECT SUM(ds.weight * ds.reps) FROM drop_set_segments ds WHERE ds.set_id = se.id), 0
+      )), 0) as vol, s.performed_at
+      FROM sets se
+      JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+      JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+      JOIN session_slots ss ON ss.id = ssc.session_slot_id
+      JOIN sessions s ON s.id = ss.session_id
+      WHERE s.status = 'final' AND tso.exercise_id = ?
+        AND ss.selected_session_slot_choice_id = ssc.id
+        AND se.completed = 1
+        AND (se.is_warmup = 0 OR se.is_warmup IS NULL)
+      GROUP BY s.id
+      ORDER BY vol DESC
+      LIMIT 1;
+    `, [ex.exercise_id]);
+    const best_volume = volRes.rows.length ? volRes.rows.item(0).vol : null;
+    const best_volume_date = volRes.rows.length ? volRes.rows.item(0).performed_at : null;
+
+    // Session count
+    const countRes = await executeSqlAsync(`
+      SELECT COUNT(DISTINCT s.id) as c
+      FROM sessions s
+      JOIN session_slots ss ON ss.session_id = s.id
+      JOIN session_slot_choices ssc ON ssc.session_slot_id = ss.id
+      JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+      WHERE s.status = 'final' AND tso.exercise_id = ?
+        AND ss.selected_session_slot_choice_id = ssc.id;
+    `, [ex.exercise_id]);
+
+    results.push({
+      exercise_id: ex.exercise_id,
+      exercise_name: ex.exercise_name,
+      is_assisted: assisted,
+      primary_muscle: ex.primary_muscle,
+      best_e1rm,
+      best_e1rm_date,
+      best_weight,
+      best_weight_date,
+      best_volume,
+      best_volume_date,
+      session_count: countRes.rows.item(0).c,
+    });
+  }
+
+  return results;
 }

@@ -22,9 +22,9 @@ export async function listBodyWeights(): Promise<BodyWeightEntry[]> {
 }
 
 /** Get body weight data for a trend chart (oldest first). */
-export async function bodyWeightTrend(): Promise<Array<{ date: string; value: number }>> {
+export async function bodyWeightTrend(): Promise<Array<{ date: string; value: number; unit: string }>> {
   const res = await executeSqlAsync(
-    `SELECT measured_at as date, weight as value FROM body_weight ORDER BY measured_at ASC;`
+    `SELECT measured_at as date, weight as value, unit FROM body_weight ORDER BY measured_at ASC;`
   );
   return res.rows._array;
 }

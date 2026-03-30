@@ -87,6 +87,12 @@ export function configureNotificationHandler() {
 
 const CHANNEL_ID = 'workout-reminders';
 
+/**
+ * Identifier used to tag the inactivity reminder so we can cancel it
+ * without nuking unrelated notifications (e.g. the rest-timer alert).
+ */
+const INACTIVITY_NOTIF_ID = 'inactivity-reminder';
+
 /** Ensure Android notification channel exists. */
 async function ensureChannel() {
   if (Platform.OS === 'android') {
@@ -100,8 +106,8 @@ async function ensureChannel() {
 
 /**
  * Schedule (or reschedule) the inactivity reminder.
- * Cancels any existing reminder first, then schedules a new one
- * that fires `inactivityDays` days from now.
+ * Cancels only the existing inactivity reminder (not rest-timer notifs),
+ * then schedules a new one that fires `inactivityDays` days from now.
  *
  * Call this:
  * - On app startup (if reminders enabled)
@@ -120,6 +126,7 @@ export async function scheduleInactivityReminder(): Promise<void> {
   await ensureChannel();
 
   await Notifications.scheduleNotificationAsync({
+    identifier: INACTIVITY_NOTIF_ID,
     content: {
       title: '🏋️ Time to train!',
       body: `You haven't logged a workout in ${days} day${days > 1 ? 's' : ''}. Get after it!`,
@@ -134,7 +141,10 @@ export async function scheduleInactivityReminder(): Promise<void> {
   });
 }
 
-/** Cancel all scheduled notifications. */
+/**
+ * Cancel only the inactivity reminder notification.
+ * Does NOT touch rest-timer or other notifications.
+ */
 export async function cancelAllReminders(): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  await Notifications.cancelScheduledNotificationAsync(INACTIVITY_NOTIF_ID).catch(() => {});
 }

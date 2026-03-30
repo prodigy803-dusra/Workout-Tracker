@@ -11,15 +11,20 @@ export function lbToKg(lb: number) {
   return lb / 2.2046226218;
 }
 
-/** Format a weight value (stored in kg) for display in the user's preferred unit. */
-export function formatWeight(kg: number, unit: Unit) {
-  if (unit === 'kg') return kg.toFixed(1);
-  return kgToLb(kg).toFixed(1);
+/**
+ * Format a weight value for display.
+ * Weights are stored in the user's chosen unit (as-entered), so no conversion is needed.
+ */
+export function formatWeight(value: number, _unit?: Unit) {
+  return value.toFixed(1);
 }
 
-/** Parse a user-entered weight string and convert to kg for storage. */
-export function parseWeight(input: string, unit: Unit) {
+/**
+ * Parse a user-entered weight string.
+ * Weights are stored as-entered in the user's chosen unit, so no conversion is applied.
+ */
+export function parseWeight(input: string, _unit?: Unit) {
   const val = parseFloat(input);
   if (Number.isNaN(val)) return null;
-  return unit === 'kg' ? val : lbToKg(val);
+  return val;
 }

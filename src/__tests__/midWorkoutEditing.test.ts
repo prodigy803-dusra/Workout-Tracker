@@ -972,6 +972,11 @@ describe('7 · Effort / Rest-time tracking', () => {
       `INSERT INTO session_slot_choices(session_slot_id, template_slot_option_id, created_at) VALUES (?,?,?);`,
       [slotId, optId, TS]
     );
+    // Mark the choice as selected
+    await executeSqlAsync(
+      `UPDATE session_slots SET selected_session_slot_choice_id=? WHERE id=?;`,
+      [effortChoiceId, slotId]
+    );
 
     // Insert 4 working sets
     for (let i = 0; i < 4; i++) {

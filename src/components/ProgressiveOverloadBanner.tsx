@@ -19,21 +19,34 @@ type Props = {
   stagnantCount?: number;
   /** Assisted exercise — weight is counterweight, less = harder */
   assisted?: boolean;
+  /** True when this is a double-progression suggestion (hit rep ceiling) */
+  isDoubleProgression?: boolean;
+  /** Bottom of the target rep range (used in double-progression message) */
+  targetMin?: number;
 };
 
-function ProgressiveOverloadBanner({ suggestedWeight, suggestedReps, unit, stagnant, stagnantCount, assisted }: Props) {
+function ProgressiveOverloadBanner({ suggestedWeight, suggestedReps, unit, stagnant, stagnantCount, assisted, isDoubleProgression, targetMin }: Props) {
   const c = useColors();
 
   if (stagnant) {
-    const action = assisted
-      ? `try reducing to ${suggestedWeight} ${unit} assist × ${suggestedReps}`
-      : `consider adding ${suggestedWeight} ${unit} × ${suggestedReps}, or try a different rep range/variation`;
+    let message: string;
+    if (isDoubleProgression) {
+      // Double progression: user hit rep ceiling for N sessions, suggest weight bump + reset reps
+      message = assisted
+        ? `Hit rep ceiling for ${stagnantCount} sessions — try reducing to ${suggestedWeight} ${unit} assist × ${targetMin ?? suggestedReps}`
+        : `Hit rep ceiling for ${stagnantCount} sessions — try ${suggestedWeight} ${unit} × ${targetMin ?? suggestedReps} and work back up`;
+    } else {
+      const action = assisted
+        ? `try reducing to ${suggestedWeight} ${unit} assist × ${suggestedReps}`
+        : `consider adding ${suggestedWeight} ${unit} × ${suggestedReps}, or try a different rep range/variation`;
+      message = `Same ${assisted ? 'assist level' : 'top weight'} with no volume improvement for ${stagnantCount} sessions — ${action}`;
+    }
     return (
-      <View style={[styles.suggestionBanner, { backgroundColor: c.isDark ? '#2A1A00' : '#FFF3E0', borderColor: c.isDark ? '#804A00' : '#FFB74D' }]}>
-        <Text style={styles.suggestionIcon}>⚠️</Text>
+      <View style={[styles.suggestionBanner, { backgroundColor: isDoubleProgression ? (c.isDark ? '#0A2A0A' : '#E8F5E9') : (c.isDark ? '#2A1A00' : '#FFF3E0'), borderColor: isDoubleProgression ? (c.isDark ? '#1B5E20' : '#66BB6A') : (c.isDark ? '#804A00' : '#FFB74D') }]}>
+        <Text style={styles.suggestionIcon}>{isDoubleProgression ? '📈' : '⚠️'}</Text>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.suggestionText, { color: c.isDark ? '#FFB74D' : '#E65100' }]}>
-            Same {assisted ? 'assist level' : 'top weight'} with no volume improvement for {stagnantCount} sessions — {action}
+          <Text style={[styles.suggestionText, { color: isDoubleProgression ? (c.isDark ? '#66BB6A' : '#1B5E20') : (c.isDark ? '#FFB74D' : '#E65100') }]}>
+            {message}
           </Text>
         </View>
       </View>

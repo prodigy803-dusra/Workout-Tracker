@@ -53,13 +53,13 @@ export const INJURY_REGIONS: Record<string, InjuryRegion> = {
     label: 'Ankle',
     icon: '🦶',
     muscles: ['calves', 'tibialis'],
-    patterns: ['squat', 'unilateral', 'hinge', 'press'],
+    patterns: ['squat', 'unilateral', 'hinge'],
   },
   knee: {
     label: 'Knee',
     icon: '🦵',
     muscles: ['quads', 'hamstrings'],
-    patterns: ['squat', 'press', 'hinge', 'unilateral'],
+    patterns: ['squat', 'hinge', 'unilateral'],
   },
   hip: {
     label: 'Hip',

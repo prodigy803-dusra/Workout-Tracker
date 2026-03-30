@@ -99,9 +99,22 @@ export async function markSessionAsDeload(sessionId: number): Promise<void> {
 /** Apply deload weight reduction to all sets in a draft session. */
 export async function applyDeloadWeights(sessionId: number, intensityPct: number): Promise<void> {
   const factor = Math.max(0.3, Math.min(0.9, intensityPct / 100));
-  // Reduce all non-warmup set weights, rounding to nearest 0.25
+  // Reduce all non-warmup set weights, rounding to nearest 0.25.
+  // If an injury factor is already applied, undo it first (divide back to baseline),
+  // then apply whichever is more restrictive (MIN of injury and deload).
+  // This prevents compounding: e.g. 100kg × 0.5 injury × 0.6 deload = 30kg (wrong).
+  // Correct: 100kg × min(0.5, 0.6) = 50kg.
   await executeSqlAsync(
-    `UPDATE sets SET weight = ROUND(weight * ? * 4) / 4
+    `UPDATE sets SET weight = ROUND(
+       (weight / COALESCE(
+         (SELECT ssc2.injury_weight_factor FROM session_slot_choices ssc2 WHERE ssc2.id = sets.session_slot_choice_id),
+         1.0))
+       * MIN(
+         COALESCE(
+           (SELECT ssc3.injury_weight_factor FROM session_slot_choices ssc3 WHERE ssc3.id = sets.session_slot_choice_id),
+           1.0),
+         ?)
+       * 4) / 4
      WHERE session_slot_choice_id IN (
        SELECT ssc.id FROM session_slot_choices ssc
        JOIN session_slots ss ON ss.id = ssc.session_slot_id

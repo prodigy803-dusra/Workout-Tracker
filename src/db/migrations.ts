@@ -249,4 +249,6 @@ export const migrations: string[] = [
   `ALTER TABLE exercises ADD COLUMN is_custom INTEGER NOT NULL DEFAULT 0;`,
   // Migration 42: deload flag on sessions
   `ALTER TABLE sessions ADD COLUMN is_deload INTEGER NOT NULL DEFAULT 0;`,
+  // Migration 43: track injury weight reduction per choice for clean history lookups
+  `ALTER TABLE session_slot_choices ADD COLUMN injury_weight_factor REAL DEFAULT NULL;`,
 ];

@@ -116,6 +116,39 @@ export async function deleteTemplateSlotOption(id: number) {
 }
 
 export async function deleteTemplate(templateId: number) {
+  // Guard: don't delete a template that has an active draft session
+  const draftRes = await executeSqlAsync(
+    `SELECT id FROM sessions WHERE template_id = ? AND status = 'draft';`,
+    [templateId]
+  );
+  if (draftRes.rows.length > 0) {
+    throw new Error('Cannot delete template while a workout based on it is in progress.');
+  }
+  // Detach finalized sessions so the FK doesn't block the delete
+  await executeSqlAsync(
+    `UPDATE sessions SET template_id = NULL WHERE template_id = ? AND status != 'draft';`,
+    [templateId]
+  );
+  // Remove schedule rows
+  await executeSqlAsync(
+    `DELETE FROM template_schedule WHERE template_id = ?;`,
+    [templateId]
+  ).catch(() => { /* table may not exist on older schemas */ });
+  // Remove child rows then the template itself
+  await executeSqlAsync(
+    `DELETE FROM template_prescribed_sets WHERE template_slot_id IN
+       (SELECT id FROM template_slots WHERE template_id = ?);`,
+    [templateId]
+  );
+  await executeSqlAsync(
+    `DELETE FROM template_slot_options WHERE template_slot_id IN
+       (SELECT id FROM template_slots WHERE template_id = ?);`,
+    [templateId]
+  );
+  await executeSqlAsync(
+    `DELETE FROM template_slots WHERE template_id = ?;`,
+    [templateId]
+  );
   await executeSqlAsync(`DELETE FROM templates WHERE id=?;`, [templateId]);
 }
 

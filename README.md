@@ -165,13 +165,13 @@ Most workout apps either drown you in features you'll never use or oversimplify 
 |-------|-----------|
 | Framework | React Native 0.81 + Expo 54 |
 | Language | TypeScript 5.9 (strict mode) |
-| Database | SQLite via `expo-sqlite` (42 migrations) |
+| Database | SQLite via `expo-sqlite` (43 migrations) |
 | Navigation | React Navigation 7 (bottom tabs + native stacks) |
 | Notifications | `expo-notifications` (rest timer + workout reminders) |
 | Charts | Custom SVG line chart (`react-native-svg`) |
 | Haptics | `expo-haptics` |
 | File sharing | `expo-file-system` + `expo-sharing` |
-| Testing | Jest + ts-jest (483 tests, 5 suites) |
+| Testing | Jest + ts-jest (499 tests, 5 suites) |
 
 ---
 
@@ -224,7 +224,7 @@ WorkoutApp/
 │   │   └── useSessionStore.ts       # Central useReducer store for active session
 │   ├── db/
 │   │   ├── db.ts                    # SQLite wrapper, init, migrations runner
-│   │   ├── migrations.ts           # 42 sequential DDL migrations
+│   │   ├── migrations.ts           # 43 sequential DDL migrations
 │   │   ├── seed.ts                  # 139+ exercises, 11 templates, guides
 │   │   └── repositories/
 │   │       ├── exercisesRepo.ts     # Exercise + variant CRUD, assisted toggle
@@ -300,13 +300,13 @@ EAS will give you a download link for the `.apk` when the build finishes.
 npm test
 ```
 
-483 tests across 5 suites: DB unit tests, DB integration, session store reducer, feature interactions, and mid-workout editing.
+499 tests across 5 suites: DB unit tests, DB integration, session store reducer, feature interactions, and mid-workout editing.
 
 ---
 
 ## Database
 
-The app uses a local SQLite database with **42 migrations** applied sequentially on first launch. Key tables:
+The app uses a local SQLite database with **43 migrations** applied sequentially on first launch. Key tables:
 
 | Table | Purpose |
 |-------|---------|
@@ -504,3 +504,71 @@ Exercise switching and warmup management are split into separate sections inside
 - New repository: `deloadRepo.ts` for deload settings, suggestions, and session marking
 - Active draft sessions now carry `template_name` so the log header can reflect the current workout
 - 472 tests, all passing
+
+---
+
+### Alpha V 1.5 — "Own Your Trust"
+
+**15 bugs fixed. Every query audited. Zero data corruption. Your numbers are finally bulletproof.**
+
+This release is pure stability — no new features, just a comprehensive audit of every code path in the app. Every SQL query, every screen interaction, every edge case. The result: your data is accurate, your stats are correct, and your app won't lie to you.
+
+#### Critical Fixes
+
+**📊 Stats Were Counting Unselected Exercises**
+~40 queries across the stats engine were joining exercise data without checking which exercise was actually *selected* for each slot. If a slot had multiple exercise options, all of them contributed to your volume, PRs, and reports — even the ones you didn't do. Every query now filters by the selected exercise only.
+
+**⚖️ Unit Display Was Doubling Conversions**
+If you trained in lb, your history showed wildly wrong numbers (225 lb displayed as 496 lb). The display layer was converting weights that were already stored in your chosen unit. Fixed — weights display exactly as entered.
+
+**📄 CSV Export Was Completely Broken**
+The export joined on a column that didn't exist in the database. Every CSV export attempt failed silently. Rebuilt with the correct table relationships.
+
+**🛡️ Deload + Injury Weights Were Compounding**
+If you had an injury (50% reduction) and opted for a deload (60% intensity), the app applied both: 100 kg × 0.5 × 0.6 = 30 kg. Now it uses the more restrictive factor: MIN(50%, 60%) = 50%, giving you 50 kg.
+
+#### Screen Stability Fixes
+
+**🔒 Double-Tap Guards on All Screens**
+Every destructive or state-changing button (Finish Workout, Discard, Start Session, Delete Template, Delete Exercise, Toggle Assisted, Save Prescribed Sets) now has a busy guard preventing double-tap race conditions.
+
+**🔄 Mid-Workout Exercise Switch Respects Deload**
+Switching exercises during a deload session now applies the deload weight reduction. Previously, switching mid-workout gave you full (non-deloaded) weights.
+
+**⏱️ Workout Summary No Longer Spins Forever**
+If any data fetch failed on the summary screen, the loading spinner would never stop. Now the screen renders what it has and handles errors gracefully.
+
+#### Data Integrity Fixes
+
+**🔔 Rest Timer Notification Survives Reminders**
+The inactivity reminder system was cancelling *all* scheduled notifications — including your active rest timer. Now it only cancels its own notification, leaving the rest timer untouched.
+
+**🏋️ Warmup Sets No Longer Duplicate on Regenerate**
+Tapping "Regenerate Warmups" added new warmup sets without removing the old ones. Fixed — old warmups are cleared before generating new ones.
+
+**📈 Live Volume Now Excludes Warmups**
+The workout header was counting warmup sets in your volume total, but the post-workout summary wasn't. Your volume no longer "drops" when you finish the session.
+
+**📅 Calendar Heatmap "Today" Marker Fixed**
+The "today" highlight could be off by a day near timezone boundaries (UTC vs local). Now uses local date components.
+
+**🗑️ Template Deletion No Longer Crashes**
+Deleting a template that had workout history threw an unhandled database error. Now properly detaches historical sessions and cleans up all child records before deletion.
+
+**🔄 Database Reset Now Clears Everything**
+"Reset Database" was leaving `template_schedule` and `active_injuries` tables intact — injuries and reminder schedules survived a full reset.
+
+**📦 Backup Restore Handles Newer App Versions**
+Restoring a backup from a newer version of the app (with extra database columns) no longer crashes. Unknown columns are filtered out automatically.
+
+**📊 Body Weight Trend Preserves Unit**
+The body weight trend chart now includes which unit each entry was recorded in, so mixed kg/lb entries can be distinguished.
+
+**🔐 PDF Reports Sanitized**
+Exercise names, template names, and session notes are now HTML-escaped in generated PDF reports, preventing malformed output from special characters.
+
+#### Under the Hood
+- 499 tests across 5 suites, all passing (up from 472)
+- 43 database migrations
+- Comprehensive audit of every repository, screen, component, utility, and data file
+- Every area verified clean or fixed

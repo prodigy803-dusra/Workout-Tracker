@@ -51,7 +51,7 @@ export default function CalendarHeatmap({ workoutDays, streak }: Props) {
     // Day of week for the 1st (Monday = 0)
     const firstDow = (new Date(yr, mo, 1).getDay() + 6) % 7;
 
-    const todayStr = today.toISOString().slice(0, 10);
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const grid: Array<{ day: number; date: string; count: number; isToday: boolean } | null> = [];
 
     // Leading empty cells

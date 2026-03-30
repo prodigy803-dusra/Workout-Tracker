@@ -91,7 +91,15 @@ export default function HistoryScreen({ navigation }: Props) {
 
   const header = (
     <View style={styles.headerContainer}>
-      <Text style={[styles.pageTitle, { color: c.text }]}>Workout History</Text>
+      <View style={styles.titleRow}>
+        <Text style={[styles.pageTitle, { color: c.text }]}>Workout History</Text>
+        <Pressable
+          onPress={() => navigation.navigate('PRWall')}
+          style={[styles.prWallBtn, { backgroundColor: c.isDark ? '#2A1A00' : '#FFF8E1', borderColor: c.isDark ? '#806000' : '#FFD54F' }]}
+        >
+          <Text style={[styles.prWallBtnText, { color: c.isDark ? '#FFD54F' : '#E65100' }]}>🏆 PR Wall</Text>
+        </Pressable>
+      </View>
 
       {/* Calendar Heatmap */}
       {Object.keys(heatmapDays).length > 0 && (
@@ -463,7 +471,24 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: '#1A1A1A',
+  },
+
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
+  },
+
+  prWallBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  prWallBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 
   // Compact stats strip

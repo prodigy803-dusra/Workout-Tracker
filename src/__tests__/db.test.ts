@@ -318,9 +318,8 @@ describe('Unit conversions', () => {
       expect(formatWeight(82.5, 'kg')).toBe('82.5');
     });
 
-    test('formats lb — converts and shows 1 decimal', () => {
-      const result = formatWeight(100, 'lb');
-      expect(parseFloat(result)).toBeCloseTo(220.5, 0);
+    test('formats lb — same value, no conversion', () => {
+      expect(formatWeight(100, 'lb')).toBe('100.0');
     });
 
     test('formats 0 in kg', () => {
@@ -337,9 +336,8 @@ describe('Unit conversions', () => {
       expect(parseWeight('100', 'kg')).toBe(100);
     });
 
-    test('parses valid lb input (converts to kg)', () => {
-      const result = parseWeight('225', 'lb');
-      expect(result).toBeCloseTo(102.06, 0);
+    test('parses valid lb input (no conversion)', () => {
+      expect(parseWeight('225', 'lb')).toBe(225);
     });
 
     test('returns null for empty string', () => {
@@ -354,10 +352,8 @@ describe('Unit conversions', () => {
       expect(parseWeight('82.5', 'kg')).toBe(82.5);
     });
 
-    test('parses decimal input in lb', () => {
-      const result = parseWeight('45.5', 'lb');
-      expect(result).not.toBeNull();
-      expect(result!).toBeCloseTo(20.639, 1);
+    test('parses decimal input in lb (no conversion)', () => {
+      expect(parseWeight('45.5', 'lb')).toBe(45.5);
     });
 
     test('round-trip: parseWeight(formatWeight(w, u), u) ≈ w', () => {
@@ -2162,6 +2158,34 @@ describe('Injury Region Map — isExerciseAffected', () => {
 
   test('upper_back flags lats', () => {
     expect(isExerciseAffected('lats', null, null, 'upper_back')).toBe(true);
+  });
+
+  test('ankle injury does NOT flag bench press (chest/press)', () => {
+    expect(isExerciseAffected('chest', 'triceps', 'press', 'ankle')).toBe(false);
+  });
+
+  test('ankle injury does NOT flag OHP (shoulders front/press)', () => {
+    expect(isExerciseAffected('shoulders front', 'triceps', 'press', 'ankle')).toBe(false);
+  });
+
+  test('knee injury does NOT flag bench press (chest/press)', () => {
+    expect(isExerciseAffected('chest', 'triceps', 'press', 'knee')).toBe(false);
+  });
+
+  test('knee injury does NOT flag OHP (shoulders front/press)', () => {
+    expect(isExerciseAffected('shoulders front', 'triceps', 'press', 'knee')).toBe(false);
+  });
+
+  test('ankle injury still flags squat pattern', () => {
+    expect(isExerciseAffected('quads', 'glutes', 'squat', 'ankle')).toBe(true);
+  });
+
+  test('knee injury still flags leg press via quads muscle', () => {
+    expect(isExerciseAffected('quads', 'glutes', 'press', 'knee')).toBe(true);
+  });
+
+  test('shoulder injury still flags bench press via press pattern', () => {
+    expect(isExerciseAffected('chest', 'triceps', 'press', 'shoulder')).toBe(true);
   });
 });
 

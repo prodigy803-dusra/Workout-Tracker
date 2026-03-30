@@ -67,9 +67,8 @@ export function useRestTimer() {
   const appStateRef = useRef(AppState.currentState);
   const autoDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ── Request notification permission & cancel stale notifications on mount ── */
+  /* ── Request notification permission on mount ── */
   useEffect(() => {
-    Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
     Notifications.requestPermissionsAsync().catch(() => {});
   }, []);
 

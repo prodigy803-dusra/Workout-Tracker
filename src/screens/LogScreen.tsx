@@ -62,6 +62,8 @@ export default function LogScreenV2() {
 
   /* Ref to suppress auto-expand after warmup gen / drop add (bug fix) */
   const suppressAutoExpandRef = useRef(false);
+  /** Guard against double-tap on finish/discard */
+  const busyRef = useRef(false);
 
   /* ── Session elapsed timer ── */
   const [elapsed, setElapsed] = useState(0);
@@ -169,6 +171,7 @@ export default function LogScreenV2() {
     let total = 0, completed = 0, volume = 0;
     for (const sets of Object.values(state.setsByChoice)) {
       for (const s of sets) {
+        if (s.is_warmup) continue;
         total++;
         if (s.completed) {
           completed++;
@@ -472,7 +475,7 @@ export default function LogScreenV2() {
   }, [persistClearWarmups, hydrate]);
 
   const handleFinish = useCallback(() => {
-    if (!state.draft) return;
+    if (!state.draft || busyRef.current) return;
     const allSets = Object.values(state.setsByChoice).flat();
     const completedCount = allSets.filter(s => s.completed && !s.is_warmup).length;
     if (completedCount === 0) {
@@ -484,6 +487,8 @@ export default function LogScreenV2() {
       {
         text: 'Finish',
         onPress: async () => {
+          if (busyRef.current) return;
+          busyRef.current = true;
           try {
             haptic('success');
             const sessionId = state.draft!.id;
@@ -497,6 +502,8 @@ export default function LogScreenV2() {
           } catch (err) {
             console.error('Error finishing session:', err);
             Alert.alert('Error', 'Failed to finish session: ' + (err as Error).message);
+          } finally {
+            busyRef.current = false;
           }
         },
       },
@@ -504,13 +511,15 @@ export default function LogScreenV2() {
   }, [state.draft, elapsed, rawNotes, persistFinish, dispatch, navigation]);
 
   const handleDiscard = useCallback(() => {
-    if (!state.draft) return;
+    if (!state.draft || busyRef.current) return;
     Alert.alert('Discard Workout', 'This will delete all progress for this session. Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Discard',
         style: 'destructive',
         onPress: async () => {
+          if (busyRef.current) return;
+          busyRef.current = true;
           try {
             haptic('error');
             await persistDiscard(state.draft!.id);
@@ -518,6 +527,8 @@ export default function LogScreenV2() {
           } catch (err) {
             console.error('Error discarding session:', err);
             Alert.alert('Error', 'Failed to discard session: ' + (err as Error).message);
+          } finally {
+            busyRef.current = false;
           }
         },
       },
@@ -822,6 +833,7 @@ export default function LogScreenV2() {
             lastTime={state.lastTimeBySlot[slot.session_slot_id]}
             lastPerformanceStatus={state.lastPerformanceStatusBySlot[slot.session_slot_id]}
             stagnantSessions={state.stagnationBySlot[slot.session_slot_id] ?? 0}
+            doubleProgressionData={state.doubleProgressionBySlot[slot.session_slot_id]}
             isExpanded={expandedSlots.has(slot.session_slot_id)}
             isAssisted={!!slot.is_assisted}
             unit={unit}

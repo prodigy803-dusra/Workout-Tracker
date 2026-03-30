@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Linking, ActivityIndicator, Alert, Switch } from 'react-native';
 import { listExerciseOptions, createExerciseOption, getExerciseGuide, getExerciseStats, isExerciseAssisted, toggleAssisted } from '../db/repositories/exercisesRepo';
 import { e1rmHistory } from '../db/repositories/statsRepo';
@@ -21,6 +21,7 @@ export default function ExerciseDetailScreen({ route }: Props) {
   const c = useColors();
   const [loading, setLoading] = useState(true);
   const [assisted, setAssisted] = useState(false);
+  const busyRef = useRef(false);
 
   async function loadGuide() {
     const data = await getExerciseGuide(exerciseId);
@@ -70,15 +71,30 @@ export default function ExerciseDetailScreen({ route }: Props) {
 
   async function handleAddOption() {
     const optName = newOption.trim();
-    if (!optName) return;
-    await createExerciseOption(exerciseId, optName, options.length);
-    setNewOption('');
-    await loadOptions();
+    if (!optName || busyRef.current) return;
+    busyRef.current = true;
+    try {
+      await createExerciseOption(exerciseId, optName, options.length);
+      setNewOption('');
+      await loadOptions();
+    } catch {
+      Alert.alert('Error', 'Failed to add variant.');
+    } finally {
+      busyRef.current = false;
+    }
   }
 
   async function handleToggleAssisted(val: boolean) {
-    const newVal = await toggleAssisted(exerciseId);
-    setAssisted(newVal);
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try {
+      const newVal = await toggleAssisted(exerciseId);
+      setAssisted(newVal);
+    } catch {
+      Alert.alert('Error', 'Failed to toggle assisted mode.');
+    } finally {
+      busyRef.current = false;
+    }
   }
 
   return (

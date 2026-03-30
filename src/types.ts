@@ -280,6 +280,7 @@ export type LogStackParamList = {
 export type HistoryStackParamList = {
   HistoryHome: undefined;
   SessionDetail: { sessionId: number };
+  PRWall: undefined;
 };
 
 export type TemplatesStackParamList = {

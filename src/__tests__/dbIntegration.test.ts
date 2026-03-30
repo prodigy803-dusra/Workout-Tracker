@@ -84,6 +84,7 @@ import {
   deleteSet,
   toggleSetCompleted,
   lastTimeForOption,
+  lastTimeForExercise,
   addDropSegment,
   updateDropSegment,
   deleteDropSegment,
@@ -139,6 +140,12 @@ import {
   toggleScheduleEnabled,
   dayName,
 } from '../db/repositories/scheduleRepo';
+
+import {
+  addInjury,
+  resolveInjury,
+  listActiveInjuries,
+} from '../db/repositories/injuryRepo';
 
 /* ═══════════════════════════════════════════════════════════
  *  Helpers
@@ -196,19 +203,19 @@ async function seedTestData() {
 
   // ─── Exercises ───
   await rawInsert(
-    `INSERT INTO exercises(id, name, name_norm, primary_muscle, created_at)
-     VALUES (?,?,?,?,?);`,
-    [1001, 'Bench Press', 'bench press', 'Chest', ts]
+    `INSERT INTO exercises(id, name, name_norm, primary_muscle, secondary_muscle, movement_pattern, created_at)
+     VALUES (?,?,?,?,?,?,?);`,
+    [1001, 'Bench Press', 'bench press', 'chest', 'triceps', 'press', ts]
   );
   await rawInsert(
-    `INSERT INTO exercises(id, name, name_norm, primary_muscle, created_at)
-     VALUES (?,?,?,?,?);`,
-    [1002, 'Squat', 'squat', 'Quads', ts]
+    `INSERT INTO exercises(id, name, name_norm, primary_muscle, secondary_muscle, movement_pattern, created_at)
+     VALUES (?,?,?,?,?,?,?);`,
+    [1002, 'Squat', 'squat', 'quads', 'glutes', 'squat', ts]
   );
   await rawInsert(
-    `INSERT INTO exercises(id, name, name_norm, primary_muscle, created_at)
-     VALUES (?,?,?,?,?);`,
-    [1003, 'Overhead Press', 'overhead press', 'Shoulders', ts]
+    `INSERT INTO exercises(id, name, name_norm, primary_muscle, secondary_muscle, movement_pattern, created_at)
+     VALUES (?,?,?,?,?,?,?);`,
+    [1003, 'Overhead Press', 'overhead press', 'shoulders front', 'triceps', 'press', ts]
   );
   exBench = 1001;
   exSquat = 1002;
@@ -1041,6 +1048,349 @@ describe('DB Integration Tests', () => {
       await deleteAllSchedulesForTemplate(tplPush);
       const rows = await listSchedulesForTemplate(tplPush);
       expect(rows.length).toBe(0);
+    });
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+   *  Cross-template weight carry-over
+   * ═══════════════════════════════════════════════════════════ */
+  describe('Cross-template weight carry-over', () => {
+    let tplLeg: number;
+    let tplLegSlot: number;
+    let tsoLegSquat: number;
+    let tplFull: number;
+    let tplFullSlot1: number;
+    let tplFullSlot2: number;
+    let tsoFullSquat: number;
+    let tsoFullBench: number;
+
+    test('setup: create Leg Day and Full Body templates sharing Squat', async () => {
+      const ts = '2025-07-01T10:00:00.000Z';
+
+      // Template 1: "Leg Day" with Squat
+      await rawInsert(
+        `INSERT INTO templates(name, name_norm, created_at) VALUES (?,?,?);`,
+        ['Cross Leg Day', 'cross leg day', ts]
+      );
+      tplLeg = await lastId();
+      await rawInsert(
+        `INSERT INTO template_slots(template_id, slot_index, name, created_at) VALUES (?,?,?,?);`,
+        [tplLeg, 1, 'Squat', ts]
+      );
+      tplLegSlot = await lastId();
+      await rawInsert(
+        `INSERT INTO template_slot_options(template_slot_id, exercise_id, exercise_option_id, order_index, created_at) VALUES (?,?,?,?,?);`,
+        [tplLegSlot, exSquat, null, 0, ts]
+      );
+      tsoLegSquat = await lastId();
+
+      // Template 2: "Full Body" with Squat + Bench
+      await rawInsert(
+        `INSERT INTO templates(name, name_norm, created_at) VALUES (?,?,?);`,
+        ['Cross Full Body', 'cross full body', ts]
+      );
+      tplFull = await lastId();
+      await rawInsert(
+        `INSERT INTO template_slots(template_id, slot_index, name, created_at) VALUES (?,?,?,?);`,
+        [tplFull, 1, 'Squat', ts]
+      );
+      tplFullSlot1 = await lastId();
+      await rawInsert(
+        `INSERT INTO template_slot_options(template_slot_id, exercise_id, exercise_option_id, order_index, created_at) VALUES (?,?,?,?,?);`,
+        [tplFullSlot1, exSquat, null, 0, ts]
+      );
+      tsoFullSquat = await lastId();
+
+      await rawInsert(
+        `INSERT INTO template_slots(template_id, slot_index, name, created_at) VALUES (?,?,?,?);`,
+        [tplFull, 2, 'Bench', ts]
+      );
+      tplFullSlot2 = await lastId();
+      await rawInsert(
+        `INSERT INTO template_slot_options(template_slot_id, exercise_id, exercise_option_id, order_index, created_at) VALUES (?,?,?,?,?);`,
+        [tplFullSlot2, exBench, null, 0, ts]
+      );
+      tsoFullBench = await lastId();
+    });
+
+    test('weights from Template A carry over to Template B for shared exercises', async () => {
+      // Day 1: Do Leg Day → Squat at 140 kg
+      const sessionId1 = await createDraftFromTemplate(tplLeg);
+      const slots1 = await listDraftSlots(sessionId1);
+      const squatSlot1 = slots1.find((s) => s.exercise_id === exSquat)!;
+      expect(squatSlot1).toBeDefined();
+
+      // Complete 3 sets at 140kg
+      const sscId1 = squatSlot1.selected_session_slot_choice_id!;
+      await upsertSet(sscId1, 1, 140, 5, null, null);
+      await upsertSet(sscId1, 2, 140, 5, null, null);
+      await upsertSet(sscId1, 3, 140, 5, null, null);
+      await finalizeSession(sessionId1);
+
+      // Day 2: Start Full Body → Squat should prefill with 140 kg from Leg Day
+      const sessionId2 = await createDraftFromTemplate(tplFull);
+      const slots2 = await listDraftSlots(sessionId2);
+      const squatSlot2 = slots2.find((s) => s.exercise_id === exSquat)!;
+      expect(squatSlot2).toBeDefined();
+
+      const prefillSets = await listSetsForChoice(squatSlot2.selected_session_slot_choice_id!);
+      // Should have sets with weight 140 (from Leg Day), not 0 or some old value
+      expect(prefillSets.length).toBeGreaterThan(0);
+      expect(prefillSets[0].weight).toBe(140);
+
+      // Also verify lastTimeForExercise returns Leg Day's data
+      const lt = await lastTimeForExercise(exSquat);
+      expect(lt).not.toBeNull();
+      expect(lt!.sets.length).toBeGreaterThanOrEqual(3);
+      expect(lt!.sets[0].weight).toBe(140);
+
+      // Clean up draft
+      await discardDraft(sessionId2);
+    });
+
+    test('non-selected choice does not pollute cross-template lookup', async () => {
+      // Create a multi-option slot: Squat and Bench in same slot of a new template
+      const ts = '2025-07-10T10:00:00.000Z';
+      await rawInsert(
+        `INSERT INTO templates(name, name_norm, created_at) VALUES (?,?,?);`,
+        ['Cross Multi Choice', 'cross multi choice', ts]
+      );
+      const tplMulti = await lastId();
+      await rawInsert(
+        `INSERT INTO template_slots(template_id, slot_index, name, created_at) VALUES (?,?,?,?);`,
+        [tplMulti, 1, 'Main Lift', ts]
+      );
+      const multiSlot = await lastId();
+      await rawInsert(
+        `INSERT INTO template_slot_options(template_slot_id, exercise_id, exercise_option_id, order_index, created_at) VALUES (?,?,?,?,?);`,
+        [multiSlot, exSquat, null, 0, ts]
+      );
+      const tsoMultiSquat = await lastId();
+      await rawInsert(
+        `INSERT INTO template_slot_options(template_slot_id, exercise_id, exercise_option_id, order_index, created_at) VALUES (?,?,?,?,?);`,
+        [multiSlot, exOHP, null, 1, ts]
+      );
+      const tsoMultiOHP = await lastId();
+
+      // Start session defaulting to Squat, then switch to OHP
+      const sid = await createDraftFromTemplate(tplMulti);
+      const multiSlots = await listDraftSlots(sid);
+      const mainLift = multiSlots[0];
+      // Default is Squat. The prefill sets have some weight.
+      // Now switch to OHP — the old Squat choice keeps stale prefill data
+      await selectSlotChoice(mainLift.session_slot_id, tsoMultiOHP);
+      // Complete OHP sets
+      const updatedSlots = await listDraftSlots(sid);
+      const ohpSlot = updatedSlots[0];
+      const ohpChoiceId = ohpSlot.selected_session_slot_choice_id!;
+      await upsertSet(ohpChoiceId, 1, 50, 8, null, null);
+      await finalizeSession(sid);
+
+      // Now the stale Squat choice from this session should NOT be picked up
+      // lastTimeForExercise for Squat should still return 140 from the Leg Day session
+      const lt = await lastTimeForExercise(exSquat);
+      expect(lt).not.toBeNull();
+      expect(lt!.sets[0].weight).toBe(140);
+    });
+  });
+
+  /* ═══════════════════════════════════════════════════════════
+   *  Injury lifecycle: injury → workout → recovery → normal
+   * ═══════════════════════════════════════════════════════════ */
+  describe('Injury lifecycle', () => {
+    let tplUpper: number;
+    let tplUpperSlotBench: number;
+    let tplUpperSlotSquat: number;
+    let tsoUpperBench: number;
+    let tsoUpperSquat: number;
+
+    test('setup: create Upper Body template with Bench + Squat', async () => {
+      const ts = '2025-08-01T10:00:00.000Z';
+      await rawInsert(
+        `INSERT INTO templates(name, name_norm, created_at) VALUES (?,?,?);`,
+        ['Injury Test Upper', 'injury test upper', ts]
+      );
+      tplUpper = await lastId();
+
+      await rawInsert(
+        `INSERT INTO template_slots(template_id, slot_index, name, created_at) VALUES (?,?,?,?);`,
+        [tplUpper, 1, 'Bench', ts]
+      );
+      tplUpperSlotBench = await lastId();
+      await rawInsert(
+        `INSERT INTO template_slot_options(template_slot_id, exercise_id, exercise_option_id, order_index, created_at) VALUES (?,?,?,?,?);`,
+        [tplUpperSlotBench, exBench, null, 0, ts]
+      );
+      tsoUpperBench = await lastId();
+
+      await rawInsert(
+        `INSERT INTO template_slots(template_id, slot_index, name, created_at) VALUES (?,?,?,?);`,
+        [tplUpper, 2, 'Squat', ts]
+      );
+      tplUpperSlotSquat = await lastId();
+      await rawInsert(
+        `INSERT INTO template_slot_options(template_slot_id, exercise_id, exercise_option_id, order_index, created_at) VALUES (?,?,?,?,?);`,
+        [tplUpperSlotSquat, exSquat, null, 0, ts]
+      );
+      tsoUpperSquat = await lastId();
+
+      // Add prescribed sets for structure
+      await upsertPrescribedSet(tplUpperSlotBench, 1, 0, 5, null, null, 90);
+      await upsertPrescribedSet(tplUpperSlotBench, 2, 0, 5, null, null, 90);
+      await upsertPrescribedSet(tplUpperSlotBench, 3, 0, 5, null, null, 90);
+      await upsertPrescribedSet(tplUpperSlotSquat, 1, 0, 5, null, null, 90);
+      await upsertPrescribedSet(tplUpperSlotSquat, 2, 0, 5, null, null, 90);
+      await upsertPrescribedSet(tplUpperSlotSquat, 3, 0, 5, null, null, 90);
+    });
+
+    test('healthy baseline: finalize session at normal weights', async () => {
+      // No injuries — bench at 100, squat at 140
+      const sid = await createDraftFromTemplate(tplUpper);
+      const slots = await listDraftSlots(sid);
+      const benchSlot = slots.find(s => s.exercise_id === exBench)!;
+      const squatSlot = slots.find(s => s.exercise_id === exSquat)!;
+
+      const benchChoiceId = benchSlot.selected_session_slot_choice_id!;
+      const squatChoiceId = squatSlot.selected_session_slot_choice_id!;
+
+      await upsertSet(benchChoiceId, 1, 100, 5, null, null);
+      await upsertSet(benchChoiceId, 2, 100, 5, null, null);
+      await upsertSet(benchChoiceId, 3, 100, 5, null, null);
+      await upsertSet(squatChoiceId, 1, 140, 5, null, null);
+      await upsertSet(squatChoiceId, 2, 140, 5, null, null);
+      await upsertSet(squatChoiceId, 3, 140, 5, null, null);
+      await finalizeSession(sid);
+    });
+
+    test('ankle injury does NOT reduce bench press weights', async () => {
+      // Log ankle injury (mild)
+      await addInjury('ankle', 'general_pain', 'mild', null);
+      const injuries = await listActiveInjuries();
+      expect(injuries.length).toBeGreaterThanOrEqual(1);
+
+      // Start new session — bench should remain at 100 (ankle doesn't affect upper body)
+      const sid = await createDraftFromTemplate(tplUpper);
+      const slots = await listDraftSlots(sid);
+      const benchSlot = slots.find(s => s.exercise_id === exBench)!;
+      const benchSets = await listSetsForChoice(benchSlot.selected_session_slot_choice_id!);
+
+      expect(benchSets.length).toBe(3);
+      expect(benchSets[0].weight).toBe(100); // NOT 70 (100 * 0.7)
+
+      // Squat SHOULD have reduced weights (ankle injury affects squat pattern)
+      const squatSlot = slots.find(s => s.exercise_id === exSquat)!;
+      const squatSets = await listSetsForChoice(squatSlot.selected_session_slot_choice_id!);
+      expect(squatSets[0].weight).toBe(98); // 140 * 0.7 = 98, rounded
+
+      // Complete and finalize
+      await upsertSet(benchSlot.selected_session_slot_choice_id!, 1, 100, 5, null, null);
+      await upsertSet(benchSlot.selected_session_slot_choice_id!, 2, 100, 5, null, null);
+      await upsertSet(benchSlot.selected_session_slot_choice_id!, 3, 100, 5, null, null);
+      await upsertSet(squatSlot.selected_session_slot_choice_id!, 1, 98, 5, null, null);
+      await upsertSet(squatSlot.selected_session_slot_choice_id!, 2, 98, 5, null, null);
+      await upsertSet(squatSlot.selected_session_slot_choice_id!, 3, 98, 5, null, null);
+      await finalizeSession(sid);
+    });
+
+    test('no compounding: second injury session still uses pre-injury baseline', async () => {
+      // Still injured — start another session
+      const sid = await createDraftFromTemplate(tplUpper);
+      const slots = await listDraftSlots(sid);
+      const squatSlot = slots.find(s => s.exercise_id === exSquat)!;
+      const squatSets = await listSetsForChoice(squatSlot.selected_session_slot_choice_id!);
+
+      // Should still be 98 (140 * 0.7), NOT 68.6 (98 * 0.7 compounded)
+      expect(squatSets[0].weight).toBe(98);
+
+      // Bench still unaffected
+      const benchSlot = slots.find(s => s.exercise_id === exBench)!;
+      const benchSets = await listSetsForChoice(benchSlot.selected_session_slot_choice_id!);
+      expect(benchSets[0].weight).toBe(100);
+
+      await upsertSet(squatSlot.selected_session_slot_choice_id!, 1, 98, 5, null, null);
+      await upsertSet(squatSlot.selected_session_slot_choice_id!, 2, 98, 5, null, null);
+      await upsertSet(squatSlot.selected_session_slot_choice_id!, 3, 98, 5, null, null);
+      await upsertSet(benchSlot.selected_session_slot_choice_id!, 1, 100, 5, null, null);
+      await upsertSet(benchSlot.selected_session_slot_choice_id!, 2, 100, 5, null, null);
+      await upsertSet(benchSlot.selected_session_slot_choice_id!, 3, 100, 5, null, null);
+      await finalizeSession(sid);
+    });
+
+    test('recovery: after resolving injury, weights fully restore', async () => {
+      // Resolve the ankle injury
+      const injuries = await listActiveInjuries();
+      const ankleInjury = injuries.find(i => i.body_region === 'ankle');
+      expect(ankleInjury).toBeDefined();
+      await resolveInjury(ankleInjury!.id);
+
+      // Verify no active injuries
+      const activeAfter = await listActiveInjuries();
+      expect(activeAfter.filter(i => i.body_region === 'ankle').length).toBe(0);
+
+      // Start new session — squat should be back to 140 (pre-injury weight)
+      const sid = await createDraftFromTemplate(tplUpper);
+      const slots = await listDraftSlots(sid);
+
+      const squatSlot = slots.find(s => s.exercise_id === exSquat)!;
+      const squatSets = await listSetsForChoice(squatSlot.selected_session_slot_choice_id!);
+      expect(squatSets[0].weight).toBe(140); // fully restored, NOT 98
+
+      const benchSlot = slots.find(s => s.exercise_id === exBench)!;
+      const benchSets = await listSetsForChoice(benchSlot.selected_session_slot_choice_id!);
+      expect(benchSets[0].weight).toBe(100); // unchanged throughout
+
+      await discardDraft(sid);
+    });
+
+    test('mid-workout exercise switch respects injury and marks factor', async () => {
+      // Re-add injury for this test
+      await addInjury('knee', 'strain', 'moderate', null);
+
+      // Create a template with a multi-option slot
+      const ts = '2025-08-10T10:00:00.000Z';
+      await rawInsert(
+        `INSERT INTO templates(name, name_norm, created_at) VALUES (?,?,?);`,
+        ['Injury Switch Test', 'injury switch test', ts]
+      );
+      const tplSwitch = await lastId();
+      await rawInsert(
+        `INSERT INTO template_slots(template_id, slot_index, name, created_at) VALUES (?,?,?,?);`,
+        [tplSwitch, 1, 'Leg Move', ts]
+      );
+      const switchSlot = await lastId();
+      // Option 1: Squat (affected by knee injury)
+      await rawInsert(
+        `INSERT INTO template_slot_options(template_slot_id, exercise_id, exercise_option_id, order_index, created_at) VALUES (?,?,?,?,?);`,
+        [switchSlot, exSquat, null, 0, ts]
+      );
+      const tsoSwitchSquat = await lastId();
+      // Option 2: Bench (not affected by knee injury)
+      await rawInsert(
+        `INSERT INTO template_slot_options(template_slot_id, exercise_id, exercise_option_id, order_index, created_at) VALUES (?,?,?,?,?);`,
+        [switchSlot, exBench, null, 1, ts]
+      );
+      const tsoSwitchBench = await lastId();
+
+      // Start session (defaults to squat)
+      const sid = await createDraftFromTemplate(tplSwitch);
+      const slots = await listDraftSlots(sid);
+      const slot0 = slots[0];
+
+      // Squat weights should be reduced (knee moderate = 50%)
+      const squatSets = await listSetsForChoice(slot0.selected_session_slot_choice_id!);
+      expect(squatSets[0].weight).toBe(70); // 140 * 0.5 = 70
+
+      // Switch to bench mid-workout
+      const benchChoiceId = await selectSlotChoice(slot0.session_slot_id, tsoSwitchBench);
+      const benchSets = await listSetsForChoice(benchChoiceId);
+      expect(benchSets[0].weight).toBe(100); // knee injury doesn't affect bench
+
+      await discardDraft(sid);
+
+      // Clean up injury
+      const kneeInjuries = await listActiveInjuries();
+      const knee = kneeInjuries.find(i => i.body_region === 'knee');
+      if (knee) await resolveInjury(knee.id);
     });
   });
 });

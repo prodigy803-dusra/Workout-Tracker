@@ -65,6 +65,8 @@ type Props = {
   injuryWarnings?: InjuryWarning[];
   /** Number of recent consecutive sessions at the same top weight (0 = not stagnant) */
   stagnantSessions?: number;
+  /** Recent rep data at top weight for double-progression logic */
+  doubleProgressionData?: Array<{ top_weight: number; min_reps_at_top: number; all_sets_at_top: boolean }>;
   /** True if this is an assisted exercise (weight = counterweight, more weight = easier) */
   isAssisted?: boolean;
 };
@@ -100,6 +102,7 @@ function SlotCard({
   onClearWarmups,
   injuryWarnings,
   stagnantSessions = 0,
+  doubleProgressionData,
   isAssisted = false,
 }: Props) {
   const c = useColors();
@@ -114,21 +117,75 @@ function SlotCard({
   }, [slot.session_slot_id, onToggleExpand]);
 
   // §4: Pre-compute progressive overload suggestion
+  // Double progression: if slot has a target rep range AND user has hit the ceiling
+  // for 2+ consecutive sessions at the same weight, suggest weight increase + reset reps
+  // to bottom of range. Otherwise fall back to the simple +increment stagnation logic.
   const overloadSuggestion = (() => {
     if (!lastTime || lastTime.sets.length === 0) return null;
     if (lastPerformanceStatus === 'regressed' || lastPerformanceStatus === 'skipped') return null;
-    if (stagnantSessions < 2) return null;
     const allCompleted = lastTime.sets.every((s) => s.completed);
     if (!allCompleted) return null;
     const increment = unit === 'lb' ? 5 : 2.5;
+
+    const hasRepRange = slot.target_reps_min != null && slot.target_reps_max != null;
+
+    // ── Double progression path ──
+    if (hasRepRange && doubleProgressionData && doubleProgressionData.length >= 2) {
+      const targetMax = slot.target_reps_max!;
+      const targetMin = slot.target_reps_min!;
+
+      // Check: how many consecutive recent sessions hit the rep ceiling at the same weight?
+      const topWeight = doubleProgressionData[0].top_weight;
+      const weightThreshold = Math.max(topWeight * 0.02, 2.5);
+      let sessionsAtCeiling = 0;
+      for (const sess of doubleProgressionData) {
+        const sameWeight = Math.abs(sess.top_weight - topWeight) <= weightThreshold;
+        if (sameWeight && sess.min_reps_at_top >= targetMax && sess.all_sets_at_top) {
+          sessionsAtCeiling++;
+        } else {
+          break;
+        }
+      }
+
+      // Need 2+ sessions hitting rep ceiling before suggesting weight increase
+      if (sessionsAtCeiling >= 2) {
+        if (isAssisted) {
+          const nextWeight = Math.max(0, topWeight - increment);
+          const currentMin = sets.reduce((min, s) => (s.weight < min ? s.weight : min), sets[0]?.weight ?? Infinity);
+          if (currentMin <= nextWeight) return null;
+          return {
+            suggestedWeight: nextWeight,
+            suggestedReps: targetMax,
+            stagnant: true,
+            stagnantCount: sessionsAtCeiling,
+            assisted: true,
+            isDoubleProgression: true,
+            targetMin,
+          };
+        }
+        const suggestedWeight = topWeight + increment;
+        const currentTop = sets.reduce((max, s) => (s.weight > max ? s.weight : max), 0);
+        if (currentTop >= suggestedWeight) return null;
+        return {
+          suggestedWeight,
+          suggestedReps: targetMin,
+          stagnant: true,
+          stagnantCount: sessionsAtCeiling,
+          assisted: false,
+          isDoubleProgression: true,
+          targetMin,
+        };
+      }
+    }
+
+    // ── Simple stagnation path (no rep range or not at ceiling yet) ──
+    if (stagnantSessions < 2) return null;
     if (isAssisted) {
-      // Assisted: lightest weight = hardest. Suggest LESS assistance.
       const lightest = lastTime.sets.reduce(
         (min, s) => (s.weight < min.weight ? s : min),
         lastTime.sets[0],
       );
       const nextWeight = Math.max(0, lightest.weight - increment);
-      // Suppress if current session already meets/exceeds suggestion (lower = harder for assisted)
       const currentMin = sets.reduce((min, s) => (s.weight < min ? s.weight : min), sets[0]?.weight ?? Infinity);
       if (currentMin <= nextWeight) return null;
       return {
@@ -144,7 +201,6 @@ function SlotCard({
       lastTime.sets[0],
     );
     const suggestedWeight = heaviest.weight + increment;
-    // Suppress if current session already meets/exceeds suggestion
     const currentTop = sets.reduce((max, s) => (s.weight > max ? s.weight : max), 0);
     if (currentTop >= suggestedWeight) return null;
     return {
@@ -286,6 +342,8 @@ function SlotCard({
               stagnant={overloadSuggestion.stagnant}
               stagnantCount={overloadSuggestion.stagnantCount}
               assisted={overloadSuggestion.assisted}
+              isDoubleProgression={overloadSuggestion.isDoubleProgression}
+              targetMin={overloadSuggestion.targetMin}
             />
           )}
 

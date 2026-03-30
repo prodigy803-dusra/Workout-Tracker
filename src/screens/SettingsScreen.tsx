@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, Pressable, TextInput, Alert, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Switch, LayoutAnimation, UIManager } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Sharing from 'expo-sharing';
@@ -24,7 +24,7 @@ import { useTheme, useColors, ThemeMode } from '../contexts/ThemeContext';
 import TrendChart from '../components/TrendChart';
 import InjuryModal from '../components/InjuryModal';
 import { haptic } from '../utils/haptics';
-import { shareWeeklySummary, currentWeekStart, weekEnd } from '../utils/weeklyPdf';
+import { shareWeeklySummary, shareOverallSummary, currentWeekStart, weekEnd } from '../utils/weeklyPdf';
 import {
   isRemindersEnabled,
   setRemindersEnabled,
@@ -128,6 +128,7 @@ export default function SettingsScreen() {
 
   // Notification settings state
   const [remindersOn, setRemindersOn] = useState(false);
+  const reminderBusyRef = useRef(false);
   const [inactDays, setInactDays] = useState('3');
 
   // Deload settings state
@@ -312,11 +313,20 @@ export default function SettingsScreen() {
                     // For exercises from v3 (slim) backups: the backup only has
                     // id/name/name_norm/created_at/primary_muscle. Insert those
                     // columns and let the seed data fill the rest on next launch.
-                    const cols = Object.keys(rows[0]);
+                    const backupCols = Object.keys(rows[0]);
                     // Safety: only allow known column names (alphanumeric + underscore)
-                    if (cols.some(col => !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col))) {
+                    if (backupCols.some(col => !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col))) {
                       throw new Error(`Invalid column name in table ${table}`);
                     }
+                    // Filter to only columns that exist in the current schema so
+                    // backups from newer app versions don't crash the restore.
+                    const schemaRes = await executeSqlAsync(`PRAGMA table_info(${table});`);
+                    const schemaColSet = new Set<string>();
+                    for (let si = 0; si < schemaRes.rows.length; si++) {
+                      schemaColSet.add(schemaRes.rows.item(si).name);
+                    }
+                    const cols = backupCols.filter(col => schemaColSet.has(col));
+                    if (cols.length === 0) continue;
                     const placeholders = cols.map(() => '?').join(',');
                     const sql = `INSERT INTO ${table}(${cols.join(',')}) VALUES (${placeholders});`;
                     for (const row of rows) {
@@ -388,6 +398,14 @@ export default function SettingsScreen() {
     }
   }
 
+  async function handleShareOverall() {
+    try {
+      await shareOverallSummary(unit);
+    } catch (e) {
+      Alert.alert('PDF Error', 'Could not generate overall report: ' + (e as Error).message);
+    }
+  }
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}>
     <ScrollView style={[styles.container, { backgroundColor: c.background }]} contentContainerStyle={{ paddingBottom: 80 }} keyboardShouldPersistTaps="handled">
@@ -453,9 +471,13 @@ export default function SettingsScreen() {
                   text: 'Delete',
                   style: 'destructive',
                   onPress: async () => {
-                    await deleteBodyWeight(bwLatest.id);
-                    haptic('light');
-                    await loadBodyWeight();
+                    try {
+                      await deleteBodyWeight(bwLatest.id);
+                      haptic('light');
+                      await loadBodyWeight();
+                    } catch {
+                      Alert.alert('Error', 'Failed to delete body weight entry.');
+                    }
                   },
                 },
               ]);
@@ -680,19 +702,27 @@ export default function SettingsScreen() {
           <Switch
             value={remindersOn}
             onValueChange={async (val) => {
-              if (val) {
-                const granted = await requestNotificationPermission();
-                if (!granted) {
-                  Alert.alert('Permission Required', 'Please enable notifications in your device settings.');
-                  return;
+              if (reminderBusyRef.current) return;
+              reminderBusyRef.current = true;
+              try {
+                if (val) {
+                  const granted = await requestNotificationPermission();
+                  if (!granted) {
+                    Alert.alert('Permission Required', 'Please enable notifications in your device settings.');
+                    return;
+                  }
                 }
-              }
-              setRemindersOn(val);
-              await setRemindersEnabled(val);
-              if (val) {
-                await scheduleInactivityReminder();
-              } else {
-                await cancelAllReminders();
+                setRemindersOn(val);
+                await setRemindersEnabled(val);
+                if (val) {
+                  await scheduleInactivityReminder();
+                } else {
+                  await cancelAllReminders();
+                }
+              } catch {
+                Alert.alert('Error', 'Failed to update reminder settings.');
+              } finally {
+                reminderBusyRef.current = false;
               }
             }}
             trackColor={{ true: c.primary }}
@@ -811,22 +841,38 @@ export default function SettingsScreen() {
 
       <Text style={[styles.sectionTitle, { color: c.text }]}>Export & Reports</Text>
       <Text style={[styles.hint, { color: c.textSecondary }]}>
-        Share PDF summaries or export your data for backup and analysis.
+        Generate trainer-ready PDF reports or export raw data.
       </Text>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+
+      <Text style={{ fontSize: 13, fontWeight: '600', color: c.text, marginBottom: 6, marginTop: 4, paddingHorizontal: 2 }}>📋 Weekly Reports</Text>
+      <Text style={[styles.hint, { color: c.textSecondary, marginTop: 0, marginBottom: 8 }]}>
+        Detailed session breakdown with every set, muscle coverage, and PRs.
+      </Text>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         <Pressable
           onPress={handleShareThisWeek}
           style={[styles.button, { flex: 1, backgroundColor: c.primary }]}
         >
-          <Text style={[styles.buttonText, { color: c.primaryText }]}>📄  This Week</Text>
+          <Text style={[styles.buttonText, { color: c.primaryText }]}>This Week</Text>
         </Pressable>
         <Pressable
           onPress={handleShareLastWeek}
           style={[styles.button, { flex: 1, backgroundColor: c.card, borderWidth: 1, borderColor: c.border }]}
         >
-          <Text style={[styles.buttonText, { color: c.text }]}>📄  Last Week</Text>
+          <Text style={[styles.buttonText, { color: c.text }]}>Last Week</Text>
         </Pressable>
       </View>
+
+      <Text style={{ fontSize: 13, fontWeight: '600', color: c.text, marginBottom: 6, paddingHorizontal: 2 }}>📊 Overall Report</Text>
+      <Text style={[styles.hint, { color: c.textSecondary, marginTop: 0, marginBottom: 8 }]}>
+        All-time summary: volume trends, muscle balance, PRs, and body weight.
+      </Text>
+      <Pressable
+        onPress={handleShareOverall}
+        style={[styles.button, { backgroundColor: c.primary, marginBottom: 12 }]}
+      >
+        <Text style={[styles.buttonText, { color: c.primaryText }]}>Generate Overall Report</Text>
+      </Pressable>
 
       <Pressable onPress={exportZip} style={[styles.button, { backgroundColor: c.primary }]}>
         <Text style={[styles.buttonText, { color: c.primaryText }]}>Export Backup (.zip)</Text>

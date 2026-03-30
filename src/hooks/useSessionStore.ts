@@ -30,6 +30,7 @@ import {
   lastTimeForExercise,
   recentMaxWeights,
   recentExercisePerformance,
+  recentRepsAtTopWeight,
   deleteSet,
   generateWarmupSets,
   clearWarmupSets,
@@ -69,6 +70,8 @@ export type SessionState = {
   lastPerformanceStatusBySlot: Record<number, ExercisePerformanceStatus | null>;
   /** Number of consecutive sessions at roughly the same top weight, per slot. 0 = no stagnation. */
   stagnationBySlot: Record<number, number>;
+  /** Recent per-session reps at top weight, per slot. Used for double-progression logic. */
+  doubleProgressionBySlot: Record<number, Array<{ top_weight: number; min_reps_at_top: number; all_sets_at_top: boolean }>>;
   sessionNotes: string;
 };
 
@@ -103,6 +106,7 @@ const INITIAL_STATE: SessionState = {
   lastTimeBySlot: {},
   lastPerformanceStatusBySlot: {},
   stagnationBySlot: {},
+  doubleProgressionBySlot: {},
   sessionNotes: '',
 };
 
@@ -415,6 +419,17 @@ export function useSessionStore() {
     }
     const stagnationBySlot = Object.fromEntries(stagnationEntries);
 
+    // Double-progression data: recent per-session reps at top weight
+    const dpEntries: (readonly [number, Array<{ top_weight: number; min_reps_at_top: number; all_sets_at_top: boolean }>])[] = [];
+    for (const s of slotRows) {
+      if (s.exercise_id != null && s.target_reps_max != null) {
+        const assisted = !!s.is_assisted;
+        const repsData = await recentRepsAtTopWeight(s.exercise_id, 5, assisted);
+        dpEntries.push([s.session_slot_id, repsData] as const);
+      }
+    }
+    const doubleProgressionBySlot = Object.fromEntries(dpEntries);
+
     dispatch({
       type: 'HYDRATE',
       payload: {
@@ -427,6 +442,7 @@ export function useSessionStore() {
         lastTimeBySlot,
         lastPerformanceStatusBySlot,
         stagnationBySlot,
+        doubleProgressionBySlot,
         sessionNotes: d.notes || '',
       },
     });

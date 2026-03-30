@@ -171,8 +171,10 @@ export async function getExerciseStats(exerciseId: number): Promise<ExerciseStat
     FROM sets se
     JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
     JOIN template_slot_options tco ON tco.id = ssc.template_slot_option_id
-    JOIN sessions s ON s.id = (SELECT session_id FROM session_slots WHERE id = ssc.session_slot_id)
-    WHERE tco.exercise_id = ? AND s.status='final';
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    JOIN sessions s ON s.id = ss.session_id
+    WHERE tco.exercise_id = ? AND s.status='final'
+      AND ss.selected_session_slot_choice_id = ssc.id;
     `,
     [exerciseId]
   );

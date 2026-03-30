@@ -99,6 +99,7 @@ export async function lastTimeForOption(templateSlotOptionId: number): Promise<L
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     JOIN sessions s ON s.id = ss.session_id
     WHERE s.status='final' AND ssc.template_slot_option_id=?
+      AND ss.selected_session_slot_choice_id = ssc.id
     ORDER BY s.performed_at DESC, s.id DESC
     LIMIT 1;
     `,
@@ -128,6 +129,7 @@ export async function lastTimeForExercise(exerciseId: number): Promise<LastTimeD
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     JOIN sessions s ON s.id = ss.session_id
     WHERE s.status='final' AND tso.exercise_id=?
+      AND ss.selected_session_slot_choice_id = ssc.id
     ORDER BY s.performed_at DESC, s.id DESC
     LIMIT 1;
     `,
@@ -164,6 +166,7 @@ export async function recentMaxWeights(
     JOIN sessions s ON s.id = ss.session_id
     WHERE s.status = 'final'
       AND tso.exercise_id = ?
+      AND ss.selected_session_slot_choice_id = ssc.id
       AND se.is_warmup = 0
       AND se.completed = 1
     GROUP BY s.id
@@ -193,6 +196,7 @@ export async function recentExercisePerformance(
     JOIN sessions s ON s.id = ss.session_id
     WHERE s.status = 'final'
       AND tso.exercise_id = ?
+      AND ss.selected_session_slot_choice_id = ssc.id
       AND se.is_warmup = 0
       AND se.completed = 1
     GROUP BY s.id
@@ -202,6 +206,78 @@ export async function recentExercisePerformance(
     [exerciseId, limit]
   );
   return res.rows._array;
+}
+
+/**
+ * For the last N finalized sessions of an exercise, return the minimum reps
+ * across all working sets that used the top weight. Used by double-progression
+ * logic to check whether the user consistently hit the top of their rep range
+ * at a given weight before suggesting a weight increase.
+ *
+ * Returns sessions newest-first, each with:
+ *  - top_weight: the heaviest (or lightest for assisted) working weight that session
+ *  - min_reps_at_top: the fewest reps on any working set at that weight
+ *  - all_sets_at_top: true if every working set used the top weight
+ */
+export async function recentRepsAtTopWeight(
+  exerciseId: number,
+  limit: number = 5,
+  assisted: boolean = false,
+): Promise<Array<{ top_weight: number; min_reps_at_top: number; all_sets_at_top: boolean }>> {
+  const agg = assisted ? 'MIN' : 'MAX';
+  const res = await executeSqlAsync(
+    `
+    SELECT s.id as session_id,
+           ${agg}(se.weight) AS top_weight
+    FROM sets se
+    JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+    JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+    JOIN session_slots ss ON ss.id = ssc.session_slot_id
+    JOIN sessions s ON s.id = ss.session_id
+    WHERE s.status = 'final'
+      AND tso.exercise_id = ?
+      AND ss.selected_session_slot_choice_id = ssc.id
+      AND se.is_warmup = 0
+      AND se.completed = 1
+    GROUP BY s.id
+    ORDER BY s.performed_at DESC, s.id DESC
+    LIMIT ?;
+    `,
+    [exerciseId, limit]
+  );
+
+  const results: Array<{ top_weight: number; min_reps_at_top: number; all_sets_at_top: boolean }> = [];
+
+  for (const row of res.rows._array) {
+    const setsRes = await executeSqlAsync(
+      `
+      SELECT se.weight, se.reps
+      FROM sets se
+      JOIN session_slot_choices ssc ON ssc.id = se.session_slot_choice_id
+      JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+      JOIN session_slots ss ON ss.id = ssc.session_slot_id
+      WHERE ss.session_id = ? AND tso.exercise_id = ?
+        AND ss.selected_session_slot_choice_id = ssc.id
+        AND se.is_warmup = 0 AND se.completed = 1;
+      `,
+      [row.session_id, exerciseId]
+    );
+    const allSets = setsRes.rows._array;
+    const topSets = allSets.filter((s: any) => {
+      const threshold = Math.max(row.top_weight * 0.02, 2.5);
+      return Math.abs(s.weight - row.top_weight) <= threshold;
+    });
+    const minReps = topSets.length > 0
+      ? Math.min(...topSets.map((s: any) => s.reps))
+      : 0;
+    results.push({
+      top_weight: row.top_weight,
+      min_reps_at_top: minReps,
+      all_sets_at_top: topSets.length === allSets.length,
+    });
+  }
+
+  return results;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -296,9 +372,9 @@ export async function generateWarmupSets(
 
   if (warmups.length === 0) return;
 
-  // Get existing sets
+  // Get existing working sets (exclude warmups so regeneration doesn't duplicate them)
   const existingRes = await executeSqlAsync(
-    `SELECT * FROM sets WHERE session_slot_choice_id=? ORDER BY set_index;`,
+    `SELECT * FROM sets WHERE session_slot_choice_id=? AND (is_warmup = 0 OR is_warmup IS NULL) ORDER BY set_index;`,
     [choiceId]
   );
   const existingSets = existingRes.rows._array;

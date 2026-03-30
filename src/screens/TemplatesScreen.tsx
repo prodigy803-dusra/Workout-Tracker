@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Pressable, Text, TextInput, Alert, StyleSheet, FlatList } from 'react-native';
 
 import { createTemplate, listTemplates, deleteTemplate } from '../db/repositories/templatesRepo';
@@ -25,6 +25,7 @@ export default function TemplatesScreen({ navigation }: Props) {
   const [newName, setNewName] = useState('');
   const [activeDraft, setActiveDraft] = useState<Session | null>(null);
   const [starting, setStarting] = useState(false);
+  const busyRef = useRef(false);
   const [scheduleTarget, setScheduleTarget] = useState<{ id: number; name: string } | null>(null);
   const c = useColors();
 
@@ -75,8 +76,9 @@ export default function TemplatesScreen({ navigation }: Props) {
   }, [newName, c]);
 
   async function handleStart(templateId: number) {
-    if (starting) return;
+    if (starting || busyRef.current) return;
     setStarting(true);
+    busyRef.current = true;
     try {
       if (activeDraft && activeDraft.template_id === templateId) {
         // Same template — just resume
@@ -90,7 +92,7 @@ export default function TemplatesScreen({ navigation }: Props) {
           'Different session in progress',
           'You have an active session from another template. What do you want to do?',
           [
-            { text: 'Cancel', style: 'cancel' },
+            { text: 'Cancel', style: 'cancel', onPress: () => { busyRef.current = false; } },
             {
               text: 'Finish & Start New',
               onPress: async () => {
@@ -102,6 +104,8 @@ export default function TemplatesScreen({ navigation }: Props) {
                 } catch (err) {
                   console.error('Error in Finish & Start New:', err);
                   Alert.alert('Error', 'Failed to start new session: ' + (err as Error).message);
+                } finally {
+                  busyRef.current = false;
                 }
               },
             },
@@ -117,6 +121,8 @@ export default function TemplatesScreen({ navigation }: Props) {
                 } catch (err) {
                   console.error('Error in Discard & Start New:', err);
                   Alert.alert('Error', 'Failed to start new session: ' + (err as Error).message);
+                } finally {
+                  busyRef.current = false;
                 }
               },
             },
@@ -131,28 +137,44 @@ export default function TemplatesScreen({ navigation }: Props) {
     } catch (err) {
       console.error('Error starting session:', err);
       Alert.alert('Error', 'Failed to start session: ' + (err as Error).message);
+      busyRef.current = false;
     } finally {
       setStarting(false);
     }
   }
 
   async function handleEnd() {
-    if (!activeDraft) return;
+    if (!activeDraft || busyRef.current) return;
+    busyRef.current = true;
     Alert.alert('End Session', 'Save and finish this workout?', [
-      { text: 'Cancel', style: 'cancel' },
+      { text: 'Cancel', style: 'cancel', onPress: () => { busyRef.current = false; } },
       {
         text: 'Finish',
         onPress: async () => {
-          await finalizeSession(activeDraft.id);
-          await load();
+          try {
+            await finalizeSession(activeDraft.id);
+            await load();
+          } catch (err) {
+            console.error('Error finishing session:', err);
+            Alert.alert('Error', 'Failed to finish session: ' + (err as Error).message);
+          } finally {
+            busyRef.current = false;
+          }
         },
       },
       {
         text: 'Discard',
         style: 'destructive',
         onPress: async () => {
-          await discardDraft(activeDraft.id);
-          await load();
+          try {
+            await discardDraft(activeDraft.id);
+            await load();
+          } catch (err) {
+            console.error('Error discarding session:', err);
+            Alert.alert('Error', 'Failed to discard session: ' + (err as Error).message);
+          } finally {
+            busyRef.current = false;
+          }
         },
       },
     ]);
@@ -230,8 +252,12 @@ export default function TemplatesScreen({ navigation }: Props) {
                           text: 'Delete',
                           style: 'destructive',
                           onPress: async () => {
-                            await deleteTemplate(item.id);
-                            await load();
+                            try {
+                              await deleteTemplate(item.id);
+                              await load();
+                            } catch (e: any) {
+                              Alert.alert('Cannot Delete', e.message || 'Failed to delete template.');
+                            }
                           },
                         },
                       ])

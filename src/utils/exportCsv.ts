@@ -35,9 +35,10 @@ export async function exportSessionsCsv(): Promise<void> {
      JOIN session_slots ss ON ss.id = ssc.session_slot_id
      JOIN sessions s ON s.id = ss.session_id
      LEFT JOIN templates t ON t.id = s.template_id
-     JOIN exercise_options eo ON eo.id = ssc.exercise_option_id
-     JOIN exercises e ON e.id = eo.exercise_id
+     JOIN template_slot_options tso ON tso.id = ssc.template_slot_option_id
+     JOIN exercises e ON e.id = tso.exercise_id
      WHERE s.status = 'final'
+       AND ss.selected_session_slot_choice_id = ssc.id
      ORDER BY s.performed_at ASC, ss.slot_index ASC, st.set_index ASC;`,
     []
   );

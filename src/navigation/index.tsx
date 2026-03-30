@@ -20,6 +20,7 @@ import HistoryScreen from '../screens/HistoryScreen';
 import TemplatesScreen from '../screens/TemplatesScreen';
 import TemplateEditorScreen from '../screens/TemplateEditorScreen';
 import SessionDetailScreen from '../screens/SessionDetailScreen';
+import PRWallScreen from '../screens/PRWallScreen';
 import ExercisesScreen from '../screens/ExercisesScreen';
 import ExerciseDetailScreen from '../screens/ExerciseDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -78,6 +79,7 @@ function HistoryStack() {
     <HistoryStackNav.Navigator>
       <HistoryStackNav.Screen name="HistoryHome" component={HistoryScreen} options={{ title: 'History' }} />
       <HistoryStackNav.Screen name="SessionDetail" component={SessionDetailScreen} options={{ title: 'Session' }} />
+      <HistoryStackNav.Screen name="PRWall" component={PRWallScreen} options={{ title: 'PR Wall 🏆' }} />
     </HistoryStackNav.Navigator>
   );
 }

@@ -20,6 +20,7 @@ function now() {
  */
 async function getLastPerformedSets(templateSlotOptionId: number) {
   // Find the single most recent session_slot_choice for this exercise
+  // Skips injury-reduced sessions so we always base weights on the "clean" baseline
   const choiceRes = await executeSqlAsync(
     `
     SELECT ssc.id
@@ -27,6 +28,8 @@ async function getLastPerformedSets(templateSlotOptionId: number) {
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     JOIN sessions ses ON ses.id = ss.session_id
     WHERE ssc.template_slot_option_id = ? AND ses.status = 'final'
+      AND ss.selected_session_slot_choice_id = ssc.id
+      AND (ssc.injury_weight_factor IS NULL OR ssc.injury_weight_factor >= 1)
     ORDER BY ses.performed_at DESC, ses.id DESC
     LIMIT 1;
     `,
@@ -54,6 +57,8 @@ async function getLastPerformedSets(templateSlotOptionId: number) {
  * across ALL templates. Used when no template-specific history exists.
  */
 async function getLastPerformedSetsForExercise(exerciseId: number) {
+  // Skips injury-reduced sessions so weights are based on the "clean" baseline.
+  // This prevents compounding reductions AND ensures weights restore after recovery.
   const choiceRes = await executeSqlAsync(
     `
     SELECT ssc.id
@@ -62,6 +67,8 @@ async function getLastPerformedSetsForExercise(exerciseId: number) {
     JOIN session_slots ss ON ss.id = ssc.session_slot_id
     JOIN sessions ses ON ses.id = ss.session_id
     WHERE tso.exercise_id = ? AND ses.status = 'final'
+      AND ss.selected_session_slot_choice_id = ssc.id
+      AND (ssc.injury_weight_factor IS NULL OR ssc.injury_weight_factor >= 1)
     ORDER BY ses.performed_at DESC, ses.id DESC
     LIMIT 1;
     `,
@@ -265,6 +272,13 @@ export async function createDraftFromTemplate(templateId: number) {
         }
       }
     }
+    // Persist injury factor so future history lookups can skip reduced sessions
+    if (weightFactor < 1) {
+      await executeSqlAsync(
+        `UPDATE session_slot_choices SET injury_weight_factor = ? WHERE id = ?;`,
+        [weightFactor, sscId]
+      );
+    }
 
     if (prescribedSets.length > 0) {
       // Template prescribed sets define the STRUCTURE (number of sets).
@@ -372,14 +386,15 @@ export async function selectSlotChoice(
   sessionSlotId: number,
   templateSlotOptionId: number
 ) {
-  const existing = await executeSqlAsync(
-    `SELECT id FROM session_slot_choices WHERE session_slot_id=? AND template_slot_option_id=?;`,
-    [sessionSlotId, templateSlotOptionId]
-  );
-  let choiceId: number;
-  if (existing.rows.length) {
-    choiceId = existing.rows.item(0).id;
-  } else {
+  let choiceId: number = 0;
+  await db.withTransactionAsync(async () => {
+    const existing = await executeSqlAsync(
+      `SELECT id FROM session_slot_choices WHERE session_slot_id=? AND template_slot_option_id=?;`,
+      [sessionSlotId, templateSlotOptionId]
+    );
+    if (existing.rows.length) {
+      choiceId = existing.rows.item(0).id;
+    } else {
     await executeSqlAsync(
       `INSERT INTO session_slot_choices(session_slot_id, template_slot_option_id, created_at)
        VALUES (?,?,?);`,
@@ -435,6 +450,30 @@ export async function selectSlotChoice(
         }
       }
     }
+    // Persist injury factor so future history lookups can skip reduced sessions
+    if (weightFactor < 1) {
+      await executeSqlAsync(
+        `UPDATE session_slot_choices SET injury_weight_factor = ? WHERE id = ?;`,
+        [weightFactor, choiceId]
+      );
+    }
+
+    // Deload-aware weight reduction: if this session is a deload, apply the
+    // deload factor — but use MIN(injury, deload) so they don't compound.
+    {
+      const sessRes = await executeSqlAsync(
+        `SELECT s.is_deload FROM sessions s
+         JOIN session_slots ss ON ss.session_id = s.id
+         WHERE ss.id = ?;`,
+        [sessionSlotId]
+      );
+      if (sessRes.rows.length && sessRes.rows.item(0).is_deload === 1) {
+        const { getDeloadSettings } = await import('./deloadRepo');
+        const settings = await getDeloadSettings();
+        const deloadFactor = Math.max(0.3, Math.min(0.9, settings.intensityPct / 100));
+        weightFactor = Math.min(weightFactor, deloadFactor);
+      }
+    }
 
     if (prescribedSets.length > 0) {
       // Template prescribed sets define the structure
@@ -486,11 +525,12 @@ export async function selectSlotChoice(
         );
       }
     }
-  }
-  await executeSqlAsync(
-    `UPDATE session_slots SET selected_session_slot_choice_id=? WHERE id=?;`,
-    [choiceId, sessionSlotId]
-  );
+    }
+    await executeSqlAsync(
+      `UPDATE session_slots SET selected_session_slot_choice_id=? WHERE id=?;`,
+      [choiceId, sessionSlotId]
+    );
+  });
   return choiceId;
 }
 

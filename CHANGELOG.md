@@ -26,7 +26,7 @@
 | Exercises | ExercisesHome → ExerciseDetail | `ExercisesScreen.tsx`, `ExerciseDetailScreen.tsx` |
 | Settings | (single screen) | `SettingsScreen.tsx` |
 
-### Data Model (41 migrations)
+### Data Model (43 migrations)
 ```
 exercises ──< exercise_options
 templates ──< template_slots ──< template_slot_options ──< template_prescribed_sets
@@ -39,7 +39,7 @@ app_settings (key/value store for theme, unit, library version, etc.)
 ```
 
 ### Key Patterns
-- All weights stored internally in **kg**; converted on display via `formatWeight` / `parseWeight`
+- All weights stored **as-entered** in the user's chosen unit; `formatWeight` / `parseWeight` simply format and parse without conversion
 - Exercise names normalized via `normalizeName()` for dedup (lowercase, trimmed, single-spaced)
 - Draft sessions: status='draft' → user logs sets → finalize → status='final'
 - Historical carry-forward: new drafts pre-populate weight/reps from last finalized session
@@ -56,7 +56,7 @@ app_settings (key/value store for theme, unit, library version, etc.)
 3. **statsRepo has remaining lines** (200–332) not yet reviewed for `weeklyVolumeByMuscle`, `workoutDaysMap`, `currentStreak`, `prCountsBySession`.
 4. **Seed file is ~450 lines** with 136+ exercises, demo template seeding, and cleanup logic for old seeded templates.
 5. **Backup table list** in SettingsScreen is manually maintained — must stay in sync with schema.
-6. ~~**No automated tests**~~ — **Resolved:** 472 tests across 5 suites (db, dbIntegration, sessionStore, featureInteraction, midWorkoutEditing).
+6. ~~**No automated tests**~~ — **Resolved:** 499 tests across 5 suites (db, dbIntegration, sessionStore, featureInteraction, midWorkoutEditing).
 7. **No CI/CD pipeline** detected.
 
 ---
@@ -472,3 +472,28 @@ Template for new entries:
 - **Risk:** Low — purely additive UI component using existing `weeklyVolumeByMuscle()` query. No schema changes.
 - **Rollback:** Delete WeeklyVolumeCard.tsx, revert IdleScreen.tsx changes.
 - **Test results:** 383 total tests across 5 suites, all passing.
+
+### [2026-03-30] Alpha V 1.5 — "Own Your Trust" — comprehensive stability audit
+
+- **Files changed:** `src/db/repositories/statsRepo.ts`, `src/db/repositories/exercisesRepo.ts`, `src/db/repositories/sessionsRepo.ts`, `src/db/repositories/setsRepo.ts`, `src/db/repositories/deloadRepo.ts`, `src/db/repositories/templatesRepo.ts`, `src/db/repositories/bodyWeightRepo.ts`, `src/utils/exportCsv.ts`, `src/utils/units.ts`, `src/utils/notifications.ts`, `src/utils/weeklyPdf.ts`, `src/hooks/useRestTimer.ts`, `src/screens/LogScreen.tsx`, `src/screens/TemplatesScreen.tsx`, `src/screens/ExercisesScreen.tsx`, `src/screens/ExerciseDetailScreen.tsx`, `src/screens/TemplateEditorScreen.tsx`, `src/screens/WorkoutSummaryScreen.tsx`, `src/screens/SettingsScreen.tsx`, `src/components/CalendarHeatmap.tsx`, `src/db/db.ts`
+- **What:** Full codebase stability audit — 15 bugs found and fixed across SQL queries, screens, utilities, and data layer:
+  1. **CRITICAL — selected_session_slot_choice_id filter missing (~40 queries):** All queries joining `session_slot_choices` now filter by `ss.selected_session_slot_choice_id = ssc.id`, preventing unselected exercise options from inflating stats, PRs, and reports.
+  2. **CRITICAL — Unit display double-conversion:** `formatWeight`/`parseWeight` were converting lb values that were already stored as-entered. Removed conversion — display matches storage.
+  3. **HIGH — CSV export broken:** Joined on non-existent `ssc.exercise_option_id`. Fixed with correct JOIN path through `template_slot_options`.
+  4. **HIGH — Deload+injury weight compounding:** Both factors applied multiplicatively (100×0.5×0.6=30). Changed to MIN(injury, deload) with undo-then-apply approach.
+  5. **MEDIUM — Screen double-tap race conditions:** Added `busyRef` guards on all destructive/state-changing buttons across 7 screens.
+  6. **MEDIUM — Notification collision:** `cancelAllScheduledNotificationsAsync()` killed rest timer notifications. Changed to targeted cancel by identifier.
+  7. **MEDIUM — selectSlotChoice ignores deload:** Mid-workout exercise switch now applies deload factor.
+  8. **MEDIUM — Template deletion FK violation:** `deleteTemplate` now detaches finalized sessions and cascade-deletes child records.
+  9. **MEDIUM — resetDb() missing tables:** Added `template_schedule` and `active_injuries` to the drop list.
+  10. **MEDIUM — WorkoutSummary infinite spinner:** Added `detailLoaded` state and `.catch()` on all promise chains.
+  11. **MEDIUM — Warmup regeneration duplication:** `generateWarmupSets` now filters existing warmups before regenerating.
+  12. **MEDIUM — Live volume includes warmups:** Header volume calculation now skips `is_warmup` sets.
+  13. **LOW — Calendar heatmap timezone:** "Today" marker uses local date components instead of UTC.
+  14. **LOW — bodyWeightTrend drops unit:** Query now includes `unit` column for mixed-unit awareness.
+  15. **LOW — PDF HTML injection:** Added `esc()` helper for all user-entered data interpolated into HTML.
+  - Also: Backup restore forward-compat (filters unknown columns via `PRAGMA table_info`), template deletion active draft guard.
+- **Why:** User requested comprehensive audit for production readiness ("clean chit").
+- **Risk:** Low — all changes are bug fixes with no new schema or features. 499 tests confirm no regressions.
+- **Rollback:** Revert all listed files to previous versions.
+- **Test results:** 499 tests across 5 suites, all passing (up from 472).

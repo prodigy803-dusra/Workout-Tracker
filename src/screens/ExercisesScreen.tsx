@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet, SectionList, Alert, Modal, ScrollView, Switch } from 'react-native';
 import { listExercises, createExercise, deleteExercise } from '../db/repositories/exercisesRepo';
 import { useColors } from '../contexts/ThemeContext';
@@ -75,6 +75,7 @@ export default function ExercisesScreen({ navigation }: Props) {
   const [createMuscle, setCreateMuscle] = useState<string | null>(null);
   const [createEquipment, setCreateEquipment] = useState<string | null>(null);
   const [createAssisted, setCreateAssisted] = useState(false);
+  const busyRef = useRef(false);
 
   const MUSCLE_CHOICES = [
     'quads', 'hamstrings', 'glutes', 'calves', 'chest', 'lats',
@@ -133,7 +134,8 @@ export default function ExercisesScreen({ navigation }: Props) {
 
   async function handleCreate() {
     const name = createName.trim();
-    if (!name) return;
+    if (!name || busyRef.current) return;
+    busyRef.current = true;
     try {
       await createExercise(name, {
         primaryMuscle: createMuscle ?? undefined,
@@ -148,6 +150,8 @@ export default function ExercisesScreen({ navigation }: Props) {
       load();
     } catch {
       Alert.alert('Duplicate', 'An exercise with that name already exists.');
+    } finally {
+      busyRef.current = false;
     }
   }
 
@@ -169,14 +173,19 @@ export default function ExercisesScreen({ navigation }: Props) {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const deleted = await deleteExercise(exercise.id);
-            if (deleted) {
-              load();
-            } else {
-              Alert.alert(
-                'In Use',
-                'This exercise is used in one or more templates. Remove it from those templates first.'
-              );
+            try {
+              const deleted = await deleteExercise(exercise.id);
+              if (deleted) {
+                load();
+              } else {
+                Alert.alert(
+                  'In Use',
+                  'This exercise is used in one or more templates. Remove it from those templates first.'
+                );
+              }
+            } catch (err) {
+              console.error('Error deleting exercise:', err);
+              Alert.alert('Error', 'Failed to delete exercise.');
             }
           },
         },

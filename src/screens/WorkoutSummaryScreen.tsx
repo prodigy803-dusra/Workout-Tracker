@@ -36,6 +36,7 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
   const c = useColors();
   const { unit } = useUnit();
   const [detail, setDetail] = useState<SessionDetail | null>(null);
+  const [detailLoaded, setDetailLoaded] = useState(false);
   const [prs, setPrs] = useState<PRRecord[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [deltas, setDeltas] = useState<ExerciseDelta[]>([]);
@@ -54,19 +55,19 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
   }, [navigation]);
 
   useEffect(() => {
-    getSessionDetail(sessionId).then(setDetail);
+    getSessionDetail(sessionId).then(setDetail).catch(() => {}).finally(() => setDetailLoaded(true));
     getSessionPRs(sessionId).then((records) => {
       setPrs(records);
       if (records.length > 0) {
         setShowConfetti(true);
         haptic('success');
       }
-    });
-    sessionExerciseDeltas(sessionId).then(setDeltas);
-    previousSessionComparison(sessionId).then(setPrevComp);
-    sessionEffortStats(sessionId, duration || undefined).then(setEffort);
-    listActiveInjuries().then(setActiveInjuries);
-    isDeloadSession(sessionId).then(setIsDeload);
+    }).catch(() => {});
+    sessionExerciseDeltas(sessionId).then(setDeltas).catch(() => {});
+    previousSessionComparison(sessionId).then(setPrevComp).catch(() => {});
+    sessionEffortStats(sessionId, duration || undefined).then(setEffort).catch(() => {});
+    listActiveInjuries().then(setActiveInjuries).catch(() => {});
+    isDeloadSession(sessionId).then(setIsDeload).catch(() => {});
   }, [sessionId]);
 
   // Determine which exercises were done under injury — override 'regressed' to 'recovery'
@@ -88,7 +89,11 @@ export default function WorkoutSummaryScreen({ route, navigation }: Props) {
 
   if (!detail) return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.background }}>
-      <ActivityIndicator size="large" color={c.accent} />
+      {detailLoaded ? (
+        <Text style={{ color: c.textSecondary }}>Could not load workout summary.</Text>
+      ) : (
+        <ActivityIndicator size="large" color={c.accent} />
+      )}
     </View>
   );
 

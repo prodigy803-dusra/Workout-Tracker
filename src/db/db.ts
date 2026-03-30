@@ -136,11 +136,13 @@ export async function resetDb() {
     'template_prescribed_sets',
     'template_slot_options',
     'template_slots',
+    'template_schedule',
     'templates',
     'exercise_options',
     'exercises',
     'personal_records',
     'body_weight',
+    'active_injuries',
     'schema_migrations',
     'app_settings',
   ];
